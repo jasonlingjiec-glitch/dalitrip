@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dali Trip 活动预约</title>
+    <link rel="stylesheet" href="./styles.css?v=59" />
+  </head>
+  <body>
+    <main>
+      <section id="home-view" class="view">
+        <header class="home-header">
+          <p>苍山徒步之家</p>
+          <h1>在大理，找到今天想做的事</h1>
+          <span>徒步、手作与自然体验</span>
+        </header>
+        <section id="home-module-container"></section>
+        <section class="blog-preview">
+          <div class="blog-preview-heading">
+            <div>
+              <p>DALI LIFE</p>
+              <h2>我们的大理生活</h2>
+            </div>
+            <button id="open-blog-list" type="button">查看全部</button>
+          </div>
+          <section id="blog-preview-list" class="blog-preview-list"></section>
+        </section>
+      </section>
+
+      <section id="blog-view" class="view" hidden>
+        <header class="detail-header">
+          <button id="back-from-blog" aria-label="返回">‹</button>
+          <strong>我们的生活</strong>
+          <span></span>
+        </header>
+        <section class="blog-page">
+          <header class="blog-page-heading">
+            <p>DALI LIFE</p>
+            <h1>我们的大理生活</h1>
+          </header>
+          <section id="blog-list" class="blog-list"></section>
+        </section>
+      </section>
+
+      <section id="blog-detail-view" class="view" hidden>
+        <header class="detail-header">
+          <button id="back-from-blog-detail" aria-label="返回">‹</button>
+          <strong>文章</strong>
+          <span></span>
+        </header>
+        <article id="blog-detail" class="blog-detail"></article>
+      </section>
+
+      <section id="topic-view" class="view" hidden>
+        <header class="detail-header">
+          <button id="back-from-topic" aria-label="返回">‹</button>
+          <strong>专题</strong>
+          <span></span>
+        </header>
+        <section id="topic-detail"></section>
+      </section>
+
+      <section id="detail-view" class="view" hidden>
+        <header class="detail-header">
+          <button id="back-to-home" aria-label="返回">‹</button>
+          <strong>服务详情</strong>
+          <span></span>
+        </header>
+        <section id="activity-detail"></section>
+      </section>
+
+      <section id="activity-reviews-view" class="view" hidden>
+        <header class="detail-header">
+          <button id="back-to-detail-from-reviews" aria-label="返回">‹</button>
+          <strong>全部评论</strong>
+          <span></span>
+        </header>
+        <section class="activity-reviews-page">
+          <div class="reviews-heading">
+            <h2 id="activity-reviews-title">活动评论</h2>
+            <button class="primary" id="new-review-from-list">写评价</button>
+          </div>
+          <section id="activity-review-list" class="review-list"></section>
+        </section>
+      </section>
+
+      <section id="orders-view" class="view" hidden>
+        <header class="orders-header">
+          <p>MY BOOKINGS</p>
+          <h1>我的预约</h1>
+        </header>
+        <section id="customer-order-list" class="customer-order-list"></section>
+      </section>
+
+      <section id="booking-view" class="view" hidden>
+        <header class="booking-discovery-header">
+          <p>BOOK BY DATE</p>
+          <h1>按日期预约</h1>
+          <span>看看哪一天，有什么活动正在等你。</span>
+        </header>
+        <section class="booking-date-panel">
+          <div class="booking-date-toolbar">
+            <div>
+              <strong>选择日期</strong>
+              <span id="booking-selected-date"></span>
+            </div>
+            <label class="booking-calendar">日历<input id="booking-date-picker" type="date" /></label>
+          </div>
+          <div id="booking-date-strip" class="booking-date-strip"></div>
+        </section>
+        <section class="booking-discovery-filters">
+          <input id="booking-search" type="search" placeholder="搜索活动" />
+          <div id="booking-tag-filter" class="booking-tag-filter"></div>
+        </section>
+        <section id="booking-discovery-list" class="booking-discovery-list"></section>
+      </section>
+
+      <section id="guides-view" class="view" hidden>
+        <header class="guide-home-header">
+          <p>MEET THE GUIDES</p>
+          <h1>认识领队</h1>
+        </header>
+        <section id="guide-home-introduction" class="guide-home-introduction"></section>
+        <section class="section-heading guide-section-heading">
+          <div>
+            <p>GUIDE PROFILES</p>
+            <h2>全部领队</h2>
+          </div>
+          <span id="guide-count">正在载入</span>
+        </section>
+        <section id="customer-guide-list" class="customer-guide-list"></section>
+      </section>
+    </main>
+
+    <nav class="bottom-nav">
+      <button class="active" data-view="home"><span>⌂</span>发现</button>
+      <button data-view="booking"><span>✓</span>预约</button>
+      <button data-view="orders"><span>☆</span>我的</button>
+    </nav>
+
+    <dialog id="booking-dialog">
+      <form id="booking-form" method="dialog">
+        <header>
+          <div>
+            <p>BOOK ACTIVITY</p>
+            <h2>确认预约</h2>
+          </div>
+          <button type="button" data-close-booking aria-label="关闭">×</button>
+        </header>
+        <section id="booking-slot-summary" class="booking-slot-summary"></section>
+        <fieldset class="price-options">
+          <legend>选择规格</legend>
+          <div id="booking-price-options"></div>
+        </fieldset>
+        <label>预约人数
+          <span class="stepper">
+            <button type="button" data-quantity-step="-1" aria-label="减少人数">−</button>
+            <input name="quantity" type="number" min="1" value="1" readonly />
+            <button type="button" data-quantity-step="1" aria-label="增加人数">＋</button>
+          </span>
+        </label>
+        <label>微信手机号<input name="mobile" value="13800000000" required /></label>
+        <label>微信昵称<input name="nickname" value="Mia" required /></label>
+        <label>是否带小孩及年龄<input name="childInfo" placeholder="例如：不带小孩，或 1 位小孩 8 岁" value="不带小孩" /></label>
+        <footer>
+          <span id="booking-total">¥0</span>
+          <button class="primary">微信支付并预约</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="success-dialog">
+      <section class="success-panel">
+        <strong>✓</strong>
+        <h2>预约成功</h2>
+        <p>订单已经发给活动负责人。出发前留意微信通知。</p>
+        <button id="show-orders" class="primary">查看我的预约</button>
+      </section>
+    </dialog>
+
+    <dialog id="cancel-booking-dialog">
+      <form id="cancel-booking-form" method="dialog">
+        <header>
+          <h2>取消预约</h2>
+          <button type="button" data-close-cancel-booking aria-label="关闭">×</button>
+        </header>
+        <section id="cancel-booking-summary" class="cancel-booking-summary"></section>
+        <section class="refund-policy">
+          <strong>退改规则</strong>
+          <ul>
+            <li>活动开始前 48 小时以上：退款 100%</li>
+            <li>活动开始前 24-48 小时：退款 70%</li>
+            <li>活动开始前 12-24 小时：退款 50%</li>
+            <li>活动开始前不足 12 小时：退款 30%</li>
+            <li>活动开始后：不能取消</li>
+          </ul>
+        </section>
+        <section id="cancel-booking-contact" class="refund-contact" hidden></section>
+        <p>天气原因退改，请务必联系领队，领队会帮忙取消订单，全额退款。</p>
+        <label>备注<textarea name="note" rows="3" placeholder="选填，可以简单说明情况"></textarea></label>
+        <footer>
+          <button type="button" class="secondary" data-close-cancel-booking>返回</button>
+          <button class="danger">确认取消</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="review-dialog">
+      <form id="review-form" method="dialog">
+        <header>
+          <h2>撰写评价</h2>
+          <button type="button" data-close-review aria-label="关闭">×</button>
+        </header>
+        <label>显示名称<input name="displayName" maxlength="60" value="Mia" required /></label>
+        <fieldset class="rating-options">
+          <legend>评分</legend>
+          <div>
+            <label><input name="rating" type="radio" value="5" checked /><span>★★★★★</span></label>
+            <label><input name="rating" type="radio" value="4" /><span>★★★★</span></label>
+            <label><input name="rating" type="radio" value="3" /><span>★★★</span></label>
+            <label><input name="rating" type="radio" value="2" /><span>★★</span></label>
+            <label><input name="rating" type="radio" value="1" /><span>★</span></label>
+          </div>
+        </fieldset>
+        <label>评价内容<textarea name="content" rows="5" maxlength="1500" required placeholder="写下你的真实体验"></textarea></label>
+        <label class="review-image-label">照片，最多 9 张<input id="review-images" type="file" accept="image/*" multiple /></label>
+        <div id="review-image-preview" class="review-image-preview"></div>
+        <label class="review-image-label">视频，最多 1 个<input id="review-video" type="file" accept="video/*" /></label>
+        <div id="review-video-preview" class="review-video-preview"></div>
+        <footer>
+          <button type="button" class="secondary" data-close-review>取消</button>
+          <button class="primary">发布评价</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="reply-dialog">
+      <form id="reply-form" method="dialog">
+        <header>
+          <h2>回复评价</h2>
+          <button type="button" data-close-reply aria-label="关闭">×</button>
+        </header>
+        <label>显示名称<input name="displayName" maxlength="60" value="Mia" required /></label>
+        <label>回复内容<textarea name="content" rows="4" maxlength="500" required placeholder="写下回复"></textarea></label>
+        <footer>
+          <button type="button" class="secondary" data-close-reply>取消</button>
+          <button class="primary">发送回复</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="guide-dialog">
+      <section id="guide-profile" class="guide-profile"></section>
+    </dialog>
+
+    <dialog id="image-preview-dialog">
+      <section id="image-preview-content" class="image-preview-content"></section>
+    </dialog>
+
+    <div id="toast" class="toast" hidden></div>
+    <script type="module" src="./app.js?v=58"></script>
+  </body>
+</html>

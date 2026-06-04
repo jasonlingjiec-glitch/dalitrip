@@ -1,0 +1,14 @@
+{
+  "name": "dalitrip-mvp",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "check": "node scripts/check-project.mjs",
+    "api:start": "node apps/api/src/server.js",
+    "api:test": "node --test apps/api/test/api.test.js"
+  }
+}

@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dali Trip 管理后台</title>
+    <link rel="stylesheet" href="./styles.css?v=60" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">D</div>
+          <div>
+            <strong>Dali Trip</strong>
+            <span>活动管理后台</span>
+          </div>
+        </div>
+        <nav>
+          <button class="nav-item active" data-view="activities"><span>▦</span>活动管理</button>
+          <button class="nav-item" data-view="schedule-overview"><span>◷</span>排班总览</button>
+          <button class="nav-item" data-view="orders"><span>≡</span>订单管理</button>
+          <button class="nav-item" data-view="reviews"><span>★</span>评价管理</button>
+          <button class="nav-item" data-view="guides"><span>♟</span>领队库</button>
+          <button class="nav-item" data-view="customers"><span>♙</span>顾客管理</button>
+          <button class="nav-item" data-view="pages"><span>▤</span>专题页面</button>
+          <button class="nav-item" data-view="blog"><span>✎</span>博客文章</button>
+          <button class="nav-item" data-view="settings"><span>⚙</span>系统设置</button>
+        </nav>
+        <div class="sidebar-foot">MVP 测试版</div>
+      </aside>
+
+      <main>
+        <div class="mobile-nav">
+          <button class="active" data-view="activities">活动</button>
+          <button data-view="orders">订单</button>
+          <button data-view="reviews">评价</button>
+          <button data-view="guides">领队</button>
+          <button data-view="customers">顾客</button>
+          <button data-view="pages">专题</button>
+          <button data-view="blog">博客</button>
+          <button data-view="settings">设置</button>
+        </div>
+        <header id="activity-topbar" class="topbar">
+          <div>
+            <p class="eyebrow">ACTIVITY OPERATIONS</p>
+            <h1>活动与排班</h1>
+          </div>
+          <button id="new-activity" class="primary-button">＋ 新增活动</button>
+        </header>
+
+        <section id="activity-workspace" class="workspace">
+          <aside class="activity-panel">
+            <div class="panel-heading">
+              <div>
+                <h2>活动列表</h2>
+                <p id="activity-count">正在载入</p>
+              </div>
+            </div>
+            <label class="activity-search">
+              <span aria-hidden="true">⌕</span>
+              <input id="activity-search" type="search" placeholder="搜索活动名称" autocomplete="off" />
+            </label>
+            <div class="tag-filter-heading">
+              <span>按标签筛选</span>
+              <button id="manage-tags" type="button" class="text-button">管理标签</button>
+            </div>
+            <div id="tag-filters" class="tag-filters"></div>
+            <div id="activity-list" class="activity-list"></div>
+          </aside>
+
+          <section id="detail-panel" class="detail-panel">
+            <div class="empty-state">
+              <div class="empty-icon">✦</div>
+              <h2>选择一个活动</h2>
+              <p>查看活动详情并设置可预约时间。</p>
+            </div>
+          </section>
+        </section>
+
+        <section id="orders-page" class="page-panel" hidden>
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">ORDER OPERATIONS</p>
+              <h1>订单管理</h1>
+              <p id="order-count">正在载入</p>
+            </div>
+          </div>
+          <form id="order-filters" class="filter-bar">
+            <input name="search" type="search" placeholder="搜索订单号、顾客昵称或手机号" autocomplete="off" />
+            <select name="status">
+              <option value="">全部状态</option>
+              <option value="PENDING_PAYMENT">待付款</option>
+              <option value="BOOKED">已预约</option>
+              <option value="COMPLETED">已完成</option>
+              <option value="REFUNDED">已退款</option>
+              <option value="CANCELLED">已取消</option>
+            </select>
+            <select name="groupId"><option value="">全部组</option></select>
+            <select name="activityId"><option value="">全部活动</option></select>
+            <div class="filter-date-range">
+              <label>活动日期从<input name="activityDateFrom" type="date" /></label>
+              <span>至</span>
+              <label><input name="activityDateTo" type="date" /></label>
+            </div>
+            <select name="paymentMethod">
+              <option value="">全部支付方式</option>
+              <option value="WECHAT">微信支付</option>
+              <option value="WALLET">钱包余额</option>
+              <option value="COMBINED">钱包 + 微信</option>
+            </select>
+            <button class="secondary-button" type="button" id="reset-order-filters">重置</button>
+            <button class="primary-button" type="button" id="export-orders">导出 Excel</button>
+          </form>
+          <div id="order-list" class="order-list"></div>
+        </section>
+
+        <section id="customers-page" class="page-panel" hidden>
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">CUSTOMER OPERATIONS</p>
+              <h1>顾客管理</h1>
+              <p id="customer-count">正在载入</p>
+            </div>
+          </div>
+          <label class="customer-search">
+            <input id="customer-search" type="search" placeholder="搜索顾客昵称或手机号" autocomplete="off" />
+          </label>
+          <div id="customer-list" class="customer-list"></div>
+        </section>
+
+        <section id="reviews-page" class="page-panel" hidden>
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">REVIEW MODERATION</p>
+              <h1>评价管理</h1>
+              <p id="review-count">正在载入</p>
+            </div>
+          </div>
+          <div id="admin-review-list" class="admin-review-list"></div>
+        </section>
+
+        <section id="guides-page" class="page-panel" hidden>
+          <div class="page-heading settings-heading">
+            <div>
+              <p class="eyebrow">GUIDE PROFILES</p>
+              <h1>领队库</h1>
+              <p>独立维护领队档案，并在活动中勾选可能带领该线路的领队。</p>
+            </div>
+            <button id="new-guide" class="primary-button">＋ 新增领队</button>
+          </div>
+          <section class="guide-page-editor">
+            <div>
+              <h2>领队主页总介绍</h2>
+              <p id="guide-page-status">正在载入</p>
+            </div>
+            <button id="edit-guide-page" class="secondary-button">编辑总介绍</button>
+          </section>
+          <div id="guide-list" class="guide-list"></div>
+        </section>
+
+        <section id="settings-page" class="page-panel" hidden>
+          <div class="page-heading settings-heading">
+            <div>
+              <p class="eyebrow">SYSTEM SETTINGS</p>
+              <h1>系统设置</h1>
+              <p>管理活动分组，以及子账户可以访问的活动和订单范围。</p>
+            </div>
+            <button id="new-group" class="primary-button">＋ 新增组</button>
+          </div>
+          <section class="settings-section">
+            <h2>活动组</h2>
+            <div id="group-list" class="group-list"></div>
+          </section>
+          <section class="settings-section">
+            <div class="settings-section-heading">
+              <div>
+                <h2>天天预约迁移预览</h2>
+                <p>先确认要搬入的小组和活动，再导入到当前原型。</p>
+              </div>
+              <button id="import-ttyy-preview" class="secondary-button" type="button">导入未导入项</button>
+            </div>
+            <div id="ttyy-migration-list" class="migration-list"></div>
+          </section>
+          <section class="settings-section">
+            <div class="settings-section-heading">
+              <h2>子账户权限</h2>
+              <button id="new-admin-account" class="secondary-button">＋ 新增子账户</button>
+            </div>
+            <div id="admin-account-list" class="account-list"></div>
+          </section>
+        </section>
+
+        <section id="pages-page" class="page-panel" hidden>
+          <div class="page-heading settings-heading">
+            <div>
+              <p class="eyebrow">TOPIC PAGES</p>
+              <h1>专题页面</h1>
+              <p>新建徒步、亲子等独立页面。选择多个标签后，只展示同时拥有这些标签的活动。</p>
+            </div>
+            <button id="new-topic-page" class="primary-button">＋ 新增专题</button>
+          </div>
+          <section class="homepage-builder">
+            <aside class="builder-library">
+              <h2>添加模块</h2>
+              <p>点击加入首页，再拖动调整顺序。</p>
+              <button data-add-home-module="CUBE" title="专题、活动和外部内容入口"><strong><b>▦</b>魔方</strong></button>
+              <button data-add-home-module="NAV" title="简洁的中英文文字导航"><strong><b>≡</b>导航</strong></button>
+              <button data-add-home-module="ACTIVITIES" title="按标签挑选活动并设置排列"><strong><b>▤</b>活动</strong></button>
+              <button data-add-home-module="TOPICS" title="展示专题页"><strong><b>▧</b>专题</strong></button>
+              <button data-add-home-module="GUIDES" title="展示领队档案"><strong><b>♟</b>领队</strong></button>
+              <button data-add-home-module="REVIEWS" title="展示最新公开评价"><strong><b>★</b>评价</strong></button>
+              <button data-add-home-module="UPCOMING" title="未来已有报名的活动"><strong><b>◷</b>成行</strong></button>
+              <button data-add-home-module="BANNER" title="单图、轮播或横向图片"><strong><b>▰</b>图片</strong></button>
+              <button data-add-home-module="TEXT" title="补充一段文字"><strong><b>Ｔ</b>文本</strong></button>
+              <button data-add-home-module="COLLAPSE" title="可点击展开收起的说明内容"><strong><b>▣</b>折叠</strong></button>
+              <button data-add-home-module="DIVIDER" title="留白或分割线"><strong><b>—</b>分割</strong></button>
+            </aside>
+            <section class="builder-stage">
+              <div class="builder-phone">
+                <div class="builder-phone-top">DALI TRIP 首页</div>
+                <div id="home-module-list" class="home-module-list"></div>
+              </div>
+            </section>
+            <aside id="home-module-settings" class="builder-settings">
+              <div class="builder-settings-empty">
+                <h2>模块设置</h2>
+                <p>选择中间的模块后，在这里修改内容。</p>
+              </div>
+            </aside>
+          </section>
+          <section class="settings-section home-entry-section">
+            <div class="settings-section-heading">
+              <div>
+                <h2>魔方内容</h2>
+                <p>魔方可以跳转到专题、活动、领队主页或外部内容。</p>
+              </div>
+              <button id="new-home-entry" class="secondary-button">＋ 新增入口</button>
+            </div>
+            <div id="home-entry-list" class="home-entry-list"></div>
+          </section>
+          <section class="settings-section">
+            <h2>专题库</h2>
+          </section>
+          <div id="topic-page-list" class="topic-page-list"></div>
+        </section>
+
+        <section id="blog-page" class="page-panel" hidden>
+          <div class="page-heading settings-heading">
+            <div>
+              <p class="eyebrow">DALI LIFE</p>
+              <h1>博客文章</h1>
+              <p id="blog-count">正在载入</p>
+            </div>
+            <button id="new-blog-post" class="primary-button">＋ 新增文章</button>
+          </div>
+          <div id="blog-post-list" class="topic-page-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="activity-dialog">
+      <form id="activity-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">NEW ACTIVITY</p>
+            <h2>新增活动</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-dialog>×</button>
+        </div>
+        <label>活动名称<input name="name" required placeholder="例如：苍山森林轻徒步" /></label>
+        <label>所属组<select name="groupId" required></select></label>
+        <label>提前预约时间<input name="advanceBookingHours" type="number" min="0" value="12" required /><span>小时</span></label>
+        <fieldset>
+          <legend>标签</legend>
+          <div id="dialog-tags" class="checkbox-tags"></div>
+        </fieldset>
+        <fieldset>
+          <legend>可能带领活动的领队</legend>
+          <div id="dialog-guides" class="checkbox-tags"></div>
+        </fieldset>
+        <label>中文简介<textarea name="summary" rows="3" placeholder="简要说明活动亮点"></textarea></label>
+        <label>领队微信<input name="leaderWechat" maxlength="120" placeholder="用于客人退改前联系领队" /></label>
+        <div class="location-fields">
+          <label>集合地点名称<input name="meetingPointName" placeholder="例如：苍山游客中心" /></label>
+          <label>纬度<input name="meetingLatitude" type="number" step="0.0000001" placeholder="例如：25.689326" /></label>
+          <label>经度<input name="meetingLongitude" type="number" step="0.0000001" placeholder="例如：100.166334" /></label>
+        </div>
+        <div class="description-field">
+          <div>
+            <strong>活动详细介绍</strong>
+            <p id="description-status">暂未填写详细介绍</p>
+          </div>
+          <button id="open-description-editor" type="button" class="secondary-button">编辑详细介绍</button>
+        </div>
+        <div class="dialog-actions">
+          <button type="button" class="secondary-button" data-close-dialog>取消</button>
+          <button class="primary-button" value="default">保存活动</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="tag-dialog">
+      <form id="tag-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">TAG MANAGEMENT</p>
+            <h2>管理标签</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-dialog>×</button>
+        </div>
+        <div id="tag-manager-list" class="tag-manager-list"></div>
+        <div class="tag-create-grid">
+          <label>标签名称<input name="name" required maxlength="30" placeholder="例如：适合儿童" /></label>
+          <label>英文名称<input name="englishName" maxlength="40" placeholder="选填" /></label>
+        </div>
+        <div class="dialog-actions">
+          <button type="button" class="secondary-button" data-close-dialog>关闭</button>
+          <button class="primary-button" value="default">＋ 添加标签</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="description-dialog" class="description-dialog">
+      <div class="description-editor-shell">
+        <div class="dialog-header description-editor-header">
+          <div>
+            <p id="description-editor-eyebrow" class="eyebrow">ACTIVITY DESCRIPTION</p>
+            <h2 id="description-editor-title">编辑活动详细介绍</h2>
+          </div>
+          <div class="editor-window-actions">
+            <button id="toggle-description-fullscreen" type="button" class="icon-button" title="最大化编辑窗口">⛶</button>
+            <button type="button" class="icon-button" data-close-description title="关闭">×</button>
+          </div>
+        </div>
+        <div class="editor-toolbar">
+          <select id="description-font-size" title="文字大小">
+            <option value="3">正文</option>
+            <option value="4">小标题</option>
+            <option value="5">大标题</option>
+          </select>
+          <button type="button" data-editor-command="bold" title="加粗"><strong>B</strong></button>
+          <button type="button" data-editor-command="insertUnorderedList" title="项目列表">☷</button>
+          <button type="button" data-editor-action="image">图片</button>
+          <button type="button" data-editor-action="video">视频</button>
+          <button type="button" data-editor-action="location">定位</button>
+          <button type="button" data-editor-action="article">公众号文章</button>
+          <button type="button" data-editor-action="channels">视频号内容</button>
+        </div>
+        <input id="description-image-input" type="file" accept="image/*" multiple hidden />
+        <input id="description-video-input" type="file" accept="video/*" hidden />
+        <div id="description-editor" class="description-editor" contenteditable="true" data-placeholder="输入详细介绍，可加入图片、视频、集合地点和内容链接。"></div>
+        <div class="dialog-actions">
+          <button type="button" class="secondary-button" data-close-description>取消</button>
+          <button id="save-description" type="button" class="primary-button">保存详细介绍</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="topic-page-dialog">
+      <form id="topic-page-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">TOPIC PAGE</p>
+            <h2>新增专题页</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-dialog>×</button>
+        </div>
+        <label>专题标题<input name="title" required maxlength="80" placeholder="例如：轻徒步专题" /></label>
+        <label>页面地址<input name="slug" required maxlength="80" pattern="[a-z0-9-]+" placeholder="例如：light-hiking" /></label>
+        <label>入口简介<textarea name="summary" rows="3" maxlength="240" placeholder="显示在首页专题入口下方"></textarea></label>
+        <label>入口图片地址<input name="imageUrl" placeholder="https://..." /></label>
+        <label>外部链接<input name="externalUrl" placeholder="选填；填写后入口将直接打开外部内容" /></label>
+        <fieldset>
+          <legend>专题活动标签</legend>
+          <div id="topic-page-tags" class="checkbox-tags"></div>
+        </fieldset>
+        <label class="checkbox-tag"><input name="published" type="checkbox" checked />在客人首页展示</label>
+        <div class="description-field">
+          <div>
+            <strong>专题页详细介绍</strong>
+            <p id="topic-page-description-status">暂未填写详细介绍</p>
+          </div>
+          <button id="open-topic-page-editor" type="button" class="secondary-button">编辑详细介绍</button>
+        </div>
+        <div class="dialog-actions">
+          <button id="delete-topic-page" type="button" class="danger-button" hidden>删除专题</button>
+          <button type="button" class="secondary-button" data-close-dialog>取消</button>
+          <button class="primary-button" value="default">保存专题</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="home-entry-dialog">
+      <form id="home-entry-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">HOMEPAGE ENTRY</p>
+            <h2>新增首页入口</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-dialog>×</button>
+        </div>
+        <label>入口标题<input name="title" required maxlength="40" placeholder="例如：旅行攻略" /></label>
+        <label>英文小标题<input name="subtitle" maxlength="40" placeholder="例如：TRAVEL" /></label>
+        <label>入口图片地址<input name="imageUrl" placeholder="https://..." /></label>
+        <label>跳转类型
+          <select name="targetType" required>
+            <option value="TOPIC">专题页</option>
+            <option value="ACTIVITY">活动详情</option>
+            <option value="GUIDES">领队主页</option>
+            <option value="EXTERNAL">外部链接</option>
+          </select>
+        </label>
+        <label id="home-entry-target-value-label">跳转目标<select name="targetValue"></select></label>
+        <label>显示顺序<input name="sortOrder" type="number" min="0" value="1" required /></label>
+        <label class="checkbox-tag"><input name="published" type="checkbox" checked />在客人首页展示</label>
+        <div class="dialog-actions">
+          <button id="delete-home-entry" type="button" class="danger-button" hidden>删除入口</button>
+          <button type="button" class="secondary-button" data-close-dialog>取消</button>
+          <button class="primary-button" value="default">保存入口</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="blog-post-dialog">
+      <form id="blog-post-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">BLOG POST</p>
+            <h2>新增文章</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-dialog>×</button>
+        </div>
+        <label>文章标题<input name="title" required maxlength="100" placeholder="例如：我们的山林日常" /></label>
+        <label>页面地址<input name="slug" required maxlength="80" pattern="[a-z0-9-]+" placeholder="例如：our-dali-life" /></label>
+        <label>封面图片地址<input name="coverUrl" placeholder="https://..." /></label>
+        <label>简介 / 摘要<textarea name="summary" rows="3" maxlength="300" placeholder="不填写时，客人端自动取正文前 150 字"></textarea></label>
+        <textarea name="contentHtml" hidden></textarea>
+        <div class="description-field">
+          <div>
+            <strong>正文</strong>
+            <p id="blog-post-content-status">暂未填写正文</p>
+          </div>
+          <button id="open-blog-post-editor" type="button" class="secondary-button">编辑正文</button>
+        </div>
+        <label>发布时间<input name="publishedAt" type="datetime-local" /></label>
+        <label class="checkbox-tag"><input name="published" type="checkbox" checked />在客人端显示</label>
+        <div class="dialog-actions">
+          <button id="delete-blog-post" type="button" class="danger-button" hidden>删除文章</button>
+          <button type="button" class="secondary-button" data-close-dialog>取消</button>
+          <button class="primary-button" value="default">保存文章</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="slot-dialog">
+      <form id="slot-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">SPECIAL SCHEDULE</p>
+            <h2>新增特殊排班</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-dialog>×</button>
+        </div>
+        <label>特殊排班日期<input name="specialDate" type="date" required /></label>
+        <p class="form-help">选定日期后，会自动带入当天原有的每周排班。你可以在这个基础上修改。</p>
+        <div id="special-day-slots" class="special-day-slots"></div>
+        <button id="add-special-day-slot" type="button" class="compact-button">＋ 添加时间段</button>
+        <div class="dialog-actions">
+          <button type="button" class="secondary-button" data-close-dialog>取消</button>
+          <button class="primary-button" value="default">保存当天排班</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="rest-day-dialog">
+      <form id="rest-day-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">REST DAY</p>
+            <h2>新增休息日</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-dialog>×</button>
+        </div>
+        <div class="form-grid">
+          <label>开始日期<input name="validFrom" type="date" required /></label>
+          <label>结束日期<input name="validUntil" type="date" required /></label>
+        </div>
+        <label>备注<input name="note" maxlength="80" placeholder="选填，例如：节假日暂停" /></label>
+        <div class="dialog-actions">
+          <button type="button" class="secondary-button" data-close-dialog>取消</button>
+          <button class="primary-button" value="default">保存休息日</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="regular-rule-dialog">
+      <form id="regular-rule-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">WEEKLY SCHEDULE</p>
+            <h2>新增每周排班</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-dialog>×</button>
+        </div>
+        <fieldset>
+          <legend>每周重复</legend>
+          <div class="checkbox-tags">
+            <label class="checkbox-tag"><input type="checkbox" name="weekdays" value="1" />周一</label>
+            <label class="checkbox-tag"><input type="checkbox" name="weekdays" value="2" />周二</label>
+            <label class="checkbox-tag"><input type="checkbox" name="weekdays" value="3" />周三</label>
+            <label class="checkbox-tag"><input type="checkbox" name="weekdays" value="4" />周四</label>
+            <label class="checkbox-tag"><input type="checkbox" name="weekdays" value="5" />周五</label>
+            <label class="checkbox-tag"><input type="checkbox" name="weekdays" value="6" />周六</label>
+            <label class="checkbox-tag"><input type="checkbox" name="weekdays" value="7" />周日</label>
+          </div>
+        </fieldset>
+        <div class="form-grid">
+          <label>开始时间<input name="startsAt" type="time" step="900" value="14:00" required /></label>
+          <label>结束时间<input name="endsAt" type="time" step="900" value="18:00" required /></label>
+        </div>
+        <div class="form-grid">
+          <label>最多人数<input name="capacity" type="number" min="1" value="12" required /></label>
+        </div>
+        <fieldset>
+          <legend>规格与价格</legend>
+          <div id="regular-price-options" class="price-options"></div>
+          <button type="button" class="compact-button" data-add-price-option="regular">＋ 添加规格</button>
+        </fieldset>
+        <div class="dialog-actions">
+          <button type="button" class="secondary-button" data-close-dialog>取消</button>
+          <button class="primary-button" value="default">保存每周排班</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="cancel-order-dialog">
+      <form id="cancel-order-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">CANCEL ORDER</p>
+            <h2>取消订单并退款</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-dialog>×</button>
+        </div>
+        <p class="form-help">订单取消后会立即释放名额。已支付订单按规则原路退款。</p>
+        <label>备注<textarea name="note" rows="4" maxlength="300" placeholder="选填，用于记录客人的情况"></textarea></label>
+        <div class="dialog-actions">
+          <button type="button" class="secondary-button" data-close-dialog>返回</button>
+          <button class="danger-button" value="default">确认取消</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="wallet-dialog">
+      <form id="wallet-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">WALLET CREDIT</p>
+            <h2>赠送钱包余额</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-dialog>×</button>
+        </div>
+        <label>赠送金额<input name="amountYuan" type="number" min="0.01" step="0.01" required /><span>元</span></label>
+        <label>备注<input name="note" maxlength="120" placeholder="例如：活动补偿、老客赠送" required /></label>
+        <div class="dialog-actions">
+          <button type="button" class="secondary-button" data-close-dialog>取消</button>
+          <button class="primary-button" value="default">确认赠送</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="group-dialog">
+      <form id="group-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">ACTIVITY GROUP</p>
+            <h2>新增组</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-dialog>×</button>
+        </div>
+        <label>组名称<input name="name" maxlength="40" placeholder="例如：徒步组、水上运动组" required /></label>
+        <div class="dialog-actions">
+          <button type="button" class="secondary-button" data-close-dialog>取消</button>
+          <button class="primary-button" value="default">保存组</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="admin-account-dialog">
+      <form id="admin-account-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">SUBACCOUNT ACCESS</p>
+            <h2>新增子账户</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-dialog>×</button>
+        </div>
+        <label>姓名<input name="displayName" maxlength="40" required /></label>
+        <label>手机号<input name="mobile" maxlength="24" required /></label>
+        <fieldset>
+          <legend>可访问的组</legend>
+          <div id="admin-account-groups" class="checkbox-tags"></div>
+        </fieldset>
+        <p class="form-help">子账户只能查看和修改授权组的活动与排班，并处理这些组的订单。</p>
+        <div class="dialog-actions">
+          <button type="button" class="secondary-button" data-close-dialog>取消</button>
+          <button class="primary-button" value="default">保存子账户</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="review-reply-dialog">
+      <form id="review-reply-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">REVIEW REPLY</p>
+            <h2>回复评价</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-dialog>×</button>
+        </div>
+        <label>回复内容<textarea name="content" rows="4" maxlength="500" required placeholder="以管理员身份回复客人"></textarea></label>
+        <div class="dialog-actions">
+          <button type="button" class="secondary-button" data-close-dialog>取消</button>
+          <button class="primary-button">发送回复</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="guide-dialog">
+      <form id="guide-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">GUIDE PROFILE</p>
+            <h2>新增领队</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-dialog>×</button>
+        </div>
+        <label>领队名字<input name="name" required maxlength="80" /></label>
+        <div class="guide-photo-field">
+          <div>
+            <strong>领队照片</strong>
+            <p>用于领队主页和活动详情展示</p>
+          </div>
+          <img id="guide-photo-preview" alt="领队照片预览" hidden />
+          <label class="secondary-button">选择照片<input id="guide-photo-input" type="file" accept="image/*" hidden /></label>
+        </div>
+        <div class="description-field">
+          <div>
+            <strong>领队详细介绍</strong>
+            <p id="guide-description-status">暂未填写详细介绍</p>
+          </div>
+          <button id="open-guide-description-editor" type="button" class="secondary-button">编辑详细介绍</button>
+        </div>
+        <div class="dialog-actions">
+          <button type="button" class="secondary-button" data-close-dialog>取消</button>
+          <button class="primary-button">保存领队档案</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast" hidden></div>
+    <script type="module" src="./app.js?v=66"></script>
+  </body>
+</html>

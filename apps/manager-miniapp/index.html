@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dali Trip 管理小程序</title>
+    <link rel="stylesheet" href="./styles.css?v=14" />
+  </head>
+  <body>
+    <main>
+      <section id="workbench-view" class="view">
+        <header class="mini-header">
+          <p>DALITRIP MANAGER</p>
+          <h1>工作台</h1>
+          <span id="account-name">正在载入</span>
+        </header>
+        <section class="metrics">
+          <div><strong id="pending-count">0</strong><span>待处理订单</span></div>
+          <div><strong id="month-completed-count">0</strong><span>本月已完成</span></div>
+        </section>
+        <button id="open-manager-notifications" class="notification-summary">
+          <span>消息</span>
+          <strong>评价互动提醒</strong>
+          <small id="notification-summary-text">暂无未读消息</small>
+          <b id="notification-unread-count" hidden>0</b>
+        </button>
+        <section class="date-bar">
+          <button id="previous-date" aria-label="前一天">‹</button>
+          <label><input id="active-date" type="date" /></label>
+          <button id="next-date" aria-label="后一天">›</button>
+        </section>
+        <section class="controls">
+          <select id="group-filter" aria-label="活动组"></select>
+          <div class="segmented">
+            <button class="active" data-order-tab="active">待处理</button>
+            <button data-order-tab="finished">已完成</button>
+            <button data-order-tab="cancelled">已失效</button>
+          </div>
+        </section>
+        <section id="manager-order-list" class="order-list"></section>
+      </section>
+
+      <section id="activities-view" class="view" hidden>
+        <header class="simple-header">
+          <p>ACTIVITIES</p>
+          <h1>活动与排班</h1>
+        </header>
+        <section id="manager-activity-list" class="activity-list"></section>
+      </section>
+
+      <section id="schedule-view" class="view" hidden>
+        <header class="simple-header schedule-page-header">
+          <button id="back-to-activities" class="back-button" aria-label="返回活动">‹</button>
+          <div>
+            <p>WEEKLY SCHEDULE</p>
+            <h1 id="schedule-activity-name">活动排班</h1>
+          </div>
+        </header>
+        <section class="schedule-actions">
+          <div>
+            <strong>每周固定排班</strong>
+            <p>长期重复，可用休息日和特殊排班临时干预。</p>
+          </div>
+          <button id="toggle-schedule-pause" class="secondary"></button>
+        </section>
+        <nav class="schedule-tabs">
+          <button class="active" data-schedule-tab="regular">服务排班</button>
+          <button data-schedule-tab="rest">休息日</button>
+          <button data-schedule-tab="special">特殊排班</button>
+        </nav>
+        <section class="schedule-toolbar">
+          <button id="new-schedule-item" class="primary">＋ 新增时间段</button>
+        </section>
+        <section id="manager-schedule-list" class="schedule-list"></section>
+      </section>
+
+      <section id="profile-view" class="view" hidden>
+        <header class="simple-header">
+          <p>MY ACCOUNT</p>
+          <h1>我的</h1>
+        </header>
+        <section class="profile-card">
+          <div class="avatar">D</div>
+          <div>
+            <h2 id="profile-name">正在载入</h2>
+            <p id="profile-groups"></p>
+          </div>
+        </section>
+        <section class="profile-list">
+          <div><span>今日收入</span><strong id="today-income">¥0</strong></div>
+          <div><span>今日订单</span><strong id="today-orders">0</strong></div>
+          <div><span>可访问活动组</span><strong id="group-count">0</strong></div>
+        </section>
+        <section class="profile-tools">
+          <button id="open-manager-guides"><span>♟</span><strong>领队库</strong><small>查看和编辑领队档案</small></button>
+        </section>
+      </section>
+
+      <section id="guides-view" class="view" hidden>
+        <header class="simple-header guide-page-header">
+          <button id="back-to-profile" class="back-button" aria-label="返回我的">‹</button>
+          <div>
+            <p>GUIDE PROFILES</p>
+            <h1>领队库</h1>
+          </div>
+          <button id="new-manager-guide" class="primary">＋ 新增</button>
+        </header>
+        <section id="manager-guide-list" class="manager-guide-list"></section>
+      </section>
+    </main>
+
+    <nav class="bottom-nav">
+      <button class="active" data-view="workbench"><span>▣</span>工作台</button>
+      <button data-view="activities"><span>▦</span>活动</button>
+      <button data-view="profile"><span>▤</span>我的</button>
+    </nav>
+
+    <dialog id="order-detail-dialog">
+      <div class="dialog-shell">
+        <header class="dialog-header">
+          <button data-close-detail aria-label="关闭">‹</button>
+          <h2>订单详情</h2>
+          <span></span>
+        </header>
+        <div id="order-detail"></div>
+      </div>
+    </dialog>
+
+    <dialog id="cancel-dialog">
+      <form id="cancel-form" method="dialog">
+        <header>
+          <h2>取消订单并退款</h2>
+          <button type="button" data-close-cancel aria-label="关闭">×</button>
+        </header>
+        <p>取消后会立即释放名额，已支付金额原路退回微信。</p>
+        <label>备注<textarea name="note" rows="3" placeholder="选填，可记录客人的沟通情况"></textarea></label>
+        <footer>
+          <button type="button" class="secondary" data-close-cancel>返回</button>
+          <button class="danger">确认取消</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="weekly-rule-dialog">
+      <form id="weekly-rule-form" method="dialog">
+        <header>
+          <h2 id="weekly-rule-title">新增每周排班</h2>
+          <button type="button" data-close-rule aria-label="关闭">×</button>
+        </header>
+        <fieldset id="weekday-fields">
+          <legend>每周重复</legend>
+          <label><input name="weekday" type="checkbox" value="1" /> 周一</label>
+          <label><input name="weekday" type="checkbox" value="2" /> 周二</label>
+          <label><input name="weekday" type="checkbox" value="3" /> 周三</label>
+          <label><input name="weekday" type="checkbox" value="4" /> 周四</label>
+          <label><input name="weekday" type="checkbox" value="5" /> 周五</label>
+          <label><input name="weekday" type="checkbox" value="6" /> 周六</label>
+          <label><input name="weekday" type="checkbox" value="7" /> 周日</label>
+        </fieldset>
+        <div class="rule-grid">
+          <label>开始时间<select name="startsAt" required></select></label>
+          <label>结束时间<select name="endsAt" required></select></label>
+          <label>总可订人数<input name="capacity" type="number" min="1" required /></label>
+        </div>
+        <fieldset>
+          <legend>规格与价格</legend>
+          <div class="price-row"><input name="adultName" value="成人" required /><input name="adultPrice" type="number" min="0" step="0.01" placeholder="价格" required /></div>
+          <div class="price-row"><input name="childName" value="儿童" required /><input name="childPrice" type="number" min="0" step="0.01" placeholder="价格" required /></div>
+        </fieldset>
+        <footer>
+          <button type="button" class="secondary" data-close-rule>取消</button>
+          <button class="primary">保存排班</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="activity-edit-dialog">
+      <form id="activity-edit-form" method="dialog">
+        <header>
+          <h2>编辑活动</h2>
+          <button type="button" data-close-activity-edit aria-label="关闭">×</button>
+        </header>
+        <label class="block-label">活动名称<input name="name" maxlength="80" required /></label>
+        <label class="block-label">所属组<select name="groupId" required></select></label>
+        <label class="block-label">提前预约时间<input name="advanceBookingHours" type="number" min="0" required /></label>
+        <label class="block-label">领队微信<input name="leaderWechat" maxlength="120" placeholder="用于客人退改前联系领队" /></label>
+        <section class="meeting-point-field">
+          <div>
+            <strong>集合地点</strong>
+            <p id="activity-edit-meeting-point">尚未选择集合地点</p>
+          </div>
+          <button id="choose-meeting-point" type="button" class="secondary">从地图选择</button>
+          <button id="clear-meeting-point" type="button" class="text-button" hidden>清除地点</button>
+        </section>
+        <fieldset>
+          <legend>标签</legend>
+          <div id="activity-edit-tags" class="tag-checkboxes"></div>
+        </fieldset>
+        <fieldset>
+          <legend>可能带队的领队</legend>
+          <div id="activity-edit-guides" class="tag-checkboxes"></div>
+        </fieldset>
+        <label class="block-label">活动简介<textarea name="summary" rows="4"></textarea></label>
+        <p>活动照片和详细图文介绍请在网页后台编辑。</p>
+        <footer>
+          <button type="button" class="secondary" data-close-activity-edit>取消</button>
+          <button class="primary">保存活动</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="manager-guide-dialog">
+      <form id="manager-guide-form" method="dialog">
+        <header>
+          <h2>新增领队</h2>
+          <button type="button" data-close-manager-guide aria-label="关闭">×</button>
+        </header>
+        <label class="block-label">领队名字<input name="name" maxlength="80" required /></label>
+        <section class="manager-guide-photo">
+          <div><strong>领队照片</strong><p>用于领队主页和活动详情展示</p></div>
+          <img id="manager-guide-photo-preview" alt="领队照片预览" hidden />
+          <label class="secondary">选择照片<input id="manager-guide-photo-input" type="file" accept="image/*" hidden /></label>
+        </section>
+        <label class="block-label">领队介绍<textarea name="description" rows="7" placeholder="介绍经历、擅长路线和带队风格"></textarea></label>
+        <p>图片、视频和文章链接等完整排版，请在网页后台继续编辑。</p>
+        <footer>
+          <button type="button" class="secondary" data-close-manager-guide>取消</button>
+          <button class="primary">保存领队</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="rest-day-dialog">
+      <form id="rest-day-form" method="dialog">
+        <header>
+          <h2>新增休息日</h2>
+          <button type="button" data-close-rest-day aria-label="关闭">×</button>
+        </header>
+        <p>日期范围内暂停常规排班。如果同一天另有特殊排班，特殊排班仍然有效。</p>
+        <div class="rule-grid">
+          <label>开始日期<input name="validFrom" type="date" required /></label>
+          <label>结束日期<input name="validUntil" type="date" required /></label>
+        </div>
+        <label class="block-label">备注<input name="note" maxlength="80" placeholder="选填，例如：节假日休息" /></label>
+        <footer>
+          <button type="button" class="secondary" data-close-rest-day>取消</button>
+          <button class="primary">保存休息日</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="special-day-dialog">
+      <form id="special-day-form" method="dialog">
+        <header>
+          <h2>新增特殊排班</h2>
+          <button type="button" data-close-special-day aria-label="关闭">×</button>
+        </header>
+        <p>选择某一天后，会自动带入当天的每周排班。你可以在这个基础上修改。</p>
+        <label class="block-label">特殊排班日期<input name="specialDate" type="date" required /></label>
+        <section id="special-day-rows" class="special-day-rows"></section>
+        <button id="add-special-row" type="button" class="secondary">＋ 添加时间段</button>
+        <footer>
+          <button type="button" class="secondary" data-close-special-day>取消</button>
+          <button class="primary">保存当天排班</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="manager-reviews-dialog">
+      <div class="dialog-shell">
+        <header class="dialog-header">
+          <button data-close-reviews aria-label="关闭">‹</button>
+          <h2>评价回复</h2>
+          <span></span>
+        </header>
+        <div id="manager-review-list" class="manager-review-list"></div>
+      </div>
+    </dialog>
+
+    <dialog id="manager-reply-dialog">
+      <form id="manager-reply-form" method="dialog">
+        <header>
+          <h2>领队回复</h2>
+          <button type="button" data-close-manager-reply aria-label="关闭">×</button>
+        </header>
+        <label class="block-label">回复内容<textarea name="content" rows="4" maxlength="500" required placeholder="写下回复"></textarea></label>
+        <footer>
+          <button type="button" class="secondary" data-close-manager-reply>取消</button>
+          <button class="primary">发送回复</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="manager-notifications-dialog">
+      <div class="dialog-shell">
+        <header class="dialog-header">
+          <button data-close-notifications aria-label="关闭">‹</button>
+          <h2>评价互动提醒</h2>
+          <span></span>
+        </header>
+        <div id="manager-notification-list" class="manager-notification-list"></div>
+      </div>
+    </dialog>
+
+    <div id="toast" class="toast" hidden></div>
+    <script type="module" src="./app.js?v=15"></script>
+  </body>
+</html>

@@ -1,0 +1,869 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>首页设计方案</title>
+  <style>
+    :root {
+      --ink: #1f2926;
+      --muted: #73807b;
+      --line: #e3e8e2;
+      --paper: #fbf6eb;
+      --cream: #fffaf1;
+      --blue: #29acd0;
+      --gold: #c99824;
+      --green: #2f5d50;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #f5f1e8;
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .page-head {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 34px 28px 20px;
+    }
+
+    .page-head p {
+      margin: 0 0 10px;
+      color: var(--green);
+      font-size: 13px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .page-head h1 {
+      margin: 0;
+      font-family: Georgia, "Songti SC", "SimSun", serif;
+      font-size: 34px;
+      font-weight: 400;
+    }
+
+    .page-head span {
+      display: block;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.8;
+    }
+
+    .design-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(410px, 1fr));
+      gap: 26px;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 28px 56px;
+    }
+
+    .design-card {
+      display: grid;
+      gap: 14px;
+    }
+
+    .design-note {
+      min-height: 92px;
+      padding: 18px 20px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .design-note strong {
+      display: block;
+      font-size: 18px;
+      font-weight: 650;
+    }
+
+    .design-note p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .phone {
+      width: min(100%, 430px);
+      height: 850px;
+      margin: 0 auto;
+      overflow: hidden;
+      border: 1px solid #dce2dc;
+      border-radius: 26px;
+      background: #fff;
+      box-shadow: 0 22px 52px rgba(31, 41, 38, 0.08);
+    }
+
+    .screen {
+      height: 100%;
+      overflow: hidden;
+      background: var(--cream);
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 46px;
+      background: rgba(255, 255, 255, 0.94);
+      border-bottom: 1px solid var(--line);
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .section {
+      padding: 18px 18px 20px;
+      border-top: 1px solid rgba(227, 232, 226, 0.82);
+    }
+
+    .section-label {
+      margin: 0 0 7px;
+      color: #667873;
+      font-size: 12px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .section-title {
+      margin: 0 0 14px;
+      font-family: Georgia, "Songti SC", "SimSun", serif;
+      font-size: 25px;
+      font-weight: 500;
+    }
+
+    .image {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: inherit;
+    }
+
+    .media-title {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: 13px;
+      color: #fff;
+      font-size: 21px;
+      font-weight: 700;
+      text-shadow: 0 1px 10px rgba(0, 0, 0, 0.38);
+    }
+
+    .nav-text {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      background: #fff;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .nav-text button {
+      min-height: 78px;
+      border: 0;
+      border-right: 1px solid var(--line);
+      background: transparent;
+      color: var(--ink);
+    }
+
+    .nav-text button:last-child {
+      border-right: 0;
+    }
+
+    .nav-text strong {
+      display: block;
+      font-family: Georgia, "Songti SC", "SimSun", serif;
+      font-size: 22px;
+      font-weight: 500;
+    }
+
+    .nav-text span {
+      display: block;
+      margin-top: 5px;
+      color: #7d8985;
+      font-family: Georgia, serif;
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
+    .hero-copy {
+      padding: 24px 18px 18px;
+      text-align: center;
+      background: #fff;
+    }
+
+    .hero-copy p {
+      margin: 0 0 8px;
+      color: var(--green);
+      font-size: 13px;
+    }
+
+    .hero-copy h2 {
+      margin: 0;
+      font-family: Georgia, "Songti SC", "SimSun", serif;
+      font-size: 29px;
+      font-weight: 500;
+      line-height: 1.35;
+    }
+
+    .hero-copy span {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .square-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      padding: 14px 18px;
+      background: #fff;
+    }
+
+    .square-tile {
+      position: relative;
+      aspect-ratio: 1;
+      overflow: hidden;
+      border-radius: 8px;
+      background: #d8ddd7;
+    }
+
+    .square-tile.wide {
+      grid-column: span 2;
+      aspect-ratio: 2.1 / 1;
+    }
+
+    .departures {
+      display: grid;
+      gap: 12px;
+      background: #fff;
+    }
+
+    .departure-row {
+      display: grid;
+      grid-template-columns: 1fr 82px;
+      gap: 14px;
+      align-items: center;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .departure-row:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .departure-row strong {
+      display: block;
+      margin: 5px 0;
+      font-size: 17px;
+    }
+
+    .departure-row span,
+    .departure-row small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .thumb {
+      width: 82px;
+      height: 82px;
+      overflow: hidden;
+      border-radius: 8px;
+      background: #e7ebe6;
+    }
+
+    .review-card {
+      padding: 18px;
+      background: #fff;
+      border-top: 1px solid var(--line);
+    }
+
+    .review-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: #c9d1cc;
+      overflow: hidden;
+    }
+
+    .stars {
+      color: #e5a800;
+      font-size: 14px;
+    }
+
+    .review-card p {
+      margin: 0;
+      color: #53605b;
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    .review-images {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-top: 12px;
+    }
+
+    .review-images div {
+      aspect-ratio: 1;
+      overflow: hidden;
+      border-radius: 6px;
+      background: #d7ddd8;
+    }
+
+    .activity-journal {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      border-top: 1px solid var(--line);
+      border-left: 1px solid var(--line);
+      background: #f2eee6;
+    }
+
+    .journal-card {
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      background: #f2eee6;
+    }
+
+    .journal-card .pic {
+      aspect-ratio: 1.25 / 1;
+      overflow: hidden;
+      background: #dfe4de;
+    }
+
+    .journal-card .copy {
+      padding: 13px 14px 16px;
+    }
+
+    .journal-card h3 {
+      margin: 0;
+      font-family: Georgia, "Songti SC", "SimSun", serif;
+      font-size: 22px;
+      font-weight: 500;
+      line-height: 1.35;
+    }
+
+    .journal-card p {
+      margin: 10px 0 0;
+      color: #626d68;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .date-strip {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+      padding: 12px 18px;
+      background: #fff;
+    }
+
+    .date-strip button {
+      min-height: 58px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: #98a39f;
+    }
+
+    .date-strip button.active {
+      background: var(--blue);
+      color: #fff;
+    }
+
+    .date-strip strong {
+      display: block;
+      font-size: 21px;
+    }
+
+    .date-strip span {
+      display: block;
+      margin-top: 3px;
+      font-size: 12px;
+    }
+
+    .activity-list {
+      display: grid;
+      gap: 10px;
+      padding: 16px 18px 20px;
+      background: #fff;
+    }
+
+    .activity-row {
+      display: grid;
+      grid-template-columns: 78px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .activity-row .thumb {
+      width: 78px;
+      height: 78px;
+    }
+
+    .activity-row strong {
+      display: block;
+      font-size: 16px;
+      line-height: 1.35;
+    }
+
+    .activity-row span {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .book-btn {
+      min-width: 58px;
+      height: 44px;
+      border: 0;
+      border-radius: 8px;
+      background: var(--blue);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .feature-list {
+      padding: 14px 18px 20px;
+      background: #fff;
+    }
+
+    .feature-item {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 13px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .feature-item:last-child {
+      border-bottom: 0;
+    }
+
+    .feature-item .thumb {
+      width: 72px;
+      height: 72px;
+    }
+
+    .feature-item h3 {
+      margin: 0;
+      font-family: Georgia, "Songti SC", "SimSun", serif;
+      font-size: 21px;
+      font-weight: 500;
+    }
+
+    .feature-item p {
+      margin: 7px 0 0;
+      color: #65716d;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .tag-row {
+      display: flex;
+      gap: 8px;
+      overflow: hidden;
+      padding: 14px 18px;
+      background: #fff;
+      border-top: 1px solid var(--line);
+    }
+
+    .tag-row span {
+      flex: 0 0 auto;
+      padding: 7px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: #55615d;
+      background: #fff;
+      font-size: 13px;
+    }
+
+    .blog-row {
+      padding: 0 18px 22px;
+      background: var(--cream);
+    }
+
+    .blog-row article {
+      display: grid;
+      grid-template-columns: 108px 1fr;
+      gap: 14px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .blog-row article:last-child {
+      border-bottom: 0;
+    }
+
+    .blog-row .pic {
+      aspect-ratio: 1.12 / 1;
+      overflow: hidden;
+      border-radius: 8px;
+      background: #dde2dc;
+    }
+
+    .blog-row h3 {
+      margin: 0;
+      font-family: Georgia, "Songti SC", "SimSun", serif;
+      font-size: 22px;
+      font-weight: 500;
+      line-height: 1.32;
+    }
+
+    .blog-row p {
+      margin: 8px 0 0;
+      color: #69746f;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .minimal-header {
+      padding: 26px 18px 18px;
+      background: #fff;
+    }
+
+    .minimal-header p {
+      margin: 0 0 8px;
+      color: var(--green);
+      font-size: 13px;
+    }
+
+    .minimal-header h2 {
+      margin: 0;
+      font-family: Georgia, "Songti SC", "SimSun", serif;
+      font-size: 31px;
+      font-weight: 500;
+      line-height: 1.28;
+    }
+
+    .mini-module-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      padding: 0 18px 18px;
+      background: #fff;
+    }
+
+    .mini-module {
+      min-height: 94px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfaf6;
+    }
+
+    .mini-module strong {
+      display: block;
+      font-family: Georgia, "Songti SC", "SimSun", serif;
+      font-size: 22px;
+      font-weight: 500;
+    }
+
+    .mini-module span {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .bottom-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      height: 62px;
+      border-top: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.96);
+    }
+
+    .bottom-tabs span {
+      display: grid;
+      place-items: center;
+      color: #808c87;
+      font-size: 14px;
+    }
+
+    .bottom-tabs span:first-child {
+      color: #8a6500;
+    }
+
+    @media (max-width: 560px) {
+      .page-head {
+        padding: 24px 16px 16px;
+      }
+
+      .page-head h1 {
+        font-size: 28px;
+      }
+
+      .design-grid {
+        grid-template-columns: 1fr;
+        padding: 0 12px 36px;
+      }
+
+      .phone {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="page-head">
+    <p>Home Design Directions</p>
+    <h1>首页设计方案</h1>
+    <span>基于现在已经做好的模块，先给你 4 个可比较的方向。整体都保持简洁、朴素、留白多，不做夸张营销感。</span>
+  </header>
+
+  <main class="design-grid">
+    <section class="design-card">
+      <div class="design-note">
+        <strong>方案一：山野日记</strong>
+        <p>最接近你喜欢的博客气质。首页像一本自然生活杂志，适合“苍山徒步之家”的长期内容感。</p>
+      </div>
+      <article class="phone">
+        <div class="screen">
+          <div class="topbar">苍山徒步之家</div>
+          <section class="hero-copy">
+            <p>DALI EXPERIENCE</p>
+            <h2>在大理，找到今天想做的事</h2>
+            <span>植物、森林、溪流和慢一点的旅行</span>
+          </section>
+          <section class="square-grid">
+            <div class="square-tile wide">
+              <img class="image" src="https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=900&q=85" alt="">
+              <strong class="media-title">轻徒步专题</strong>
+            </div>
+            <div class="square-tile">
+              <img class="image" src="https://images.unsplash.com/photo-1530968033775-2c92736b131e?auto=format&fit=crop&w=900&q=85" alt="">
+              <strong class="media-title">植物观察</strong>
+            </div>
+            <div class="square-tile">
+              <img class="image" src="https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=900&q=85" alt="">
+              <strong class="media-title">水上活动</strong>
+            </div>
+          </section>
+          <nav class="nav-text">
+            <button><strong>攻略</strong><span>Travel</span></button>
+            <button><strong>向导</strong><span>Guides</span></button>
+            <button><strong>专题</strong><span>Collections</span></button>
+          </nav>
+          <section class="section">
+            <p class="section-label">Next Departures</p>
+            <h2 class="section-title">即将出发的旅行</h2>
+            <div class="departures">
+              <div class="departure-row">
+                <div><span>匿** 预约了 · 已有 4 人报名</span><strong>景山陶艺与植物绘画</strong><small>6 月 4 日 14:00-16:30</small></div>
+                <div class="thumb"><img class="image" src="https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?auto=format&fit=crop&w=600&q=85" alt=""></div>
+              </div>
+              <div class="departure-row">
+                <div><span>M** 预约了 · 已有 2 人报名</span><strong>徒步蕨类森林</strong><small>6 月 6 日 09:00-12:30</small></div>
+                <div class="thumb"><img class="image" src="https://images.unsplash.com/photo-1530968033775-2c92736b131e?auto=format&fit=crop&w=600&q=85" alt=""></div>
+              </div>
+            </div>
+          </section>
+          <section class="review-card">
+            <p class="section-label">Latest Stories</p>
+            <div class="review-head">
+              <div class="avatar"><img class="image" src="https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=200&q=85" alt=""></div>
+              <div><strong>小段</strong><div class="stars">★★★★★</div></div>
+            </div>
+            <p>这次坐到水面上以后，湖像一个背景。领队不催促，大家慢慢划，也慢慢看见了风和云。</p>
+            <div class="review-images">
+              <div><img class="image" src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=300&q=85" alt=""></div>
+              <div><img class="image" src="https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=300&q=85" alt=""></div>
+              <div><img class="image" src="https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=300&q=85" alt=""></div>
+              <div><img class="image" src="https://images.unsplash.com/photo-1493246507139-91e8fad9978e?auto=format&fit=crop&w=300&q=85" alt=""></div>
+            </div>
+          </section>
+          <div class="bottom-tabs"><span>发现</span><span>预约</span><span>我的</span></div>
+        </div>
+      </article>
+    </section>
+
+    <section class="design-card">
+      <div class="design-note">
+        <strong>方案二：日期优先</strong>
+        <p>把“今天/这周能订什么”放得更靠前，适合转化。适合游客临时决定，也保留标签筛选。</p>
+      </div>
+      <article class="phone">
+        <div class="screen">
+          <div class="topbar">预约服务</div>
+          <section class="minimal-header">
+            <p>苍山徒步之家</p>
+            <h2>选一个日期，出发去山里</h2>
+          </section>
+          <div class="date-strip">
+            <button><span>三</span><strong>3</strong><span>可约</span></button>
+            <button class="active"><span>四</span><strong>4</strong><span>可约</span></button>
+            <button><span>五</span><strong>5</strong><span>可约</span></button>
+            <button><span>六</span><strong>6</strong><span>可约</span></button>
+            <button><span>日</span><strong>7</strong><span>可约</span></button>
+            <button><span>一</span><strong>8</strong><span>可约</span></button>
+            <button><span>二</span><strong>9</strong><span>可约</span></button>
+          </div>
+          <div class="tag-row">
+            <span>徒步</span><span>亲子</span><span>水上活动</span><span>手作</span><span>自然观察</span>
+          </div>
+          <section class="activity-list">
+            <div class="activity-row">
+              <div class="thumb"><img class="image" src="https://images.unsplash.com/photo-1530968033775-2c92736b131e?auto=format&fit=crop&w=500&q=85" alt=""></div>
+              <div><strong>徒步蕨类森林</strong><span>09:00-12:30 · 268 起</span></div>
+              <button class="book-btn">预约</button>
+            </div>
+            <div class="activity-row">
+              <div class="thumb"><img class="image" src="https://images.unsplash.com/photo-1594631252845-29fc4cc8cde9?auto=format&fit=crop&w=500&q=85" alt=""></div>
+              <div><strong>苍山森林采野茶</strong><span>09:00-12:30 · 198 起</span></div>
+              <button class="book-btn">预约</button>
+            </div>
+            <div class="activity-row">
+              <div class="thumb"><img class="image" src="https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=500&q=85" alt=""></div>
+              <div><strong>洱海晨光皮划艇</strong><span>09:30-12:00 · 398 起</span></div>
+              <button class="book-btn">预约</button>
+            </div>
+          </section>
+          <section class="section">
+            <p class="section-label">Guide</p>
+            <h2 class="section-title">认识可能带队的人</h2>
+            <div class="feature-item">
+              <div class="thumb"><img class="image" src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=85" alt=""></div>
+              <div><h3>小白</h3><p>喜欢植物和慢速徒步，会把路边的小东西讲得很有趣。</p></div>
+            </div>
+          </section>
+          <section class="review-card">
+            <p class="section-label">Review</p>
+            <p>“不是打卡式的行程，而是真的在山里待了一会儿。”</p>
+          </section>
+          <div class="bottom-tabs"><span>发现</span><span>预约</span><span>我的</span></div>
+        </div>
+      </article>
+    </section>
+
+    <section class="design-card">
+      <div class="design-note">
+        <strong>方案三：安静图册</strong>
+        <p>图片占比更高，但排版克制。适合展示活动气质，给客人“想进去看看”的感觉。</p>
+      </div>
+      <article class="phone">
+        <div class="screen">
+          <div class="topbar">苍山徒步之家</div>
+          <section class="hero-copy">
+            <p>FIELD NOTES</p>
+            <h2>没有游客的地方，也有很完整的一天</h2>
+          </section>
+          <section class="activity-journal">
+            <article class="journal-card">
+              <div class="pic"><img class="image" src="https://images.unsplash.com/photo-1530968033775-2c92736b131e?auto=format&fit=crop&w=700&q=85" alt=""></div>
+              <div class="copy"><h3>蕨类森林</h3><p>沿溪流进入森林，适合第一次轻徒步。</p></div>
+            </article>
+            <article class="journal-card">
+              <div class="pic"><img class="image" src="https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=700&q=85" alt=""></div>
+              <div class="copy"><h3>洱海皮划艇</h3><p>在清晨水面上慢慢看光线变化。</p></div>
+            </article>
+            <article class="journal-card">
+              <div class="pic"><img class="image" src="https://images.unsplash.com/photo-1594631252845-29fc4cc8cde9?auto=format&fit=crop&w=700&q=85" alt=""></div>
+              <div class="copy"><h3>森林采野茶</h3><p>一边走路，一边认识当地植物。</p></div>
+            </article>
+            <article class="journal-card">
+              <div class="pic"><img class="image" src="https://images.unsplash.com/photo-1504545102780-26774c1bb073?auto=format&fit=crop&w=700&q=85" alt=""></div>
+              <div class="copy"><h3>蘑菇季节</h3><p>山里短暂又热闹的季节。</p></div>
+            </article>
+          </section>
+          <nav class="nav-text">
+            <button><strong>活动</strong><span>Activities</span></button>
+            <button><strong>领队</strong><span>Guides</span></button>
+            <button><strong>博客</strong><span>Journal</span></button>
+          </nav>
+          <section class="section">
+            <p class="section-label">Upcoming</p>
+            <h2 class="section-title">即将出发的旅行</h2>
+            <div class="departures">
+              <div class="departure-row">
+                <div><span>已有 2 人预订</span><strong>苍山森林采野茶</strong><small>6 月 6 日 09:00-12:30</small></div>
+                <div class="thumb"><img class="image" src="https://images.unsplash.com/photo-1594631252845-29fc4cc8cde9?auto=format&fit=crop&w=500&q=85" alt=""></div>
+              </div>
+            </div>
+          </section>
+          <section class="blog-row">
+            <p class="section-label">Blog</p>
+            <article>
+              <div class="pic"><img class="image" src="https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=400&q=85" alt=""></div>
+              <div><h3>我们的山野生活</h3><p>几段关于路线、植物和人的记录。</p></div>
+            </article>
+          </section>
+          <div class="bottom-tabs"><span>发现</span><span>预约</span><span>我的</span></div>
+        </div>
+      </article>
+    </section>
+
+    <section class="design-card">
+      <div class="design-note">
+        <strong>方案四：极简目录</strong>
+        <p>最朴素、最快扫描。减少图片干扰，让活动、专题、博客像一个清爽的信息目录。</p>
+      </div>
+      <article class="phone">
+        <div class="screen">
+          <div class="topbar">苍山徒步之家</div>
+          <section class="minimal-header">
+            <p>DALI NATURE TRIPS</p>
+            <h2>植物、森林、溪流，和不赶路的一天</h2>
+          </section>
+          <section class="mini-module-grid">
+            <div class="mini-module"><strong>按日期预订</strong><span>看接下来可约活动</span></div>
+            <div class="mini-module"><strong>活动分类</strong><span>徒步 / 手作 / 水上</span></div>
+            <div class="mini-module"><strong>向导介绍</strong><span>认识可能带队的人</span></div>
+            <div class="mini-module"><strong>我们的生活</strong><span>博客与记录</span></div>
+          </section>
+          <section class="feature-list">
+            <p class="section-label">Recommended</p>
+            <div class="feature-item">
+              <div class="thumb"><img class="image" src="https://images.unsplash.com/photo-1530968033775-2c92736b131e?auto=format&fit=crop&w=400&q=85" alt=""></div>
+              <div><h3>徒步蕨类森林</h3><p>沿溪流进入森林，适合第一次参加轻徒步的客人。</p></div>
+            </div>
+            <div class="feature-item">
+              <div class="thumb"><img class="image" src="https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?auto=format&fit=crop&w=400&q=85" alt=""></div>
+              <div><h3>景山陶艺与植物绘画</h3><p>在安静院子里做一点手工，也适合亲子。</p></div>
+            </div>
+            <div class="feature-item">
+              <div class="thumb"><img class="image" src="https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=400&q=85" alt=""></div>
+              <div><h3>洱海晨光皮划艇</h3><p>水面和光线都慢下来的一段时间。</p></div>
+            </div>
+          </section>
+          <section class="blog-row">
+            <p class="section-label">Journal</p>
+            <article>
+              <div class="pic"><img class="image" src="https://images.unsplash.com/photo-1493246507139-91e8fad9978e?auto=format&fit=crop&w=400&q=85" alt=""></div>
+              <div><h3>一个点，五个活动，六样领队</h3><p>从一条路线出发，写一些大理的生活侧面。</p></div>
+            </article>
+          </section>
+          <div class="bottom-tabs"><span>发现</span><span>预约</span><span>我的</span></div>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>
