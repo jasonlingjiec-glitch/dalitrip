@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dali Trip 管理后台</title>
-    <link rel="stylesheet" href="./styles.css?v=60" />
+    <link rel="stylesheet" href="./styles.css?v=64" />
   </head>
   <body>
     <div class="app-shell">
@@ -285,6 +285,28 @@
           <label>集合地点名称<input name="meetingPointName" placeholder="例如：苍山游客中心" /></label>
           <label>纬度<input name="meetingLatitude" type="number" step="0.0000001" placeholder="例如：25.689326" /></label>
           <label>经度<input name="meetingLongitude" type="number" step="0.0000001" placeholder="例如：100.166334" /></label>
+        </div>
+        <div class="activity-gallery-field">
+          <div class="activity-gallery-header">
+            <div>
+              <strong>照片相册</strong>
+              <p id="activity-gallery-status">暂未上传照片</p>
+            </div>
+          </div>
+          <div class="activity-gallery-preview-row">
+            <div id="activity-gallery-preview" class="activity-gallery-preview"></div>
+            <button id="activity-gallery-more" class="secondary-button activity-gallery-more" type="button">更多</button>
+          </div>
+          <div id="activity-gallery-editor" class="activity-gallery-editor" hidden>
+            <div class="activity-gallery-toolbar">
+              <button id="activity-gallery-delete-selected" class="secondary-button danger-button" type="button" disabled>删除所选</button>
+              <label class="secondary-button gallery-upload-button">
+                上传照片
+                <input id="activity-gallery-input" type="file" accept="image/*" multiple hidden />
+              </label>
+            </div>
+            <div id="activity-gallery-grid" class="activity-gallery-grid"></div>
+          </div>
         </div>
         <div class="description-field">
           <div>
@@ -645,6 +667,28 @@
           <img id="guide-photo-preview" alt="领队照片预览" hidden />
           <label class="secondary-button">选择照片<input id="guide-photo-input" type="file" accept="image/*" hidden /></label>
         </div>
+        <div class="activity-gallery-field guide-gallery-field">
+          <div class="activity-gallery-header">
+            <div>
+              <strong>领队相册</strong>
+              <p id="guide-gallery-status">暂未上传照片</p>
+            </div>
+          </div>
+          <div class="activity-gallery-preview-row">
+            <div id="guide-gallery-preview" class="activity-gallery-preview"></div>
+            <button id="guide-gallery-more" class="secondary-button activity-gallery-more" type="button">更多</button>
+          </div>
+          <div id="guide-gallery-editor" class="activity-gallery-editor" hidden>
+            <div class="activity-gallery-toolbar">
+              <button id="guide-gallery-delete-selected" class="secondary-button danger-button" type="button" disabled>删除所选</button>
+              <label class="secondary-button gallery-upload-button">
+                上传照片
+                <input id="guide-gallery-input" type="file" accept="image/*" multiple hidden />
+              </label>
+            </div>
+            <div id="guide-gallery-grid" class="activity-gallery-grid"></div>
+          </div>
+        </div>
         <div class="description-field">
           <div>
             <strong>领队详细介绍</strong>
@@ -660,6 +704,6 @@
     </dialog>
 
     <div id="toast" class="toast" hidden></div>
-    <script type="module" src="./app.js?v=66"></script>
+    <script type="module" src="./app.js?v=70"></script>
   </body>
 </html>

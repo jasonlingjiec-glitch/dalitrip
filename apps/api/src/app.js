@@ -166,6 +166,9 @@ export function createApp(store = new MemoryStore()) {
       if (request.method === "PATCH" && parts[1] === "guides" && parts.length === 3) {
         return json(response, 200, { data: store.updateGuide(parts[2], await readJson(request)) });
       }
+      if (request.method === "DELETE" && parts[1] === "guides" && parts.length === 3) {
+        return json(response, 200, { data: store.deleteGuide(parts[2]) });
+      }
 
       if (request.method === "GET" && parts[1] === "activities" && parts.length === 2) {
         const tagIds = url.searchParams.get("tagIds")?.split(",").filter(Boolean) ?? [];

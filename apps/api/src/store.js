@@ -309,6 +309,14 @@ export class MemoryStore {
     return this.#presentGuide(guide);
   }
 
+  deleteGuide(id) {
+    const guide = this.#requireGuide(id);
+    const linkedActivities = this.activities.filter((activity) => (activity.guideIds ?? []).includes(id));
+    assert(linkedActivities.length === 0, 409, "这个领队还关联着活动，请先从相关活动中移除后再删除");
+    this.guides = this.guides.filter((item) => item.id !== id);
+    return clone(guide);
+  }
+
   listActivities({ locale = "zh-CN", tagIds = [], adminAccountId } = {}) {
     const account = adminAccountId ? this.#requireEnabledAdminAccount(adminAccountId) : null;
     return this.activities
@@ -1104,6 +1112,7 @@ export class MemoryStore {
   #presentGuide(guide) {
     return clone({
       ...guide,
+      images: clone(guide.images ?? []),
       activities: this.activities
         .filter((activity) => (activity.guideIds ?? []).includes(guide.id))
         .map((activity) => ({ id: activity.id, name: localized(activity.translations).name, summary: localized(activity.translations).summary }))
@@ -1219,7 +1228,15 @@ export class MemoryStore {
     assert(input.name?.trim(), 400, "领队名字不能为空");
     assert(typeof (input.photoUrl ?? "") === "string", 400, "领队照片格式无效");
     assert(typeof (input.descriptionHtml ?? "") === "string", 400, "领队详细内容格式无效");
-    return { name: input.name.trim(), photoUrl: input.photoUrl?.trim() ?? "", descriptionHtml: input.descriptionHtml ?? "" };
+    const images = clone(input.images ?? []).map((image, index) => {
+      assert(typeof (image.cosKey ?? "") === "string" && image.cosKey.trim(), 400, "领队相册图片格式无效");
+      return {
+        id: image.id ?? randomUUID(),
+        cosKey: image.cosKey.trim(),
+        sortOrder: Number.isInteger(image.sortOrder) ? image.sortOrder : index + 1
+      };
+    });
+    return { name: input.name.trim(), photoUrl: input.photoUrl?.trim() ?? "", descriptionHtml: input.descriptionHtml ?? "", images };
   }
 
   #validateTopicPageInput(input, editingId = null) {

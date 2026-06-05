@@ -139,7 +139,7 @@ const orderMapUrl = (order) => mapUrl({
   content: { meetingPointName: order.meetingPointName }
 });
 const activityCover = (activity) => activity?.coverUrl || cover;
-const activityImageUrl = (image) => image?.url || (image?.cosKey?.startsWith("http") ? image.cosKey : demoImageUrls[image?.cosKey]) || "";
+const activityImageUrl = (image) => image?.url || (image?.cosKey?.startsWith("http") || image?.cosKey?.startsWith("data:") ? image.cosKey : demoImageUrls[image?.cosKey]) || "";
 const activityGalleryImages = (activity) => {
   const images = (activity?.images ?? [])
     .slice()
@@ -699,7 +699,7 @@ async function openActivity(id, date = "", options = {}) {
       </section>
       <section class="detail-description">
         <h3>体验内容</h3>
-        ${renderParagraphs(state.activity.content.summary || "详情正在整理中。")}
+        ${state.activity.content.descriptionHtml?.trim() || renderParagraphs(state.activity.content.summary || "详情正在整理中。")}
       </section>
       ${(state.activity.guides ?? []).length ? `
         <section class="activity-guides">
@@ -796,9 +796,23 @@ function renderImagePreview() {
 async function openGuide(guideId) {
   if (!state.guides.length) state.guides = await request("/guides");
   const guide = state.guides.find((item) => item.id === guideId);
+  const guideImages = (guide.images ?? [])
+    .slice()
+    .sort((left, right) => (left.sortOrder ?? 0) - (right.sortOrder ?? 0))
+    .map(activityImageUrl)
+    .filter(Boolean);
   $("#guide-profile").innerHTML = `
     <header><h2>${escapeHtml(guide.name)}</h2><button data-close-guide aria-label="关闭">×</button></header>
     ${guide.photoUrl ? `<img src="${escapeHtml(guide.photoUrl)}" alt="${escapeHtml(guide.name)}" />` : ""}
+    ${guideImages.length ? `
+      <div class="guide-gallery-strip">
+        ${guideImages.map((url, index) => `
+          <button type="button" data-guide-image-index="${index}">
+            <img src="${escapeHtml(url)}" alt="${escapeHtml(guide.name)}相册照片 ${index + 1}" />
+          </button>
+        `).join("")}
+      </div>
+    ` : ""}
     <div class="guide-description">${guide.descriptionHtml}</div>
     <h3>可能带领的活动</h3>
     <div class="guide-activity-list">
@@ -811,6 +825,7 @@ async function openGuide(guideId) {
     </div>
   `;
   $("#guide-profile [data-close-guide]").addEventListener("click", () => $("#guide-dialog").close());
+  document.querySelectorAll("[data-guide-image-index]").forEach((button) => button.addEventListener("click", () => openImagePreview(guideImages, Number(button.dataset.guideImageIndex))));
   document.querySelectorAll("[data-guide-activity]").forEach((button) => button.addEventListener("click", async () => {
     $("#guide-dialog").close();
     await openActivity(button.dataset.guideActivity);

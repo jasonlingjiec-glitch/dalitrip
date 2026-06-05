@@ -1,5 +1,18 @@
 const API_BASE = "http://localhost:3000";
-const state = { activities: [], groups: [], tags: [], guides: [], guidePage: { introductionHtml: "" }, topicPages: [], blogPosts: [], homeEntries: [], homeModules: [], homePreviewReviews: [], homePreviewSlots: [], orders: [], customers: [], reviews: [], adminAccounts: [], selectedTagIds: [], searchText: "", customerSearchText: "", currentActivityId: null, editingActivityId: null, editingGuideId: null, editingTopicPageId: null, editingBlogPostId: null, editingHomeEntryId: null, selectedHomeModuleId: null, editingRuleId: null, editingGroupId: null, editingAdminAccountId: null, cancellingOrderId: null, walletCustomerId: null, replyingReviewId: null, activeScheduleTab: "regular", currentView: "activities", descriptionDraft: "", guideDescriptionDraft: "", guidePhotoDraft: "", topicPageIntroductionDraft: "", blogPostContentDraft: "", editorTarget: "activity", specialDialogSlots: [], specialDialogExistingSlots: [] };
+const state = { activities: [], groups: [], tags: [], guides: [], guidePage: { introductionHtml: "" }, topicPages: [], blogPosts: [], homeEntries: [], homeModules: [], homePreviewReviews: [], homePreviewSlots: [], orders: [], customers: [], reviews: [], adminAccounts: [], selectedTagIds: [], searchText: "", customerSearchText: "", currentActivityId: null, editingActivityId: null, editingGuideId: null, editingTopicPageId: null, editingBlogPostId: null, editingHomeEntryId: null, selectedHomeModuleId: null, editingRuleId: null, editingGroupId: null, editingAdminAccountId: null, cancellingOrderId: null, walletCustomerId: null, replyingReviewId: null, activeScheduleTab: "regular", currentView: "activities", descriptionDraft: "", activityGalleryDraft: [], activityGallerySelectedIds: new Set(), activityGalleryDragIndex: null, activityGalleryEditorOpen: false, guideDescriptionDraft: "", guidePhotoDraft: "", guideGalleryDraft: [], guideGallerySelectedIds: new Set(), guideGalleryDragIndex: null, guideGalleryEditorOpen: false, topicPageIntroductionDraft: "", blogPostContentDraft: "", editorTarget: "activity", specialDialogSlots: [], specialDialogExistingSlots: [] };
+const demoImageUrls = {
+  "demo/forest-hike-cover.jpg": "https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=500&q=80",
+  "demo/forest-ferns-1.jpg": "https://images.unsplash.com/photo-1530968033775-2c92736b131e?auto=format&fit=crop&w=500&q=80",
+  "demo/forest-ferns-2.jpg": "https://images.unsplash.com/photo-1511497584788-876760111969?auto=format&fit=crop&w=500&q=80",
+  "demo/forest-stream.jpg": "https://images.unsplash.com/photo-1433086966358-54859d0ed716?auto=format&fit=crop&w=500&q=80",
+  "demo/forest-moss.jpg": "https://images.unsplash.com/photo-1518173946687-a4c8892bbd9f?auto=format&fit=crop&w=500&q=80",
+  "demo/lake-kayak.jpg": "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=500&q=80",
+  "demo/pottery.jpg": "https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?auto=format&fit=crop&w=500&q=80",
+  "demo/tie-dye.jpg": "https://images.unsplash.com/photo-1528459105426-b9548367069b?auto=format&fit=crop&w=500&q=80",
+  "demo/wild-tea.jpg": "https://images.unsplash.com/photo-1594631252845-29fc4cc8cde9?auto=format&fit=crop&w=500&q=80",
+  "demo/mushroom.jpg": "https://images.unsplash.com/photo-1504545102780-26774c1bb073?auto=format&fit=crop&w=500&q=80",
+  "demo/sup.jpg": "https://images.unsplash.com/photo-1526188717906-ab4a2f70b5d3?auto=format&fit=crop&w=500&q=80"
+};
 const ttyyMigrationPreview = [
   {
     id: "ttyy-ailao-hike",
@@ -997,18 +1010,45 @@ function renderGuides() {
       <div>
         <h3>${escapeHtml(guide.name)}</h3>
         <p>${escapeHtml(guide.descriptionHtml.replace(/<[^>]+>/g, "")) || "暂未填写详细介绍"}</p>
-        <span>${guide.activities.length} 个关联活动</span>
+        <span>${guide.activities.length} 个关联活动 · ${(guide.images ?? []).length} 张相册照片</span>
       </div>
-      <button class="secondary-button" data-edit-guide="${guide.id}">编辑</button>
+      <div class="guide-card-actions">
+        <button class="secondary-button" data-edit-guide="${guide.id}">编辑</button>
+        <button class="danger-button" data-delete-guide="${guide.id}">删除</button>
+      </div>
     </article>
   `).join("") || `<div class="empty-state compact-empty"><h2>还没有领队档案</h2><p>可以先新增一位领队。</p></div>`;
   document.querySelectorAll("[data-edit-guide]").forEach((button) => button.addEventListener("click", () => openGuideDialog(state.guides.find((guide) => guide.id === button.dataset.editGuide))));
+  document.querySelectorAll("[data-delete-guide]").forEach((button) => button.addEventListener("click", () => deleteGuide(button.dataset.deleteGuide)));
+}
+
+async function deleteGuide(id) {
+  const guide = state.guides.find((item) => item.id === id);
+  if (!guide) return;
+  if ((guide.activities ?? []).length > 0) {
+    toast(`“${guide.name}”还关联着 ${guide.activities.length} 个活动，请先从活动里移除这个领队`);
+    return;
+  }
+  if (!window.confirm(`确定删除“${guide.name}”吗？`)) return;
+  try {
+    await request(`/api/guides/${id}`, { method: "DELETE" });
+    state.guides = await request("/api/guides");
+    renderDialogOptions();
+    renderGuides();
+    toast("领队档案已删除");
+  } catch (error) {
+    toast(error.message);
+  }
 }
 
 function openGuideDialog(guide = null) {
   state.editingGuideId = guide?.id ?? null;
   state.guideDescriptionDraft = guide?.descriptionHtml ?? "";
   state.guidePhotoDraft = guide?.photoUrl ?? "";
+  state.guideGalleryDraft = normalizeActivityGallery(guide?.images ?? []);
+  state.guideGallerySelectedIds = new Set();
+  state.guideGalleryDragIndex = null;
+  state.guideGalleryEditorOpen = false;
   const form = $("#guide-form");
   form.reset();
   form.querySelector("h2").textContent = guide ? "编辑领队" : "新增领队";
@@ -1016,6 +1056,7 @@ function openGuideDialog(guide = null) {
     form.elements.name.value = guide.name;
   }
   renderGuidePhotoPreview();
+  renderGuideGallery();
   renderGuideDescriptionStatus();
   $("#guide-dialog").showModal();
 }
@@ -1024,6 +1065,81 @@ function renderGuidePhotoPreview() {
   const preview = $("#guide-photo-preview");
   preview.hidden = !state.guidePhotoDraft;
   preview.src = state.guidePhotoDraft || "";
+}
+
+function renderGuideGallery() {
+  const grid = $("#guide-gallery-grid");
+  const preview = $("#guide-gallery-preview");
+  const editor = $("#guide-gallery-editor");
+  const moreButton = $("#guide-gallery-more");
+  if (!grid || !preview || !editor || !moreButton) return;
+  const selectedCount = state.guideGallerySelectedIds.size;
+  $("#guide-gallery-status").textContent = state.guideGalleryDraft.length
+    ? `共 ${state.guideGalleryDraft.length} 张${selectedCount ? `，已选 ${selectedCount} 张` : "，可拖动调整顺序"}`
+    : "暂未上传照片";
+  preview.innerHTML = state.guideGalleryDraft.length
+    ? state.guideGalleryDraft.slice(0, 7).map((image, index) => `<img src="${escapeHtml(activityGalleryImageUrl(image))}" alt="领队照片 ${index + 1}" />`).join("")
+    : `<div class="activity-gallery-preview-empty">暂无照片</div>`;
+  editor.hidden = !state.guideGalleryEditorOpen;
+  moreButton.textContent = state.guideGalleryEditorOpen ? "收起" : "更多";
+  const deleteButton = $("#guide-gallery-delete-selected");
+  deleteButton.disabled = selectedCount === 0;
+  deleteButton.textContent = selectedCount ? `删除所选 ${selectedCount}` : "删除所选";
+  grid.innerHTML = state.guideGalleryDraft.length
+    ? state.guideGalleryDraft.map((image, index) => `
+      <article class="activity-gallery-item ${state.guideGallerySelectedIds.has(image.id) ? "selected" : ""}" draggable="true" data-guide-gallery-index="${index}">
+        <img src="${escapeHtml(activityGalleryImageUrl(image))}" alt="领队照片 ${index + 1}" />
+        <span class="activity-gallery-order">${index + 1}</span>
+        <label class="activity-gallery-check" title="选择照片">
+          <input type="checkbox" data-guide-gallery-select="${image.id}" ${state.guideGallerySelectedIds.has(image.id) ? "checked" : ""} />
+        </label>
+      </article>
+    `).join("")
+    : `<div class="activity-gallery-empty">上传后会在这里全览照片，也可以拖动排序。</div>`;
+  bindGuideGalleryEvents();
+}
+
+function reorderGuideGallery(fromIndex, toIndex) {
+  if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= state.guideGalleryDraft.length || toIndex >= state.guideGalleryDraft.length) return;
+  const [image] = state.guideGalleryDraft.splice(fromIndex, 1);
+  state.guideGalleryDraft.splice(toIndex, 0, image);
+  state.guideGalleryDragIndex = toIndex;
+  renderGuideGallery();
+}
+
+function bindGuideGalleryEvents() {
+  document.querySelectorAll("[data-guide-gallery-select]").forEach((input) => input.addEventListener("change", () => {
+    if (input.checked) {
+      state.guideGallerySelectedIds.add(input.dataset.guideGallerySelect);
+    } else {
+      state.guideGallerySelectedIds.delete(input.dataset.guideGallerySelect);
+    }
+    renderGuideGallery();
+  }));
+  document.querySelectorAll("[data-guide-gallery-index]").forEach((item) => {
+    item.addEventListener("dragstart", (event) => {
+      item.classList.add("dragging");
+      state.guideGalleryDragIndex = Number(item.dataset.guideGalleryIndex);
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", item.dataset.guideGalleryIndex);
+    });
+    item.addEventListener("dragend", () => {
+      state.guideGalleryDragIndex = null;
+      item.classList.remove("dragging");
+    });
+    item.addEventListener("dragover", (event) => event.preventDefault());
+    item.addEventListener("dragenter", (event) => {
+      event.preventDefault();
+      const targetIndex = Number(item.dataset.guideGalleryIndex);
+      if (state.guideGalleryDragIndex !== null && state.guideGalleryDragIndex !== targetIndex) {
+        reorderGuideGallery(state.guideGalleryDragIndex, targetIndex);
+      }
+    });
+    item.addEventListener("drop", (event) => {
+      event.preventDefault();
+      state.guideGalleryDragIndex = null;
+    });
+  });
 }
 
 function renderGuideDescriptionStatus() {
@@ -1713,6 +1829,9 @@ function openActivityDialog(activity = null) {
   form.reset();
   state.editingActivityId = activity?.id ?? null;
   state.descriptionDraft = activity?.content.descriptionHtml ?? "";
+  state.activityGalleryDraft = normalizeActivityGallery(activity?.images);
+  state.activityGallerySelectedIds = new Set();
+  state.activityGalleryEditorOpen = false;
   form.querySelector(".eyebrow").textContent = activity ? "EDIT ACTIVITY" : "NEW ACTIVITY";
   form.querySelector("h2").textContent = activity ? "编辑活动" : "新增活动";
   form.querySelector(".primary-button").textContent = activity ? "保存修改" : "保存活动";
@@ -1735,12 +1854,106 @@ function openActivityDialog(activity = null) {
     });
   }
   renderDescriptionStatus();
+  renderActivityGallery();
   $("#activity-dialog").showModal();
 }
 
 function renderDescriptionStatus() {
   const text = state.descriptionDraft.replace(/<[^>]+>/g, "").trim();
   $("#description-status").textContent = text || state.descriptionDraft.includes("<") ? "已填写，可继续编辑" : "暂未填写详细介绍";
+}
+
+function normalizeActivityGallery(images = []) {
+  return images
+    .slice()
+    .sort((left, right) => (left.sortOrder ?? 0) - (right.sortOrder ?? 0))
+    .map((image, index) => ({
+      id: image.id ?? `gallery-${Date.now()}-${index}`,
+      cosKey: image.cosKey ?? image.url ?? "",
+      sortOrder: index + 1
+    }))
+    .filter((image) => image.cosKey);
+}
+
+function activityGalleryImageUrl(image) {
+  const value = image?.cosKey ?? "";
+  if (value.startsWith("http") || value.startsWith("data:")) return value;
+  return demoImageUrls[value] ?? "";
+}
+
+function renderActivityGallery() {
+  const grid = $("#activity-gallery-grid");
+  const preview = $("#activity-gallery-preview");
+  const editor = $("#activity-gallery-editor");
+  const moreButton = $("#activity-gallery-more");
+  if (!grid || !preview || !editor || !moreButton) return;
+  const selectedCount = state.activityGallerySelectedIds.size;
+  $("#activity-gallery-status").textContent = state.activityGalleryDraft.length
+    ? `共 ${state.activityGalleryDraft.length} 张${selectedCount ? `，已选 ${selectedCount} 张` : "，可拖动调整顺序"}`
+    : "暂未上传照片";
+  preview.innerHTML = state.activityGalleryDraft.length
+    ? state.activityGalleryDraft.slice(0, 7).map((image, index) => `<img src="${escapeHtml(activityGalleryImageUrl(image))}" alt="活动照片 ${index + 1}" />`).join("")
+    : `<div class="activity-gallery-preview-empty">暂无照片</div>`;
+  editor.hidden = !state.activityGalleryEditorOpen;
+  moreButton.textContent = state.activityGalleryEditorOpen ? "收起" : "更多";
+  const deleteButton = $("#activity-gallery-delete-selected");
+  deleteButton.disabled = selectedCount === 0;
+  deleteButton.textContent = selectedCount ? `删除所选 ${selectedCount}` : "删除所选";
+  grid.innerHTML = state.activityGalleryDraft.length
+    ? state.activityGalleryDraft.map((image, index) => `
+      <article class="activity-gallery-item ${state.activityGallerySelectedIds.has(image.id) ? "selected" : ""}" draggable="true" data-gallery-index="${index}">
+        <img src="${escapeHtml(activityGalleryImageUrl(image))}" alt="活动照片 ${index + 1}" />
+        <span class="activity-gallery-order">${index + 1}</span>
+        <label class="activity-gallery-check" title="选择照片">
+          <input type="checkbox" data-gallery-select="${image.id}" ${state.activityGallerySelectedIds.has(image.id) ? "checked" : ""} />
+        </label>
+      </article>
+    `).join("")
+    : `<div class="activity-gallery-empty">上传后会在这里全览照片，也可以拖动排序。</div>`;
+  bindActivityGalleryEvents();
+}
+
+function reorderActivityGallery(fromIndex, toIndex) {
+  if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= state.activityGalleryDraft.length || toIndex >= state.activityGalleryDraft.length) return;
+  const [image] = state.activityGalleryDraft.splice(fromIndex, 1);
+  state.activityGalleryDraft.splice(toIndex, 0, image);
+  state.activityGalleryDragIndex = toIndex;
+  renderActivityGallery();
+}
+
+function bindActivityGalleryEvents() {
+  document.querySelectorAll("[data-gallery-select]").forEach((input) => input.addEventListener("change", () => {
+    if (input.checked) {
+      state.activityGallerySelectedIds.add(input.dataset.gallerySelect);
+    } else {
+      state.activityGallerySelectedIds.delete(input.dataset.gallerySelect);
+    }
+    renderActivityGallery();
+  }));
+  document.querySelectorAll(".activity-gallery-item").forEach((item) => {
+    item.addEventListener("dragstart", (event) => {
+      item.classList.add("dragging");
+      state.activityGalleryDragIndex = Number(item.dataset.galleryIndex);
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", item.dataset.galleryIndex);
+    });
+    item.addEventListener("dragend", () => {
+      state.activityGalleryDragIndex = null;
+      item.classList.remove("dragging");
+    });
+    item.addEventListener("dragover", (event) => event.preventDefault());
+    item.addEventListener("dragenter", (event) => {
+      event.preventDefault();
+      const targetIndex = Number(item.dataset.galleryIndex);
+      if (state.activityGalleryDragIndex !== null && state.activityGalleryDragIndex !== targetIndex) {
+        reorderActivityGallery(state.activityGalleryDragIndex, targetIndex);
+      }
+    });
+    item.addEventListener("drop", (event) => {
+      event.preventDefault();
+      state.activityGalleryDragIndex = null;
+    });
+  });
 }
 
 function renderBlogPostContentStatus() {
@@ -1854,6 +2067,36 @@ $("#add-special-day-slot").addEventListener("click", () => {
 $("#open-description-editor").addEventListener("click", () => {
   openDescriptionEditor("activity");
 });
+$("#activity-gallery-more").addEventListener("click", () => {
+  state.activityGalleryEditorOpen = !state.activityGalleryEditorOpen;
+  renderActivityGallery();
+});
+$("#activity-gallery-delete-selected").addEventListener("click", () => {
+  const selectedCount = state.activityGallerySelectedIds.size;
+  if (!selectedCount) return;
+  state.activityGalleryDraft = state.activityGalleryDraft.filter((image) => !state.activityGallerySelectedIds.has(image.id));
+  state.activityGallerySelectedIds = new Set();
+  renderActivityGallery();
+  toast(`已删除 ${selectedCount} 张照片`);
+});
+$("#activity-gallery-input").addEventListener("change", (event) => {
+  const files = [...event.currentTarget.files].filter((file) => file.type.startsWith("image/"));
+  if (!files.length) return;
+  let loaded = 0;
+  readFilesAsDataUrls(files, (dataUrl) => {
+    state.activityGalleryDraft.push({
+      id: `gallery-${Date.now()}-${loaded}`,
+      cosKey: dataUrl,
+      sortOrder: state.activityGalleryDraft.length + 1
+    });
+    loaded += 1;
+    if (loaded === files.length) {
+      event.currentTarget.value = "";
+      renderActivityGallery();
+      toast(`已加入 ${files.length} 张照片`);
+    }
+  });
+});
 $("#open-guide-description-editor").addEventListener("click", () => openDescriptionEditor("guide"));
 $("#open-blog-post-editor").addEventListener("click", () => openDescriptionEditor("blogPost"));
 $("#guide-photo-input").addEventListener("change", (event) => {
@@ -1862,6 +2105,36 @@ $("#guide-photo-input").addEventListener("change", (event) => {
     renderGuidePhotoPreview();
   });
   event.currentTarget.value = "";
+});
+$("#guide-gallery-more").addEventListener("click", () => {
+  state.guideGalleryEditorOpen = !state.guideGalleryEditorOpen;
+  renderGuideGallery();
+});
+$("#guide-gallery-delete-selected").addEventListener("click", () => {
+  const selectedCount = state.guideGallerySelectedIds.size;
+  if (!selectedCount) return;
+  state.guideGalleryDraft = state.guideGalleryDraft.filter((image) => !state.guideGallerySelectedIds.has(image.id));
+  state.guideGallerySelectedIds = new Set();
+  renderGuideGallery();
+  toast(`已删除 ${selectedCount} 张照片`);
+});
+$("#guide-gallery-input").addEventListener("change", (event) => {
+  const files = [...event.currentTarget.files].filter((file) => file.type.startsWith("image/"));
+  if (!files.length) return;
+  let loaded = 0;
+  readFilesAsDataUrls(files, (dataUrl) => {
+    state.guideGalleryDraft.push({
+      id: `guide-gallery-${Date.now()}-${loaded}`,
+      cosKey: dataUrl,
+      sortOrder: state.guideGalleryDraft.length + 1
+    });
+    loaded += 1;
+    if (loaded === files.length) {
+      event.currentTarget.value = "";
+      renderGuideGallery();
+      toast(`已加入 ${files.length} 张照片`);
+    }
+  });
 });
 document.querySelectorAll("[data-close-description]").forEach((button) => {
   button.addEventListener("click", () => $("#description-dialog").close());
@@ -1966,6 +2239,7 @@ $("#activity-form").addEventListener("submit", async (event) => {
         leaderWechat: values.get("leaderWechat"),
         tagIds: values.getAll("tagIds"),
         guideIds: values.getAll("guideIds"),
+        images: state.activityGalleryDraft.map((image, index) => ({ id: image.id, cosKey: image.cosKey, sortOrder: index + 1 })),
         meetingLatitude: values.get("meetingLatitude") ? Number(values.get("meetingLatitude")) : null,
         meetingLongitude: values.get("meetingLongitude") ? Number(values.get("meetingLongitude")) : null,
         translations: { "zh-CN": { name: values.get("name"), summary: values.get("summary"), meetingPointName: values.get("meetingPointName"), descriptionHtml: state.descriptionDraft } }
@@ -1986,7 +2260,12 @@ $("#guide-form").addEventListener("submit", async (event) => {
   try {
     await request(state.editingGuideId ? `/api/guides/${state.editingGuideId}` : "/api/guides", {
       method: state.editingGuideId ? "PATCH" : "POST",
-      body: JSON.stringify({ name: values.get("name"), photoUrl: state.guidePhotoDraft, descriptionHtml: state.guideDescriptionDraft })
+      body: JSON.stringify({
+        name: values.get("name"),
+        photoUrl: state.guidePhotoDraft,
+        descriptionHtml: state.guideDescriptionDraft,
+        images: state.guideGalleryDraft.map((image, index) => ({ id: image.id, cosKey: image.cosKey, sortOrder: index + 1 }))
+      })
     });
     $("#guide-dialog").close();
     state.guides = await request("/api/guides");
