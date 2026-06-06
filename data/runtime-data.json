@@ -4572,20 +4572,28 @@
       "updatedAt": "2026-06-06T12:02:11.821Z"
     },
     {
-      "id": "53516146-b1ec-4c36-90d3-a9a9551dec85",
-      "guideId": "guide-xiaobai",
-      "date": "2026-06-07",
-      "status": "MORNING",
-      "updatedBy": "account-owner",
-      "updatedAt": "2026-06-06T12:03:58.051Z"
-    },
-    {
       "id": "9991adf1-09a2-4c92-8b91-c3d1b1753bb9",
       "guideId": "guide-xiaobai",
       "date": "2026-06-06",
       "status": "MORNING",
       "updatedBy": "account-owner",
       "updatedAt": "2026-06-06T12:04:00.465Z"
+    },
+    {
+      "id": "914cc909-1848-43a9-a6c8-29ca7eb55c26",
+      "guideId": "guide-xiaobai",
+      "date": "2026-06-08",
+      "status": "FULL",
+      "updatedBy": "account-guide-demo",
+      "updatedAt": "2026-06-06T12:26:06.663Z"
+    },
+    {
+      "id": "6f082ea3-130d-47f1-b938-379eb8054271",
+      "guideId": "guide-xiaobai",
+      "date": "2026-06-07",
+      "status": "MORNING",
+      "updatedBy": "account-guide-demo",
+      "updatedAt": "2026-06-06T12:26:18.059Z"
     }
   ],
   "guidePage": {
