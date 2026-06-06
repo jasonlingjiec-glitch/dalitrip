@@ -734,8 +734,16 @@ function renderFaqs() {
 
 const adminAccountId = () => "account-owner";
 const guideSlotLabels = { FREE: "空", MORNING: "上午", AFTERNOON: "下午", FULL: "全天" };
-const guideSlotNext = { FREE: "MORNING", MORNING: "AFTERNOON", AFTERNOON: "FULL", FULL: "FREE" };
 const guideSlotStatus = (guideId, date) => state.guideCalendar.availability.find((item) => item.guideId === guideId && item.date === date)?.status ?? "FREE";
+const guideSlotOccupied = (status, slot) => status === "FULL" || status === slot;
+const guideNextHalfStatus = (status, slot) => {
+  const morning = slot === "MORNING" ? !guideSlotOccupied(status, "MORNING") : guideSlotOccupied(status, "MORNING");
+  const afternoon = slot === "AFTERNOON" ? !guideSlotOccupied(status, "AFTERNOON") : guideSlotOccupied(status, "AFTERNOON");
+  if (morning && afternoon) return "FULL";
+  if (morning) return "MORNING";
+  if (afternoon) return "AFTERNOON";
+  return "FREE";
+};
 const guideDateLabel = (date) => {
   const [, month, day] = date.split("-");
   return `${month}/${day}`;
@@ -762,7 +770,7 @@ function renderGuideMarkCalendar() {
   const container = $("#guide-calendar-content");
   const { dates, guides } = state.guideCalendar;
   container.innerHTML = guides.length ? `
-    <div class="guide-calendar-help">点击日期按钮即可切换：空 → 上午 → 下午 → 全天 → 空。</div>
+    <div class="guide-calendar-help">每个日期分上午、下午两格，点击对应半天即可标记或取消占用。</div>
     <section class="guide-calendar-mark-list">
       ${guides.map((guide) => `
         <article class="guide-calendar-card">
@@ -776,11 +784,15 @@ function renderGuideMarkCalendar() {
           <div class="guide-calendar-day-grid">
             ${dates.map((date) => {
               const status = guideSlotStatus(guide.id, date);
-              return `<button class="guide-day-cell status-${status.toLowerCase()}" type="button" data-guide-availability="${guide.id}" data-guide-date="${date}" data-guide-status="${status}">
-                <strong>${guideDateLabel(date)}</strong>
-                <small>周${guideWeekLabel(date)}</small>
-                <span>${guideSlotLabels[status]}</span>
-              </button>`;
+              return `<article class="guide-day-cell status-${status.toLowerCase()}">
+                <header><strong>${guideDateLabel(date)}</strong><small>周${guideWeekLabel(date)}</small></header>
+                <button class="guide-half ${guideSlotOccupied(status, "MORNING") ? "occupied" : ""}" type="button" data-guide-availability="${guide.id}" data-guide-date="${date}" data-guide-status="${status}" data-guide-slot="MORNING">
+                  <b>上午</b><span>${guideSlotOccupied(status, "MORNING") ? "🔒 占用" : "空"}</span>
+                </button>
+                <button class="guide-half ${guideSlotOccupied(status, "AFTERNOON") ? "occupied" : ""}" type="button" data-guide-availability="${guide.id}" data-guide-date="${date}" data-guide-status="${status}" data-guide-slot="AFTERNOON">
+                  <b>下午</b><span>${guideSlotOccupied(status, "AFTERNOON") ? "🔒 占用" : "空"}</span>
+                </button>
+              </article>`;
             }).join("")}
           </div>
         </article>
@@ -812,7 +824,7 @@ function renderGuideFreeCalendar() {
 }
 
 async function updateGuideAvailability(button) {
-  const status = guideSlotNext[button.dataset.guideStatus] ?? "MORNING";
+  const status = guideNextHalfStatus(button.dataset.guideStatus ?? "FREE", button.dataset.guideSlot);
   button.disabled = true;
   try {
     state.guideCalendar = await request("/api/guide-calendar", {

@@ -113,17 +113,18 @@ select { min-width: 92px; padding: 8px 6px; border: 1px solid #e0e5e3; border-ra
 .manager-calendar-card header > span { display: grid; place-items: center; color: #fff; background: #55746b; font-weight: 700; }
 .manager-calendar-card h2 { font-size: 16px; }
 .manager-calendar-card p { margin-top: 4px; color: #7e8a86; font-size: 12px; }
-.manager-calendar-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
-.manager-guide-day { min-width: 0; min-height: 72px; padding: 7px 3px; display: grid; gap: 3px; place-items: center; border: 1px solid #dce2df; border-radius: 5px; color: #5f6b68; background: #fff; text-align: center; }
+.manager-calendar-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.manager-guide-day { min-width: 0; overflow: hidden; border: 1px solid #dce2df; border-radius: 5px; color: #5f6b68; background: #fff; text-align: center; }
+.manager-guide-day header { padding: 7px 5px 6px; display: grid; gap: 2px; background: #f8faf9; border-bottom: 1px solid #edf0ef; }
 .manager-guide-day strong { font-size: 13px; }
 .manager-guide-day small { color: #8a9592; font-size: 10px; }
-.manager-guide-day span { padding: 2px 6px; border-radius: 999px; font-size: 11px; }
-.manager-guide-day.status-free span { color: #66736f; background: #f4f6f5; }
-.manager-guide-day.status-morning { border-color: #ead197; background: #fff8df; }
-.manager-guide-day.status-afternoon { border-color: #a9dce9; background: #e8f7fb; }
-.manager-guide-day.status-full { border-color: #e4c3bd; background: #fff0ec; }
-.manager-guide-day.status-full span { color: #a9544e; background: #fff8f6; }
-.manager-guide-day:disabled { opacity: .68; cursor: wait; }
+.manager-guide-half { width: 100%; min-height: 40px; padding: 6px 5px; display: grid; grid-template-columns: 1fr auto; gap: 5px; align-items: center; border: 0; border-top: 1px solid #eef0ef; color: #65716d; background: #fff; text-align: left; }
+.manager-guide-half:first-of-type { border-top: 0; }
+.manager-guide-half b { font-size: 12px; }
+.manager-guide-half span { justify-self: end; padding: 2px 6px; border-radius: 999px; color: #6b7773; background: #f4f6f5; font-size: 11px; }
+.manager-guide-half.occupied { color: #8f3f39; background: #fff0ec; }
+.manager-guide-half.occupied span { color: #fff; background: #b85a50; }
+.manager-guide-half:disabled { opacity: .68; cursor: wait; }
 .manager-free-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
 .manager-free-day { min-width: 0; padding: 10px; border: 1px solid #e4e9e7; border-radius: 6px; background: #fff; }
 .manager-free-day header { display: flex; align-items: baseline; gap: 5px; margin-bottom: 7px; }

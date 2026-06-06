@@ -305,17 +305,18 @@ legend { padding: 0 4px; color: #5e6d68; font-size: 13px; }
 .guide-calendar-card header > span { display: grid; place-items: center; color: #fff; background: #263d36; }
 .guide-calendar-card h2 { font-family: "Songti SC", "STSong", Georgia, serif; font-size: 19px; font-weight: 400; line-height: 1.2; }
 .guide-calendar-card p { margin-top: 4px; color: #6f7673; font-size: 12px; }
-.guide-calendar-day-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(78px, 1fr)); gap: 7px; }
-.guide-day-cell { min-width: 0; min-height: 74px; padding: 8px 5px; display: grid; gap: 3px; place-items: center; border: 1px solid #d6d0c5; border-radius: 5px; color: #5f6865; background: rgba(255,255,255,.62); text-align: center; }
+.guide-calendar-day-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 7px; }
+.guide-day-cell { min-width: 0; overflow: hidden; border: 1px solid #d6d0c5; border-radius: 5px; color: #5f6865; background: rgba(255,255,255,.7); text-align: center; }
+.guide-day-cell header { padding: 7px 5px 6px; display: grid; gap: 2px; background: rgba(255,255,255,.62); border-bottom: 1px solid #e2ded6; }
 .guide-day-cell strong { font-size: 13px; }
 .guide-day-cell small { color: #8a918d; font-size: 10px; }
-.guide-day-cell span { padding: 2px 6px; border-radius: 999px; font-size: 11px; }
-.guide-day-cell.status-free span { color: #66736f; background: #fff; }
-.guide-day-cell.status-morning { border-color: #ead197; background: #fff8df; }
-.guide-day-cell.status-afternoon { border-color: #a9dce9; background: #e8f7fb; }
-.guide-day-cell.status-full { border-color: #e4c3bd; background: #fff0ec; }
-.guide-day-cell.status-full span { color: #a9544e; background: #fff8f6; }
-.guide-day-cell:disabled { opacity: .7; cursor: wait; }
+.guide-half { width: 100%; min-height: 42px; padding: 6px 5px; display: grid; grid-template-columns: 1fr auto; gap: 5px; align-items: center; border: 0; border-top: 1px solid #eee8df; color: #65716d; background: #fff; text-align: left; }
+.guide-half:first-of-type { border-top: 0; }
+.guide-half b { font-size: 12px; }
+.guide-half span { justify-self: end; padding: 2px 6px; border-radius: 999px; color: #6b7773; background: #f4f6f5; font-size: 11px; }
+.guide-half.occupied { color: #8f3f39; background: #fff0ec; }
+.guide-half.occupied span { color: #fff; background: #b85a50; }
+.guide-half:disabled { opacity: .72; cursor: wait; }
 .guide-free-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
 .guide-free-day { padding: 12px; border: 1px solid var(--admin-border); border-radius: 6px; background: var(--admin-card-bg); }
 .guide-free-day header { display: flex; align-items: baseline; gap: 7px; margin-bottom: 10px; }
