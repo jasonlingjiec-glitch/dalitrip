@@ -9,12 +9,128 @@ const timeOnly = (value) => String(value).slice(11, 16);
 const managerBody = (input = {}) => JSON.stringify({ ...input, adminAccountId: accountId });
 const managerPath = (path) => `${path}${path.includes("?") ? "&" : "?"}adminAccountId=${accountId}`;
 const htmlToText = (value) => String(value ?? "").replace(/<[^>]+>/g, "").trim();
+let staticDataPromise;
+
+const loadStaticData = async () => {
+  if (!staticDataPromise) {
+    staticDataPromise = fetch("../../data/runtime-data.json").then((response) => {
+      if (!response.ok) throw new Error("静态数据读取失败");
+      return response.json();
+    });
+  }
+  return staticDataPromise;
+};
+
+const parseBody = (options) => {
+  if (!options.body) return {};
+  try {
+    return JSON.parse(options.body);
+  } catch {
+    return {};
+  }
+};
+
+const localizedContent = (activity) => activity?.content ?? activity?.translations?.["zh-CN"] ?? activity?.translations?.en ?? {};
+const staticAccount = (data, id) => {
+  const account = data.adminAccounts.find((item) => item.id === id) ?? data.adminAccounts[0];
+  return account ? { ...account, groups: account.groupIds.map((groupId) => data.groups.find((group) => group.id === groupId)).filter(Boolean) } : null;
+};
+const staticPresentActivity = (activity, data) => ({
+  ...activity,
+  content: localizedContent(activity),
+  groupName: data.groups.find((group) => group.id === activity.groupId)?.name ?? "活动"
+});
+const staticPresentGuide = (guide, data) => ({
+  ...guide,
+  activities: data.activities
+    .filter((activity) => (activity.guideIds ?? []).includes(guide.id))
+    .map((activity) => ({ id: activity.id, name: localizedContent(activity).name, summary: localizedContent(activity).summary }))
+});
+const staticManagedGuideIds = (data, adminAccountId) => {
+  const account = staticAccount(data, adminAccountId);
+  const groupIds = account ? new Set(account.groupIds) : null;
+  return new Set(data.activities
+    .filter((activity) => !groupIds || groupIds.has(activity.groupId))
+    .flatMap((activity) => activity.guideIds ?? [])
+    .filter((guideId) => data.guides.some((guide) => guide.id === guideId)));
+};
+const staticCalendarDates = () => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(new Date()).reduce((result, part) => ({ ...result, [part.type]: part.value }), {});
+  const start = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day));
+  return Array.from({ length: 30 }, (_, index) => new Date(start + index * 86400000).toISOString().slice(0, 10));
+};
+const staticGuideCalendar = (data, adminAccountId) => {
+  const dates = staticCalendarDates();
+  const managedGuideIds = staticManagedGuideIds(data, adminAccountId);
+  return {
+    dates,
+    guides: data.guides.filter((guide) => managedGuideIds.has(guide.id)).map((guide) => staticPresentGuide(guide, data)),
+    availability: (data.guideAvailability ?? []).filter((item) => managedGuideIds.has(item.guideId) && dates.includes(item.date))
+  };
+};
+const staticOrder = (order, data) => {
+  const activity = data.activities.find((item) => item.id === order.activityId);
+  const slot = data.slots.find((item) => item.id === order.slotId);
+  const customer = data.customers.find((item) => item.id === order.customerId);
+  return {
+    ...order,
+    activityName: localizedContent(activity).name ?? "活动",
+    groupName: data.groups.find((group) => group.id === order.groupId)?.name ?? "活动",
+    startsAt: slot?.startsAt ?? order.createdAt,
+    endsAt: slot?.endsAt ?? order.createdAt,
+    customerNickname: customer?.profile?.nickname ?? "客人",
+    customerMobile: customer?.profile?.mobile ?? ""
+  };
+};
+
+async function staticRequest(path, options = {}) {
+  const data = await loadStaticData();
+  const url = new URL(path, "https://dalitrip.local");
+  const route = url.pathname;
+  const method = (options.method || "GET").toUpperCase();
+  const adminAccountId = url.searchParams.get("adminAccountId") || parseBody(options).adminAccountId || accountId;
+  const account = staticAccount(data, adminAccountId);
+
+  if (route === "/admin-accounts") return data.adminAccounts.map((item) => staticAccount(data, item.id));
+  if (route === "/groups") return data.groups;
+  if (route === "/tags") return data.tags;
+  if (route === "/guides") return data.guides.map((guide) => staticPresentGuide(guide, data));
+  if (route === "/notifications") return data.notifications ?? [];
+  if (route === "/orders") return data.orders.filter((order) => !account || account.groupIds.includes(order.groupId)).map((order) => staticOrder(order, data));
+  if (route === "/activities") return data.activities.filter((activity) => !account || account.groupIds.includes(activity.groupId)).map((activity) => staticPresentActivity(activity, data));
+  if (method === "GET" && route === "/guide-calendar") return staticGuideCalendar(data, adminAccountId);
+  if (method === "PATCH" && route === "/guide-calendar") {
+    const body = parseBody(options);
+    data.guideAvailability = (data.guideAvailability ?? []).filter((item) => !(item.guideId === body.guideId && item.date === body.date));
+    if (body.status !== "FREE") data.guideAvailability.push({ id: `demo-guide-${Date.now()}`, guideId: body.guideId, date: body.date, status: body.status, updatedBy: adminAccountId, updatedAt: new Date().toISOString() });
+    return staticGuideCalendar(data, adminAccountId);
+  }
+  if (/^\/activities\/[^/]+$/.test(route)) {
+    const activity = data.activities.find((item) => item.id === route.split("/")[2]);
+    if (!activity) throw new Error("活动不存在");
+    return staticPresentActivity(activity, data);
+  }
+  if (/^\/activities\/[^/]+\/schedule-rules$/.test(route)) return data.scheduleRules.filter((rule) => rule.activityId === route.split("/")[2]);
+  if (/^\/activities\/[^/]+\/slots$/.test(route)) return data.slots.filter((slot) => slot.activityId === route.split("/")[2]);
+  if (route === "/reviews") return data.reviews.filter((review) => !url.searchParams.get("activityId") || review.activityId === url.searchParams.get("activityId"));
+  throw new Error("静态演示暂不支持这个操作");
+}
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API}${path}`, { headers: { "content-type": "application/json" }, ...options });
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload.error?.message || "请求失败");
-  return payload.data;
+  try {
+    const response = await fetch(`${API}${path}`, { headers: { "content-type": "application/json" }, ...options });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error?.message || "请求失败");
+    return payload.data;
+  } catch (error) {
+    console.info("使用静态演示数据", path, error.message);
+    return staticRequest(path, options);
+  }
 }
 
 function statusLabel(status) {
