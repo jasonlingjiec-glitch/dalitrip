@@ -160,14 +160,51 @@ export function createApp(store = new MemoryStore()) {
       if (request.method === "DELETE" && parts[1] === "home-modules" && parts.length === 3) {
         return json(response, 200, { data: store.deleteHomeModule(parts[2]) });
       }
+      if (request.method === "GET" && parts[1] === "ai" && parts[2] === "settings" && parts.length === 3) {
+        return json(response, 200, { data: store.getAiSettings() });
+      }
+      if (request.method === "PATCH" && parts[1] === "ai" && parts[2] === "settings" && parts.length === 3) {
+        return json(response, 200, { data: store.updateAiSettings(await readJson(request)) });
+      }
+      if (request.method === "POST" && parts[1] === "ai" && parts[2] === "ask" && parts.length === 3) {
+        return json(response, 201, { data: store.askAi(await readJson(request)) });
+      }
+      if (request.method === "GET" && parts[1] === "ai" && parts[2] === "questions" && parts.length === 3) {
+        return json(response, 200, { data: store.listAiQuestions() });
+      }
+      if (request.method === "POST" && parts[1] === "ai" && parts[2] === "questions" && parts[4] === "faq" && parts.length === 5) {
+        return json(response, 201, { data: store.createFaqFromQuestion(parts[3]) });
+      }
+      if (request.method === "GET" && parts[1] === "faqs" && parts.length === 2) {
+        return json(response, 200, { data: store.listFaqs({ publishedOnly: url.searchParams.get("published") === "true" }) });
+      }
+      if (request.method === "POST" && parts[1] === "faqs" && parts.length === 2) {
+        return json(response, 201, { data: store.createFaq(await readJson(request)) });
+      }
+      if (request.method === "PATCH" && parts[1] === "faqs" && parts.length === 3) {
+        return json(response, 200, { data: store.updateFaq(parts[2], await readJson(request)) });
+      }
+      if (request.method === "DELETE" && parts[1] === "faqs" && parts.length === 3) {
+        return json(response, 200, { data: store.deleteFaq(parts[2]) });
+      }
       if (request.method === "POST" && parts[1] === "guides" && parts.length === 2) {
         return json(response, 201, { data: store.createGuide(await readJson(request)) });
+      }
+      if (request.method === "PATCH" && parts[1] === "guides" && parts[2] === "reorder" && parts.length === 3) {
+        return json(response, 200, { data: store.reorderGuides((await readJson(request)).ids) });
       }
       if (request.method === "PATCH" && parts[1] === "guides" && parts.length === 3) {
         return json(response, 200, { data: store.updateGuide(parts[2], await readJson(request)) });
       }
       if (request.method === "DELETE" && parts[1] === "guides" && parts.length === 3) {
         return json(response, 200, { data: store.deleteGuide(parts[2]) });
+      }
+      if (request.method === "GET" && parts[1] === "guide-calendar" && parts.length === 2) {
+        return json(response, 200, { data: store.listGuideCalendar({ adminAccountId: url.searchParams.get("adminAccountId") }) });
+      }
+      if (request.method === "PATCH" && parts[1] === "guide-calendar" && parts.length === 2) {
+        const { input, adminAccountId } = withAdminAccount(await readJson(request));
+        return json(response, 200, { data: store.setGuideAvailability(input, adminAccountId) });
       }
 
       if (request.method === "GET" && parts[1] === "activities" && parts.length === 2) {

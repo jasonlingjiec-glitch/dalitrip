@@ -8,10 +8,20 @@ const localized = (translations, locale = "zh-CN") =>
 
 export class MemoryStore {
   constructor(data = seedData) {
+    this.aiSettings = clone(data.aiSettings ?? {
+      provider: "deepseek",
+      model: "deepseek-chat",
+      monthlyBudgetCents: 30000,
+      knowledgeScope: "DATABASE_ONLY",
+      enabled: true
+    });
+    this.aiQuestions = clone(data.aiQuestions ?? []);
+    this.faqs = clone(data.faqs ?? []);
     this.groups = clone(data.groups);
     this.adminAccounts = clone(data.adminAccounts ?? []);
     this.tags = clone(data.tags);
     this.guides = clone(data.guides ?? []);
+    this.guideAvailability = clone(data.guideAvailability ?? []);
     this.guidePage = clone(data.guidePage ?? { introductionHtml: "" });
     this.topicPages = clone(data.topicPages ?? []);
     this.blogPosts = clone(data.blogPosts ?? []);
@@ -30,10 +40,14 @@ export class MemoryStore {
 
   snapshot() {
     return clone({
+      aiSettings: this.aiSettings,
+      aiQuestions: this.aiQuestions,
+      faqs: this.faqs,
       groups: this.groups,
       adminAccounts: this.adminAccounts,
       tags: this.tags,
       guides: this.guides,
+      guideAvailability: this.guideAvailability,
       guidePage: this.guidePage,
       topicPages: this.topicPages,
       blogPosts: this.blogPosts,
@@ -146,7 +160,10 @@ export class MemoryStore {
   }
 
   listGuides() {
-    return this.guides.map((guide) => this.#presentGuide(guide));
+    return this.guides
+      .map((guide, index) => ({ ...guide, sortOrder: Number.isFinite(guide.sortOrder) ? guide.sortOrder : index + 1 }))
+      .sort((left, right) => left.sortOrder - right.sortOrder)
+      .map((guide) => this.#presentGuide(guide));
   }
 
   getGuidePage() {
@@ -296,9 +313,103 @@ export class MemoryStore {
     return this.listHomeModules();
   }
 
+  getAiSettings() {
+    return clone(this.aiSettings);
+  }
+
+  updateAiSettings(input) {
+    const monthlyBudgetCents = input.monthlyBudgetCents === undefined
+      ? this.aiSettings.monthlyBudgetCents
+      : Number(input.monthlyBudgetCents);
+    assert(Number.isFinite(monthlyBudgetCents) && monthlyBudgetCents >= 0, 400, "预算金额不正确");
+    this.aiSettings = {
+      ...this.aiSettings,
+      provider: "deepseek",
+      model: input.model?.trim() || this.aiSettings.model || "deepseek-chat",
+      monthlyBudgetCents: Math.round(monthlyBudgetCents),
+      knowledgeScope: "DATABASE_ONLY",
+      enabled: typeof input.enabled === "boolean" ? input.enabled : this.aiSettings.enabled
+    };
+    return this.getAiSettings();
+  }
+
+  askAi(input) {
+    assert(this.aiSettings.enabled !== false, 400, "AI 活动助手已关闭");
+    const question = input.question?.trim();
+    assert(question, 400, "请先输入想咨询的问题");
+    assert(question.length <= 300, 400, "问题最多 300 字");
+    const tokens = this.#tokenizeQuestion(question);
+    const recommendations = this.activities
+      .filter((activity) => activity.schedulePaused !== true)
+      .map((activity) => ({ activity, score: this.#scoreActivity(activity, tokens) }))
+      .filter((item) => item.score > 0)
+      .sort((left, right) => right.score - left.score)
+      .slice(0, 3)
+      .map(({ activity }) => this.#presentAiRecommendation(activity, tokens));
+    const fallback = recommendations.length ? recommendations : this.activities
+      .filter((activity) => activity.schedulePaused !== true)
+      .slice(0, 3)
+      .map((activity) => this.#presentAiRecommendation(activity, tokens));
+    const record = {
+      id: randomUUID(),
+      question,
+      answer: this.#buildAiAnswer(fallback),
+      recommendations: fallback,
+      extractedNeeds: tokens,
+      source: "DATABASE_ONLY",
+      model: this.aiSettings.model,
+      customerId: input.customerId?.trim() ?? "",
+      createdAt: new Date().toISOString(),
+      faqId: null
+    };
+    this.aiQuestions.unshift(record);
+    return clone(record);
+  }
+
+  listAiQuestions() {
+    return clone(this.aiQuestions);
+  }
+
+  createFaqFromQuestion(questionId) {
+    const question = this.aiQuestions.find((item) => item.id === questionId);
+    assert(question, 404, "问答记录不存在");
+    const faq = this.createFaq({ question: question.question, answer: question.answer, published: true });
+    question.faqId = faq.id;
+    return faq;
+  }
+
+  listFaqs({ publishedOnly = false } = {}) {
+    const items = publishedOnly ? this.faqs.filter((faq) => faq.published !== false) : this.faqs;
+    return items.slice().sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)).map((faq) => this.#presentFaq(faq));
+  }
+
+  createFaq(input) {
+    const fields = this.#validateFaqInput(input);
+    const now = new Date().toISOString();
+    const faq = { id: randomUUID(), ...fields, createdAt: now, updatedAt: now };
+    this.faqs.push(faq);
+    return this.#presentFaq(faq);
+  }
+
+  updateFaq(id, input) {
+    const faq = this.faqs.find((item) => item.id === id);
+    assert(faq, 404, "FAQ 不存在");
+    Object.assign(faq, this.#validateFaqInput({ ...faq, ...input }), { updatedAt: new Date().toISOString() });
+    return this.#presentFaq(faq);
+  }
+
+  deleteFaq(id) {
+    const faq = this.faqs.find((item) => item.id === id);
+    assert(faq, 404, "FAQ 不存在");
+    this.faqs = this.faqs.filter((item) => item.id !== id);
+    this.aiQuestions.forEach((question) => { if (question.faqId === id) question.faqId = null; });
+    return this.#presentFaq(faq);
+  }
+
   createGuide(input) {
     const fields = this.#validateGuideInput(input);
-    const guide = { id: randomUUID(), ...fields };
+    const maxSortOrder = Math.max(0, ...this.guides.map((guide, index) => Number.isFinite(guide.sortOrder) ? guide.sortOrder : index + 1));
+    const guide = { id: randomUUID(), sortOrder: maxSortOrder + 1, ...fields };
     this.guides.push(guide);
     return this.#presentGuide(guide);
   }
@@ -309,12 +420,62 @@ export class MemoryStore {
     return this.#presentGuide(guide);
   }
 
+  reorderGuides(ids) {
+    assert(Array.isArray(ids), 400, "领队排序格式无效");
+    const uniqueIds = [...new Set(ids)];
+    assert(uniqueIds.length === this.guides.length, 400, "领队排序数量不一致");
+    uniqueIds.forEach((id) => this.#requireGuide(id));
+    uniqueIds.forEach((id, index) => {
+      this.#requireGuide(id).sortOrder = index + 1;
+    });
+    return this.listGuides();
+  }
+
   deleteGuide(id) {
     const guide = this.#requireGuide(id);
-    const linkedActivities = this.activities.filter((activity) => (activity.guideIds ?? []).includes(id));
-    assert(linkedActivities.length === 0, 409, "这个领队还关联着活动，请先从相关活动中移除后再删除");
+    this.activities.forEach((activity) => {
+      activity.guideIds = (activity.guideIds ?? []).filter((guideId) => guideId !== id);
+    });
+    this.guideAvailability = this.guideAvailability.filter((item) => item.guideId !== id);
     this.guides = this.guides.filter((item) => item.id !== id);
-    return clone(guide);
+    return this.#presentGuide({ ...guide, activities: [] });
+  }
+
+  listGuideCalendar({ adminAccountId } = {}) {
+    const dates = this.#guideCalendarDates();
+    const managedGuideIds = this.#managedGuideIds(adminAccountId);
+    const availability = this.guideAvailability
+      .filter((item) => managedGuideIds.has(item.guideId) && dates.includes(item.date))
+      .map((item) => clone(item));
+    return {
+      dates,
+      guides: this.listGuides().filter((guide) => managedGuideIds.has(guide.id)),
+      availability
+    };
+  }
+
+  setGuideAvailability(input, adminAccountId) {
+    const guideId = input.guideId?.trim();
+    const date = input.date?.trim();
+    const status = input.status?.trim() || "FREE";
+    assert(guideId, 400, "请选择领队");
+    assert(date, 400, "请选择日期");
+    this.#requireGuide(guideId);
+    assert(this.#managedGuideIds(adminAccountId).has(guideId), 403, "不能标记不在管理范围内的领队");
+    assert(this.#guideCalendarDates().includes(date), 400, "只能标记接下来 30 天内的时间");
+    assert(["FREE", "MORNING", "AFTERNOON", "FULL"].includes(status), 400, "领队时间状态无效");
+    this.guideAvailability = this.guideAvailability.filter((item) => !(item.guideId === guideId && item.date === date));
+    if (status !== "FREE") {
+      this.guideAvailability.push({
+        id: randomUUID(),
+        guideId,
+        date,
+        status,
+        updatedBy: adminAccountId ?? "account-owner",
+        updatedAt: new Date().toISOString()
+      });
+    }
+    return this.listGuideCalendar({ adminAccountId });
   }
 
   listActivities({ locale = "zh-CN", tagIds = [], adminAccountId } = {}) {
@@ -1028,6 +1189,31 @@ export class MemoryStore {
     this.#assertAdminAccountCanAccessGroup(accountId, this.#requireActivity(activityId).groupId);
   }
 
+  #guideCalendarDates() {
+    const bangkokParts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Bangkok",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }).formatToParts(new Date()).reduce((parts, part) => ({ ...parts, [part.type]: part.value }), {});
+    const start = Date.UTC(Number(bangkokParts.year), Number(bangkokParts.month) - 1, Number(bangkokParts.day));
+    const dates = [];
+    for (let index = 0; index < 30; index += 1) {
+      const date = new Date(start + index * 24 * 60 * 60 * 1000);
+      dates.push(date.toISOString().slice(0, 10));
+    }
+    return dates;
+  }
+
+  #managedGuideIds(adminAccountId) {
+    const account = adminAccountId ? this.#requireEnabledAdminAccount(adminAccountId) : null;
+    const groupIds = account ? new Set(account.groupIds) : null;
+    return new Set(this.activities
+      .filter((activity) => !groupIds || groupIds.has(activity.groupId))
+      .flatMap((activity) => activity.guideIds ?? [])
+      .filter((guideId) => this.guides.some((guide) => guide.id === guideId)));
+  }
+
   #presentCustomer(customer) {
     return clone({
       ...customer,
@@ -1045,6 +1231,69 @@ export class MemoryStore {
   #presentNotification(notification) {
     const activity = this.#requireActivity(notification.activityId);
     return clone({ ...notification, activityName: localized(activity.translations).name });
+  }
+
+  #presentFaq(faq) {
+    return clone(faq);
+  }
+
+  #validateFaqInput(input) {
+    assert(input.question?.trim(), 400, "FAQ 问题不能为空");
+    assert(input.answer?.trim(), 400, "FAQ 回答不能为空");
+    return {
+      question: input.question.trim(),
+      answer: input.answer.trim(),
+      published: input.published !== false,
+      sortOrder: Number.isFinite(Number(input.sortOrder)) ? Number(input.sortOrder) : this.faqs.length + 1
+    };
+  }
+
+  #tokenizeQuestion(question) {
+    return [...new Set(String(question ?? "").toLowerCase().match(/[\p{Script=Han}A-Za-z0-9]+/gu) ?? [])]
+      .map((token) => token.trim())
+      .filter((token) => token.length >= 2)
+      .slice(0, 14);
+  }
+
+  #activityAiBlob(activity) {
+    const content = localized(activity.translations);
+    const group = this.groups.find((item) => item.id === activity.groupId)?.name ?? "";
+    const tags = (activity.tagIds ?? []).map((tagId) => localized(this.tags.find((tag) => tag.id === tagId)?.translations ?? {})).join(" ");
+    const guides = (activity.guideIds ?? []).map((guideId) => this.guides.find((guide) => guide.id === guideId)?.name ?? "").join(" ");
+    return [content.name, content.summary, content.meetingPointName, content.suitableAge, content.descriptionHtml?.replace(/<[^>]+>/g, " "), activity.leaderWechat, group, tags, guides].join(" ").toLowerCase();
+  }
+
+  #scoreActivity(activity, tokens) {
+    if (!tokens.length) return 1;
+    const blob = this.#activityAiBlob(activity);
+    return tokens.reduce((score, token) => score + (blob.includes(token) ? 2 : 0), 0);
+  }
+
+  #activityCover(activity) {
+    const image = (activity.images ?? []).slice().sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))[0];
+    return activity.coverUrl || image?.url || image?.cosKey || "";
+  }
+
+  #presentAiRecommendation(activity, tokens) {
+    const content = localized(activity.translations);
+    const matchedTags = (activity.tagIds ?? [])
+      .map((tagId) => this.tags.find((tag) => tag.id === tagId))
+      .filter(Boolean)
+      .map((tag) => localized(tag.translations))
+      .filter((name) => tokens.length === 0 || tokens.some((token) => name.toLowerCase().includes(token)));
+    return {
+      activityId: activity.id,
+      name: content.name,
+      summary: content.summary,
+      coverUrl: this.#activityCover(activity),
+      matchedTags,
+      reason: matchedTags.length ? `匹配 ${matchedTags.slice(0, 3).join("、")}` : (content.summary || "当前活动库中的可选活动")
+    };
+  }
+
+  #buildAiAnswer(recommendations) {
+    if (!recommendations.length) return "我只根据当前活动库回答：暂时没有找到特别匹配的活动，可以换一个日期或减少条件再试。";
+    return `我只根据当前活动库帮你筛选。可以优先看看：${recommendations.map((item, index) => `${index + 1}. ${item.name}`).join("；")}。`;
   }
 
   #presentTopicPage(page) {
@@ -1069,6 +1318,7 @@ export class MemoryStore {
     return clone({
       ...post,
       summary,
+      tags: this.#normalizeBlogTags(post.tags),
       comments: includeComments
         ? this.blogComments
           .filter((comment) => comment.postId === post.id && !comment.hidden)
@@ -1273,15 +1523,28 @@ export class MemoryStore {
     assert(input.contentHtml?.trim(), 400, "文章正文不能为空");
     const publishedAt = input.publishedAt ? new Date(input.publishedAt) : new Date();
     assert(!Number.isNaN(publishedAt.getTime()), 400, "发布时间无效");
+    const tags = this.#normalizeBlogTags(input.tags);
     return {
       title: input.title.trim(),
       slug: input.slug.trim(),
       coverUrl: input.coverUrl?.trim() ?? "",
       summary: input.summary?.trim() ?? "",
       contentHtml: input.contentHtml ?? "",
+      tags,
       publishedAt: publishedAt.toISOString(),
       published: input.published !== false
     };
+  }
+
+  #normalizeBlogTags(value) {
+    const rawTags = Array.isArray(value)
+      ? value
+      : String(value ?? "").split(/[,，、\n]/);
+    const tags = rawTags
+      .map((tag) => String(tag ?? "").trim())
+      .filter(Boolean)
+      .map((tag) => tag.slice(0, 40));
+    return [...new Set(tags)].slice(0, 20);
   }
 
   #validateBlogCommentInput(input) {

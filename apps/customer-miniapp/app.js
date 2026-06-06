@@ -1,7 +1,7 @@
 const API = "http://localhost:3000/api";
 const CUSTOMER_ID = "customer-demo";
 const cover = "https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=700&q=85";
-const state = { activities: [], tags: [], guides: [], guidePage: { introductionHtml: "" }, topicPages: [], topicPage: null, blogPosts: [], blogPost: null, homeEntries: [], homeModules: [], homeReviews: [], upcomingSlots: [], selectedTags: [], bookingDate: "", bookingTags: [], bookingSearch: "", bookingActivities: [], activity: null, activityDate: "", activityDateAvailability: [], slots: [], reviews: [], relatedActivities: [], reviewImages: [], reviewVideo: "", bookingSlot: null, orders: [], cancellingOrderId: null, replyingReviewId: null };
+const state = { activities: [], tags: [], guides: [], guidePage: { introductionHtml: "" }, topicPages: [], topicPage: null, blogPosts: [], blogPost: null, homeEntries: [], homeModules: [], homeReviews: [], upcomingSlots: [], selectedTags: [], bookingDate: "", bookingTags: [], bookingSearch: "", bookingActivities: [], aiGuide: null, activity: null, activityDate: "", activityDateAvailability: [], slots: [], reviews: [], relatedActivities: [], reviewImages: [], reviewVideo: "", bookingSlot: null, orders: [], cancellingOrderId: null, replyingReviewId: null };
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (character) => ({
   "&": "&amp;",
@@ -94,6 +94,61 @@ const orderWithDetails = (order, data) => {
     meetingLongitude: activity?.meetingLongitude
   };
 };
+const staticAiQuestionTokens = (question) => [...new Set(String(question ?? "").toLowerCase().match(/[\p{Script=Han}A-Za-z0-9]+/gu) ?? [])]
+  .filter((token) => token.length >= 2)
+  .slice(0, 14);
+const staticAiBlob = (activity) => [
+  activity.content?.name,
+  activity.content?.summary,
+  plainText(activity.content?.descriptionHtml),
+  activity.content?.meetingPointName,
+  activity.content?.suitableAge,
+  activity.leaderWechat,
+  activity.groupName,
+  activityTags(activity).map((tag) => tag.name).join(" "),
+  (activity.guides ?? []).map((guide) => guide.name).join(" ")
+].join(" ").toLowerCase();
+const staticAiScore = (activity, tokens) => tokens.length ? tokens.reduce((score, token) => score + (staticAiBlob(activity).includes(token) ? 2 : 0), 0) : 1;
+const staticAiCover = (activity) => activity?.coverUrl || activityImageUrl(activity?.images?.[0]) || cover;
+const staticAiRecommendation = (activity, tokens) => ({
+  activityId: activity.id,
+  name: activity.content?.name ?? "活动",
+  summary: activity.content?.summary ?? "",
+  coverUrl: staticAiCover(activity),
+  matchedTags: activityTags(activity).map((tag) => tag.name).filter((name) => tokens.length === 0 || tokens.some((token) => String(name).toLowerCase().includes(token))),
+  reason: activity.content?.summary || "当前活动库中的可选活动"
+});
+const staticAiAsk = (data, body) => {
+  const question = body.question?.trim();
+  if (!question) throw new Error("请先输入想咨询的问题");
+  const tokens = staticAiQuestionTokens(question);
+  const activities = data.activities.map((activity) => withActivityContent(activity, data)).filter((activity) => activity.schedulePaused !== true);
+  const recommendations = activities
+    .map((activity) => ({ activity, score: staticAiScore(activity, tokens) }))
+    .filter((item) => item.score > 0)
+    .sort((left, right) => right.score - left.score)
+    .slice(0, 3)
+    .map(({ activity }) => staticAiRecommendation(activity, tokens));
+  const fallback = recommendations.length ? recommendations : activities.slice(0, 3).map((activity) => staticAiRecommendation(activity, tokens));
+  const answer = fallback.length
+    ? `我只根据当前活动库帮你筛选。可以优先看看：${fallback.map((item, index) => `${index + 1}. ${item.name}`).join("；")}。`
+    : "我只根据当前活动库回答：暂时没有找到特别匹配的活动，可以换一个日期或减少条件再试。";
+  const record = {
+    id: `demo-ai-${Date.now()}`,
+    question,
+    answer,
+    recommendations: fallback,
+    extractedNeeds: tokens,
+    source: "DATABASE_ONLY",
+    model: data.aiSettings?.model ?? "deepseek-chat",
+    customerId: body.customerId ?? CUSTOMER_ID,
+    createdAt: new Date().toISOString(),
+    faqId: null
+  };
+  data.aiQuestions ??= [];
+  data.aiQuestions.unshift(record);
+  return record;
+};
 async function staticRequest(path, options = {}) {
   const data = await loadStaticData();
   const url = new URL(path, "https://dalitrip.local");
@@ -175,9 +230,12 @@ async function staticRequest(path, options = {}) {
     data.blogComments.unshift(comment);
     return comment;
   }
+  if (method === "POST" && route === "/ai/ask") return staticAiAsk(data, parseBody(options));
 
   if (route === "/tags") return data.tags;
   if (route === "/guides") return data.guides;
+  if (route === "/ai/questions") return data.aiQuestions ?? [];
+  if (route === "/faqs") return staticLimit(publishedOnly(data.faqs ?? [], params), params);
   if (route === "/guide-page") return data.guidePage;
   if (route === "/home-entries") return staticLimit(publishedOnly(data.homeEntries, params).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)), params);
   if (route === "/home-modules") return staticLimit(publishedOnly(data.homeModules, params).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)), params);
@@ -485,18 +543,34 @@ function renderTopicPages() {
   }));
 }
 
-function renderBlogCard(post) {
+function renderBlogCard(post, dataAttribute = "data-blog-post") {
   const dateText = formatBlogDate(post.publishedAt);
+  const tags = renderBlogTags(post.tags);
   return `
-    <button class="blog-card" data-blog-post="${escapeHtml(post.slug)}">
+    <button class="blog-card" ${dataAttribute}="${escapeHtml(post.slug)}">
       ${post.coverUrl ? `<img src="${escapeHtml(post.coverUrl)}" alt="${escapeHtml(post.title)}" />` : ""}
       <span>
         <strong>${escapeHtml(post.title)}</strong>
         ${dateText ? `<time>${dateText}</time>` : ""}
+        ${tags}
         <small>${escapeHtml(blogSummary(post))}</small>
       </span>
     </button>
   `;
+}
+
+function renderBlogTags(tags = []) {
+  if (!Array.isArray(tags) || !tags.length) return "";
+  return `<div class="blog-tags">${tags.map((tag) => `<em>${escapeHtml(tag)}</em>`).join("")}</div>`;
+}
+
+function normalizeTagName(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function blogPostsForGuide(guide) {
+  const guideName = normalizeTagName(guide.name);
+  return state.blogPosts.filter((post) => (post.tags ?? []).some((tag) => normalizeTagName(tag) === guideName));
 }
 
 function bindBlogCards() {
@@ -508,6 +582,56 @@ function bindBlogCards() {
 function renderBlogPreview() {
   $("#blog-preview-list").innerHTML = state.blogPosts.slice(0, 4).map(renderBlogCard).join("") || `<div class="empty">生活记录正在整理中。</div>`;
   bindBlogCards();
+}
+
+function renderAiGuideResult(result = state.aiGuide) {
+  const container = $("#ai-guide-result");
+  if (!container) return;
+  if (!result) {
+    container.hidden = true;
+    container.innerHTML = "";
+    return;
+  }
+  container.hidden = false;
+  container.innerHTML = `
+    <p>${escapeHtml(result.answer)}</p>
+    <div class="ai-guide-recommendations">
+      ${(result.recommendations ?? []).map((item) => `
+        <button type="button" data-ai-activity="${escapeHtml(item.activityId)}">
+          <img src="${escapeHtml(item.coverUrl || cover)}" alt="${escapeHtml(item.name)}" />
+          <span>
+            <strong>${escapeHtml(item.name)}</strong>
+            <em>${escapeHtml(item.reason || item.summary || "")}</em>
+          </span>
+        </button>
+      `).join("")}
+    </div>
+  `;
+  container.querySelectorAll("[data-ai-activity]").forEach((button) => {
+    button.addEventListener("click", () => openActivity(button.dataset.aiActivity));
+  });
+}
+
+async function askAiGuide(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const question = new FormData(form).get("question")?.trim();
+  if (!question) return toast("先告诉我你想找什么活动");
+  const button = form.querySelector("button");
+  button.disabled = true;
+  button.textContent = "正在查找";
+  try {
+    state.aiGuide = await request("/ai/ask", {
+      method: "POST",
+      body: JSON.stringify({ question, customerId: CUSTOMER_ID })
+    });
+    renderAiGuideResult();
+  } catch (error) {
+    toast(error.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = "帮我找活动";
+  }
 }
 
 function openBlogList() {
@@ -532,6 +656,7 @@ function renderBlogDetail() {
     <section class="blog-detail-copy">
       <h1>${escapeHtml(post.title)}</h1>
       ${dateText ? `<time>${dateText}</time>` : ""}
+      ${renderBlogTags(post.tags)}
       <div class="blog-content">${post.contentHtml}</div>
     </section>
     <section class="blog-comments">
@@ -1036,12 +1161,15 @@ function renderImagePreview() {
 
 async function openGuide(guideId) {
   if (!state.guides.length) state.guides = await request("/guides");
+  if (!state.blogPosts.length) state.blogPosts = await request("/blog-posts?published=true");
   const guide = state.guides.find((item) => item.id === guideId);
+  if (!guide) return;
   const guideImages = (guide.images ?? [])
     .slice()
     .sort((left, right) => (left.sortOrder ?? 0) - (right.sortOrder ?? 0))
     .map(activityImageUrl)
     .filter(Boolean);
+  const guideBlogPosts = blogPostsForGuide(guide).slice(0, 4);
   $("#guide-profile").innerHTML = `
     <header><h2>${escapeHtml(guide.name)}</h2><button data-close-guide aria-label="关闭">×</button></header>
     ${guide.photoUrl ? `<img src="${escapeHtml(guide.photoUrl)}" alt="${escapeHtml(guide.name)}" />` : ""}
@@ -1064,12 +1192,28 @@ async function openGuide(guideId) {
         </button>
       `).join("") || `<p>暂时没有关联活动。</p>`}
     </div>
+    <section class="guide-blog-section">
+      <div class="blog-preview-heading guide-blog-heading">
+        <div>
+          <p>DALI LIFE</p>
+          <h2>${escapeHtml(guide.name)}的故事</h2>
+        </div>
+        <span>${guideBlogPosts.length} 篇</span>
+      </div>
+      <div class="blog-preview-list guide-blog-list">
+        ${guideBlogPosts.map((post) => renderBlogCard(post, "data-guide-blog-post")).join("") || `<div class="empty">还没有带「${escapeHtml(guide.name)}」标签的文章。</div>`}
+      </div>
+    </section>
   `;
   $("#guide-profile [data-close-guide]").addEventListener("click", () => $("#guide-dialog").close());
   document.querySelectorAll("[data-guide-image-index]").forEach((button) => button.addEventListener("click", () => openImagePreview(guideImages, Number(button.dataset.guideImageIndex))));
   document.querySelectorAll("[data-guide-activity]").forEach((button) => button.addEventListener("click", async () => {
     $("#guide-dialog").close();
     await openActivity(button.dataset.guideActivity);
+  }));
+  document.querySelectorAll("[data-guide-blog-post]").forEach((button) => button.addEventListener("click", async () => {
+    $("#guide-dialog").close();
+    await openBlogPost(button.dataset.guideBlogPost);
   }));
   $("#guide-dialog").showModal();
 }
@@ -1300,6 +1444,7 @@ $("#reply-form").addEventListener("submit", async (event) => {
     toast(error.message);
   }
 });
+$("#ai-guide-form")?.addEventListener("submit", askAiGuide);
 $("#cancel-booking-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   try {

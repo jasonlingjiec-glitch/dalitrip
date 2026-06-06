@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dali Trip 管理小程序</title>
-    <link rel="stylesheet" href="./styles.css?v=14" />
+    <link rel="stylesheet" href="./styles.css?v=18" />
   </head>
   <body>
     <main>
@@ -93,6 +93,7 @@
         </section>
         <section class="profile-tools">
           <button id="open-manager-guides"><span>♟</span><strong>领队库</strong><small>查看和编辑领队档案</small></button>
+          <button id="open-manager-guide-calendar"><span>◷</span><strong>领队日历</strong><small>标记上午、下午或全天占用</small></button>
         </section>
       </section>
 
@@ -107,11 +108,32 @@
         </header>
         <section id="manager-guide-list" class="manager-guide-list"></section>
       </section>
+
+      <section id="guide-calendar-view" class="view" hidden>
+        <header class="simple-header guide-page-header">
+          <button id="back-calendar-to-profile" class="back-button" aria-label="返回我的">‹</button>
+          <div>
+            <p>GUIDE AVAILABILITY</p>
+            <h1>领队日历</h1>
+          </div>
+        </header>
+        <nav class="guide-calendar-tabs" aria-label="领队日历视图">
+          <button class="active" type="button" data-manager-guide-calendar-mode="mark">标记占用</button>
+          <button type="button" data-manager-guide-calendar-mode="free">查看空闲</button>
+        </nav>
+        <nav class="guide-calendar-filters" aria-label="领队筛选">
+          <button class="active" type="button" data-manager-guide-calendar-filter="all">全部</button>
+          <button type="button" data-manager-guide-calendar-filter="mine">只看我</button>
+          <button type="button" data-manager-guide-calendar-filter="available">有空领队</button>
+        </nav>
+        <section id="manager-guide-calendar-content" class="manager-guide-calendar-content"></section>
+      </section>
     </main>
 
     <nav class="bottom-nav">
       <button class="active" data-view="workbench"><span>▣</span>工作台</button>
       <button data-view="activities"><span>▦</span>活动</button>
+      <button data-view="guide-calendar"><span>◷</span>日历</button>
       <button data-view="profile"><span>▤</span>我的</button>
     </nav>
 
@@ -303,6 +325,6 @@
     </dialog>
 
     <div id="toast" class="toast" hidden></div>
-    <script type="module" src="./app.js?v=15"></script>
+    <script type="module" src="./app.js?v=19"></script>
   </body>
 </html>

@@ -1,4 +1,23 @@
 export const seedData = {
+  aiSettings: {
+    provider: "deepseek",
+    model: "deepseek-chat",
+    monthlyBudgetCents: 30000,
+    knowledgeScope: "DATABASE_ONLY",
+    enabled: true
+  },
+  aiQuestions: [],
+  faqs: [
+    {
+      id: "faq-ai-first-trip",
+      question: "第一次来大理，怎么选活动？",
+      answer: "可以先告诉活动助手你的同行人、体力、想看森林还是水边，以及可出行日期。它会只根据当前活动库推荐。",
+      published: true,
+      sortOrder: 10,
+      createdAt: "2026-06-06T00:00:00.000Z",
+      updatedAt: "2026-06-06T00:00:00.000Z"
+    }
+  ],
   groups: [
     { id: "group-hiking", name: "徒步组" },
     { id: "group-craft", name: "手作组" },

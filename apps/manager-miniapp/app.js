@@ -1,6 +1,6 @@
 const API = "http://localhost:3000/api";
 const accountId = new URLSearchParams(location.search).get("accountId") || "account-guide-demo";
-const state = { account: null, groups: [], tags: [], guides: [], activities: [], orders: [], reviews: [], notifications: [], activeTab: "active", activeView: "workbench", cancellingOrderId: null, editingActivityId: null, editingMeetingPoint: null, editingGuideId: null, guidePhotoDraft: "", guideDescriptionHtmlDraft: "", guideDescriptionTextOriginal: "", scheduleActivity: null, scheduleRules: [], restDays: [], specialSlots: [], activeScheduleTab: "regular", editingRuleId: null, replyingReviewId: null, specialDraftRows: [], specialExistingSlots: [], savingSpecialDay: false };
+const state = { account: null, groups: [], tags: [], guides: [], activities: [], orders: [], reviews: [], notifications: [], guideCalendar: { dates: [], guides: [], availability: [] }, guideCalendarMode: "mark", guideCalendarFilter: "all", activeTab: "active", activeView: "workbench", cancellingOrderId: null, editingActivityId: null, editingMeetingPoint: null, editingGuideId: null, guidePhotoDraft: "", guideDescriptionHtmlDraft: "", guideDescriptionTextOriginal: "", scheduleActivity: null, scheduleRules: [], restDays: [], specialSlots: [], activeScheduleTab: "regular", editingRuleId: null, replyingReviewId: null, specialDraftRows: [], specialExistingSlots: [], savingSpecialDay: false };
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 const yuan = (cents) => `¥${(cents / 100).toFixed(cents % 100 ? 2 : 0)}`;
@@ -125,6 +125,119 @@ function renderManagerGuides() {
     </article>
   `).join("") || `<div class="empty">还没有领队档案</div>`;
   document.querySelectorAll("[data-edit-manager-guide]").forEach((button) => button.addEventListener("click", () => openManagerGuide(state.guides.find((guide) => guide.id === button.dataset.editManagerGuide))));
+}
+
+const guideSlotLabels = { FREE: "空", MORNING: "上午", AFTERNOON: "下午", FULL: "全天" };
+const guideSlotNext = { FREE: "MORNING", MORNING: "AFTERNOON", AFTERNOON: "FULL", FULL: "FREE" };
+const guideSlotStatus = (guideId, date) => state.guideCalendar.availability.find((item) => item.guideId === guideId && item.date === date)?.status ?? "FREE";
+const currentAccountGuide = () => state.guideCalendar.guides.find((guide) => guide.name === state.account?.displayName) ?? null;
+const guideHasOpenSlot = (guide) => state.guideCalendar.dates.some((date) => guideSlotStatus(guide.id, date) !== "FULL");
+const visibleCalendarGuides = () => {
+  if (state.guideCalendarFilter === "mine") {
+    const guide = currentAccountGuide();
+    return guide ? [guide] : [];
+  }
+  if (state.guideCalendarFilter === "available") return state.guideCalendar.guides.filter(guideHasOpenSlot);
+  return state.guideCalendar.guides;
+};
+const guideDateLabel = (date) => {
+  const [, month, day] = date.split("-");
+  return `${month}/${day}`;
+};
+const guideWeekLabel = (date) => {
+  const [year, month, day] = date.split("-").map(Number);
+  return "日一二三四五六"[new Date(Date.UTC(year, month - 1, day, 12)).getUTCDay()];
+};
+
+async function loadManagerGuideCalendar() {
+  state.guideCalendar = await request(managerPath("/guide-calendar"));
+  renderManagerGuideCalendar();
+}
+
+function renderManagerGuideCalendar() {
+  document.querySelectorAll("[data-manager-guide-calendar-mode]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.managerGuideCalendarMode === state.guideCalendarMode);
+  });
+  document.querySelectorAll("[data-manager-guide-calendar-filter]").forEach((button) => {
+    const filter = button.dataset.managerGuideCalendarFilter;
+    button.classList.toggle("active", filter === state.guideCalendarFilter);
+    if (filter === "mine") button.disabled = !currentAccountGuide();
+  });
+  if (state.guideCalendarMode === "free") return renderManagerGuideFreeCalendar();
+  return renderManagerGuideMarkCalendar();
+}
+
+function renderManagerGuideMarkCalendar() {
+  const { dates } = state.guideCalendar;
+  const guides = visibleCalendarGuides();
+  $("#manager-guide-calendar-content").innerHTML = guides.length ? `
+    <div class="manager-guide-calendar-help">点击日期：空 → 上午 → 下午 → 全天 → 空。</div>
+    <section class="manager-guide-calendar-list">
+      ${guides.map((guide) => `
+        <article class="manager-calendar-card">
+          <header>
+            ${guide.photoUrl ? `<img src="${escapeHtml(guide.photoUrl)}" alt="${escapeHtml(guide.name)}" />` : `<span>${escapeHtml(guide.name.slice(0, 1))}</span>`}
+            <div>
+              <h2>${escapeHtml(guide.name)}</h2>
+              <p>${guide.activities.length} 条相关路线</p>
+            </div>
+          </header>
+          <div class="manager-calendar-grid">
+            ${dates.map((date) => {
+              const status = guideSlotStatus(guide.id, date);
+              return `<button class="manager-guide-day status-${status.toLowerCase()}" type="button" data-manager-guide-availability="${guide.id}" data-manager-guide-date="${date}" data-manager-guide-status="${status}">
+                <strong>${guideDateLabel(date)}</strong>
+                <small>周${guideWeekLabel(date)}</small>
+                <span>${guideSlotLabels[status]}</span>
+              </button>`;
+            }).join("")}
+          </div>
+        </article>
+      `).join("")}
+    </section>
+  ` : `<div class="empty">${state.guideCalendarFilter === "mine" ? "当前账号还没有匹配到同名领队档案。" : "暂无符合条件的领队。"}</div>`;
+  document.querySelectorAll("[data-manager-guide-availability]").forEach((button) => button.addEventListener("click", () => updateManagerGuideAvailability(button)));
+}
+
+function renderManagerGuideFreeCalendar() {
+  const { dates } = state.guideCalendar;
+  const guides = visibleCalendarGuides();
+  $("#manager-guide-calendar-content").innerHTML = guides.length ? `
+    <section class="manager-free-list">
+      ${dates.map((date) => {
+        const allDay = guides.filter((guide) => guideSlotStatus(guide.id, date) === "FREE");
+        const morning = guides.filter((guide) => !["MORNING", "FULL"].includes(guideSlotStatus(guide.id, date)));
+        const afternoon = guides.filter((guide) => !["AFTERNOON", "FULL"].includes(guideSlotStatus(guide.id, date)));
+        const names = (items) => items.map((guide) => `<span>${escapeHtml(guide.name)}</span>`).join("") || `<em>暂无</em>`;
+        return `<article class="manager-free-day">
+          <header><strong>${guideDateLabel(date)}</strong><small>周${guideWeekLabel(date)}</small></header>
+          <div><b>全天空</b><p>${names(allDay)}</p></div>
+          <div><b>上午空</b><p>${names(morning)}</p></div>
+          <div><b>下午空</b><p>${names(afternoon)}</p></div>
+        </article>`;
+      }).join("")}
+    </section>
+  ` : `<div class="empty">${state.guideCalendarFilter === "mine" ? "当前账号还没有匹配到同名领队档案。" : "暂无符合条件的领队。"}</div>`;
+}
+
+async function updateManagerGuideAvailability(button) {
+  const status = guideSlotNext[button.dataset.managerGuideStatus] ?? "MORNING";
+  button.disabled = true;
+  try {
+    state.guideCalendar = await request("/guide-calendar", {
+      method: "PATCH",
+      body: managerBody({
+        guideId: button.dataset.managerGuideAvailability,
+        date: button.dataset.managerGuideDate,
+        status
+      })
+    });
+    renderManagerGuideCalendar();
+    toast(status === "FREE" ? "已清空占用" : `已标记${guideSlotLabels[status]}`);
+  } catch (error) {
+    toast(error.message);
+    button.disabled = false;
+  }
 }
 
 function renderManagerGuidePhoto() {
@@ -421,9 +534,11 @@ function changeDate(days) {
 function showView(view) {
   state.activeView = view;
   document.querySelectorAll(".view").forEach((section) => section.hidden = section.id !== `${view}-view`);
-  document.querySelectorAll(".bottom-nav button").forEach((button) => button.classList.toggle("active", button.dataset.view === view || (view === "schedule" && button.dataset.view === "activities")));
+  const activeRoot = view === "schedule" ? "activities" : view === "guides" ? "profile" : view;
+  document.querySelectorAll(".bottom-nav button").forEach((button) => button.classList.toggle("active", button.dataset.view === activeRoot));
   if (view === "activities") renderActivities();
   if (view === "guides") renderManagerGuides();
+  if (view === "guide-calendar") loadManagerGuideCalendar().catch((error) => toast(error.message));
   if (view === "profile") renderProfile();
 }
 
@@ -477,8 +592,10 @@ document.querySelectorAll("[data-close-manager-reply]").forEach((button) => butt
 document.querySelectorAll("[data-close-notifications]").forEach((button) => button.addEventListener("click", () => $("#manager-notifications-dialog").close()));
 document.querySelectorAll("[data-close-manager-guide]").forEach((button) => button.addEventListener("click", () => $("#manager-guide-dialog").close()));
 $("#open-manager-guides").addEventListener("click", () => showView("guides"));
+$("#open-manager-guide-calendar").addEventListener("click", () => showView("guide-calendar"));
 $("#open-manager-notifications").addEventListener("click", openManagerNotifications);
 $("#back-to-profile").addEventListener("click", () => showView("profile"));
+$("#back-calendar-to-profile").addEventListener("click", () => showView("profile"));
 $("#new-manager-guide").addEventListener("click", () => openManagerGuide());
 $("#manager-guide-photo-input").addEventListener("change", (event) => {
   const [file] = event.currentTarget.files;
@@ -495,6 +612,14 @@ document.querySelectorAll("[data-schedule-tab]").forEach((button) => button.addE
   state.activeScheduleTab = button.dataset.scheduleTab;
   document.querySelectorAll("[data-schedule-tab]").forEach((item) => item.classList.toggle("active", item === button));
   renderSchedule();
+}));
+document.querySelectorAll("[data-manager-guide-calendar-mode]").forEach((button) => button.addEventListener("click", () => {
+  state.guideCalendarMode = button.dataset.managerGuideCalendarMode;
+  renderManagerGuideCalendar();
+}));
+document.querySelectorAll("[data-manager-guide-calendar-filter]").forEach((button) => button.addEventListener("click", () => {
+  state.guideCalendarFilter = button.dataset.managerGuideCalendarFilter;
+  renderManagerGuideCalendar();
 }));
 $("#back-to-activities").addEventListener("click", () => showView("activities"));
 $("#new-schedule-item").addEventListener("click", () => {

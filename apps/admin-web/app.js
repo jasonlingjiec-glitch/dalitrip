@@ -1,5 +1,5 @@
 const API_BASE = "http://localhost:3000";
-const state = { activities: [], groups: [], tags: [], guides: [], guidePage: { introductionHtml: "" }, topicPages: [], blogPosts: [], homeEntries: [], homeModules: [], homePreviewReviews: [], homePreviewSlots: [], orders: [], customers: [], reviews: [], adminAccounts: [], selectedTagIds: [], searchText: "", customerSearchText: "", currentActivityId: null, editingActivityId: null, editingGuideId: null, editingTopicPageId: null, editingBlogPostId: null, editingHomeEntryId: null, selectedHomeModuleId: null, editingRuleId: null, editingGroupId: null, editingAdminAccountId: null, cancellingOrderId: null, walletCustomerId: null, replyingReviewId: null, activeScheduleTab: "regular", currentView: "activities", descriptionDraft: "", activityGalleryDraft: [], activityGallerySelectedIds: new Set(), activityGalleryDragIndex: null, activityGalleryEditorOpen: false, guideDescriptionDraft: "", guidePhotoDraft: "", guideGalleryDraft: [], guideGallerySelectedIds: new Set(), guideGalleryDragIndex: null, guideGalleryEditorOpen: false, topicPageIntroductionDraft: "", blogPostContentDraft: "", editorTarget: "activity", specialDialogSlots: [], specialDialogExistingSlots: [] };
+const state = { activities: [], groups: [], tags: [], guides: [], guidePage: { introductionHtml: "" }, guideCalendar: { dates: [], guides: [], availability: [] }, guideCalendarMode: "mark", topicPages: [], blogPosts: [], homeEntries: [], homeModules: [], homePreviewReviews: [], homePreviewSlots: [], orders: [], customers: [], reviews: [], adminAccounts: [], aiSettings: null, aiQuestions: [], faqs: [], editingFaqId: null, selectedTagIds: [], searchText: "", customerSearchText: "", currentActivityId: null, editingActivityId: null, editingGuideId: null, editingTopicPageId: null, editingBlogPostId: null, editingHomeEntryId: null, selectedHomeModuleId: null, editingRuleId: null, editingGroupId: null, editingAdminAccountId: null, cancellingOrderId: null, walletCustomerId: null, replyingReviewId: null, activeScheduleTab: "regular", currentView: "activities", descriptionDraft: "", activityGalleryDraft: [], activityGallerySelectedIds: new Set(), activityGalleryDragIndex: null, activityGalleryEditorOpen: false, guideDescriptionDraft: "", guidePhotoDraft: "", guideGalleryDraft: [], guideGallerySelectedIds: new Set(), guideGalleryDragIndex: null, guideGalleryEditorOpen: false, guideDragIndex: null, guideOrderDirty: false, topicPageIntroductionDraft: "", blogPostContentDraft: "", blogTagFilter: "", editorTarget: "activity", specialDialogSlots: [], specialDialogExistingSlots: [] };
 const demoImageUrls = {
   "demo/forest-hike-cover.jpg": "https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=500&q=80",
   "demo/forest-ferns-1.jpg": "https://images.unsplash.com/photo-1530968033775-2c92736b131e?auto=format&fit=crop&w=500&q=80",
@@ -500,8 +500,185 @@ const centsAsYuan = (cents) => Number(((cents ?? 0) / 100).toFixed(2));
 const readableExportDate = (value) => value ? value.replace("T", " ").slice(0, 19) : "";
 const escapeXml = (value) => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&apos;");
 
+async function loadAiPage() {
+  const [settings, questions, faqs] = await Promise.all([
+    request("/api/ai/settings"),
+    request("/api/ai/questions"),
+    request("/api/faqs")
+  ]);
+  state.aiSettings = settings;
+  state.aiQuestions = questions;
+  state.faqs = faqs;
+  renderAiPage();
+}
+
+function renderAiPage() {
+  renderAiSettings();
+  renderAiQuestions();
+  renderFaqs();
+  if (!state.editingFaqId) resetFaqForm();
+}
+
+function renderAiSettings() {
+  if (!state.aiSettings || !$("#ai-settings-form")) return;
+  const form = $("#ai-settings-form");
+  form.elements.model.value = state.aiSettings.model ?? "deepseek-chat";
+  form.elements.monthlyBudgetYuan.value = Math.round((state.aiSettings.monthlyBudgetCents ?? 0) / 100);
+  form.elements.enabled.checked = state.aiSettings.enabled !== false;
+}
+
+function renderAiQuestions() {
+  const list = $("#ai-question-list");
+  if (!list) return;
+  list.innerHTML = state.aiQuestions.length ? state.aiQuestions.map((question) => `
+    <article class="ai-question-card">
+      <header><strong>${escapeHtml(question.question)}</strong><time>${readableExportDate(question.createdAt).slice(0, 16)}</time></header>
+      <p>${escapeHtml(question.answer)}</p>
+      <div class="ai-recommendation-mini">${(question.recommendations ?? []).map((item) => `<span>${escapeHtml(item.name)}</span>`).join("")}</div>
+      <button class="secondary-button" data-question-to-faq="${question.id}" ${question.faqId ? "disabled" : ""}>${question.faqId ? "已生成 FAQ" : "生成 FAQ"}</button>
+    </article>
+  `).join("") : `<div class="empty-state compact-empty"><h2>还没有提问记录</h2><p>客人在首页问过之后，会出现在这里。</p></div>`;
+  document.querySelectorAll("[data-question-to-faq]").forEach((button) => button.addEventListener("click", async () => {
+    await request(`/api/ai/questions/${button.dataset.questionToFaq}/faq`, { method: "POST", body: "{}" });
+    toast("已生成 FAQ");
+    await loadAiPage();
+  }));
+}
+
+function resetFaqForm(faq = null) {
+  state.editingFaqId = faq?.id ?? null;
+  const form = $("#faq-form");
+  if (!form) return;
+  form.elements.id.value = faq?.id ?? "";
+  form.elements.question.value = faq?.question ?? "";
+  form.elements.answer.value = faq?.answer ?? "";
+  form.elements.sortOrder.value = faq?.sortOrder ?? "";
+  form.elements.published.checked = faq?.published !== false;
+}
+
+function renderFaqs() {
+  const list = $("#faq-list");
+  if (!list) return;
+  list.innerHTML = state.faqs.length ? state.faqs.map((faq) => `
+    <article class="faq-card">
+      <header><strong>${escapeHtml(faq.question)}</strong><span>${faq.published === false ? "隐藏" : "显示"}</span></header>
+      <p>${escapeHtml(faq.answer)}</p>
+      <div class="faq-card-actions">
+        <button class="secondary-button" data-edit-faq="${faq.id}">编辑</button>
+        <button class="danger-button" data-delete-faq="${faq.id}">删除</button>
+      </div>
+    </article>
+  `).join("") : `<div class="empty-state compact-empty"><h2>还没有 FAQ</h2><p>可以手动添加，或从客人提问生成。</p></div>`;
+  document.querySelectorAll("[data-edit-faq]").forEach((button) => button.addEventListener("click", () => resetFaqForm(state.faqs.find((faq) => faq.id === button.dataset.editFaq))));
+  document.querySelectorAll("[data-delete-faq]").forEach((button) => button.addEventListener("click", async () => {
+    if (!window.confirm("确定删除这个 FAQ 吗？")) return;
+    await request(`/api/faqs/${button.dataset.deleteFaq}`, { method: "DELETE" });
+    toast("FAQ 已删除");
+    await loadAiPage();
+  }));
+}
+
+const adminAccountId = () => "account-owner";
+const guideSlotLabels = { FREE: "空", MORNING: "上午", AFTERNOON: "下午", FULL: "全天" };
+const guideSlotNext = { FREE: "MORNING", MORNING: "AFTERNOON", AFTERNOON: "FULL", FULL: "FREE" };
+const guideSlotStatus = (guideId, date) => state.guideCalendar.availability.find((item) => item.guideId === guideId && item.date === date)?.status ?? "FREE";
+const guideDateLabel = (date) => {
+  const [, month, day] = date.split("-");
+  return `${month}/${day}`;
+};
+const guideWeekLabel = (date) => {
+  const [year, month, day] = date.split("-").map(Number);
+  return "日一二三四五六"[new Date(Date.UTC(year, month - 1, day, 12)).getUTCDay()];
+};
+
+async function loadGuideCalendar() {
+  state.guideCalendar = await request(`/api/guide-calendar?adminAccountId=${adminAccountId()}`);
+  renderGuideCalendar();
+}
+
+function renderGuideCalendar() {
+  document.querySelectorAll("[data-guide-calendar-mode]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.guideCalendarMode === state.guideCalendarMode);
+  });
+  if (state.guideCalendarMode === "free") return renderGuideFreeCalendar();
+  return renderGuideMarkCalendar();
+}
+
+function renderGuideMarkCalendar() {
+  const container = $("#guide-calendar-content");
+  const { dates, guides } = state.guideCalendar;
+  container.innerHTML = guides.length ? `
+    <div class="guide-calendar-help">点击日期按钮即可切换：空 → 上午 → 下午 → 全天 → 空。</div>
+    <section class="guide-calendar-mark-list">
+      ${guides.map((guide) => `
+        <article class="guide-calendar-card">
+          <header>
+            ${guide.photoUrl ? `<img src="${escapeHtml(guide.photoUrl)}" alt="${escapeHtml(guide.name)}" />` : `<span>${escapeHtml(guide.name.slice(0, 1))}</span>`}
+            <div>
+              <h2>${escapeHtml(guide.name)}</h2>
+              <p>${guide.activities.length} 条相关路线</p>
+            </div>
+          </header>
+          <div class="guide-calendar-day-grid">
+            ${dates.map((date) => {
+              const status = guideSlotStatus(guide.id, date);
+              return `<button class="guide-day-cell status-${status.toLowerCase()}" type="button" data-guide-availability="${guide.id}" data-guide-date="${date}" data-guide-status="${status}">
+                <strong>${guideDateLabel(date)}</strong>
+                <small>周${guideWeekLabel(date)}</small>
+                <span>${guideSlotLabels[status]}</span>
+              </button>`;
+            }).join("")}
+          </div>
+        </article>
+      `).join("")}
+    </section>
+  ` : `<div class="empty-state compact-empty"><h2>暂无可管理领队</h2><p>先在活动里关联领队，这里会自动出现。</p></div>`;
+  document.querySelectorAll("[data-guide-availability]").forEach((button) => button.addEventListener("click", () => updateGuideAvailability(button)));
+}
+
+function renderGuideFreeCalendar() {
+  const container = $("#guide-calendar-content");
+  const { dates, guides } = state.guideCalendar;
+  container.innerHTML = guides.length ? `
+    <section class="guide-free-list">
+      ${dates.map((date) => {
+        const allDay = guides.filter((guide) => guideSlotStatus(guide.id, date) === "FREE");
+        const morning = guides.filter((guide) => !["MORNING", "FULL"].includes(guideSlotStatus(guide.id, date)));
+        const afternoon = guides.filter((guide) => !["AFTERNOON", "FULL"].includes(guideSlotStatus(guide.id, date)));
+        const names = (items) => items.map((guide) => `<span>${escapeHtml(guide.name)}</span>`).join("") || `<em>暂无</em>`;
+        return `<article class="guide-free-day">
+          <header><strong>${guideDateLabel(date)}</strong><small>周${guideWeekLabel(date)}</small></header>
+          <div><b>全天空</b>${names(allDay)}</div>
+          <div><b>上午空</b>${names(morning)}</div>
+          <div><b>下午空</b>${names(afternoon)}</div>
+        </article>`;
+      }).join("")}
+    </section>
+  ` : `<div class="empty-state compact-empty"><h2>暂无可管理领队</h2><p>先在活动里关联领队，这里会自动出现。</p></div>`;
+}
+
+async function updateGuideAvailability(button) {
+  const status = guideSlotNext[button.dataset.guideStatus] ?? "MORNING";
+  button.disabled = true;
+  try {
+    state.guideCalendar = await request("/api/guide-calendar", {
+      method: "PATCH",
+      body: JSON.stringify({
+        adminAccountId: adminAccountId(),
+        guideId: button.dataset.guideAvailability,
+        date: button.dataset.guideDate,
+        status
+      })
+    });
+    renderGuideCalendar();
+  } catch (error) {
+    toast(error.message);
+    button.disabled = false;
+  }
+}
+
 async function showView(view) {
-  if (!["activities", "orders", "reviews", "guides", "customers", "pages", "blog", "settings"].includes(view)) return toast("这个模块会在后续版本接入");
+  if (!["activities", "orders", "reviews", "guides", "guide-calendar", "customers", "pages", "blog", "ai", "settings"].includes(view)) return toast("这个模块会在后续版本接入");
   state.currentView = view;
   document.querySelectorAll("[data-view]").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
   $("#activity-topbar").hidden = view !== "activities";
@@ -509,9 +686,11 @@ async function showView(view) {
   $("#orders-page").hidden = view !== "orders";
   $("#reviews-page").hidden = view !== "reviews";
   $("#guides-page").hidden = view !== "guides";
+  $("#guide-calendar-page").hidden = view !== "guide-calendar";
   $("#customers-page").hidden = view !== "customers";
   $("#pages-page").hidden = view !== "pages";
   $("#blog-page").hidden = view !== "blog";
+  $("#ai-page").hidden = view !== "ai";
   $("#settings-page").hidden = view !== "settings";
   if (view === "orders") {
     renderOrderFilterOptions();
@@ -520,8 +699,10 @@ async function showView(view) {
   if (view === "customers") await loadCustomers();
   if (view === "reviews") await loadReviews();
   if (view === "guides") renderGuides();
+  if (view === "guide-calendar") await loadGuideCalendar();
   if (view === "pages") renderTopicPages();
   if (view === "blog") renderBlogPosts();
+  if (view === "ai") await loadAiPage();
   if (view === "settings") await loadSettings();
 }
 
@@ -545,6 +726,14 @@ function renderTopicPages() {
 
 const stripHtml = (html) => String(html ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 const blogSummary = (post) => post.summary?.trim() || stripHtml(post.contentHtml).slice(0, 150);
+const blogTags = (post) => Array.isArray(post.tags) ? post.tags : [];
+const blogTagNames = () => [...new Set(state.blogPosts.flatMap((post) => blogTags(post)))].sort((a, b) => a.localeCompare(b, "zh-CN"));
+const filteredBlogPosts = () => state.blogTagFilter ? state.blogPosts.filter((post) => blogTags(post).includes(state.blogTagFilter)) : state.blogPosts;
+const renderBlogTags = (post) => {
+  const tags = blogTags(post);
+  if (!tags.length) return "";
+  return `<div class="blog-tag-row">${tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")}</div>`;
+};
 const toDatetimeLocal = (value) => {
   if (!value) return "";
   const date = new Date(value);
@@ -557,13 +746,26 @@ const bodyToHtml = (value) => {
 };
 
 function renderBlogPosts() {
-  $("#blog-count").textContent = `${state.blogPosts.length} 篇文章`;
-  $("#blog-post-list").innerHTML = state.blogPosts.map((post) => `
+  const tagNames = blogTagNames();
+  if (state.blogTagFilter && !tagNames.includes(state.blogTagFilter)) state.blogTagFilter = "";
+  const posts = filteredBlogPosts();
+  const tagFilter = $("#blog-tag-filters");
+  tagFilter.innerHTML = [
+    `<button class="${state.blogTagFilter ? "" : "active"}" data-blog-tag-filter="">全部</button>`,
+    ...tagNames.map((tag) => `<button class="${state.blogTagFilter === tag ? "active" : ""}" data-blog-tag-filter="${escapeHtml(tag)}">${escapeHtml(tag)}</button>`)
+  ].join("");
+  tagFilter.querySelectorAll("[data-blog-tag-filter]").forEach((button) => button.addEventListener("click", () => {
+    state.blogTagFilter = button.dataset.blogTagFilter;
+    renderBlogPosts();
+  }));
+  $("#blog-count").textContent = state.blogTagFilter ? `${posts.length} / ${state.blogPosts.length} 篇文章 · ${state.blogTagFilter}` : `${state.blogPosts.length} 篇文章`;
+  $("#blog-post-list").innerHTML = posts.map((post) => `
     <article class="topic-page-card">
       ${post.coverUrl ? `<img src="${escapeHtml(post.coverUrl)}" alt="${escapeHtml(post.title)}" />` : `<div class="topic-page-placeholder">封面</div>`}
       <div>
         <span class="status-badge ${post.published ? "status-booked" : "status-cancelled"}">${post.published ? "已发布" : "草稿"}</span>
         <h3>${escapeHtml(post.title)}</h3>
+        ${renderBlogTags(post)}
         <p>${escapeHtml(blogSummary(post)) || "暂未填写摘要"}</p>
         <small>${new Date(post.publishedAt).toLocaleString("zh-CN").slice(0, 16)} · ${post.comments?.length ?? 0} 条评论</small>
       </div>
@@ -584,6 +786,7 @@ function renderBlogPosts() {
           title: post.title,
           slug: post.slug,
           coverUrl: post.coverUrl,
+          tags: blogTags(post),
           summary: post.summary,
           contentHtml: post.contentHtml,
           publishedAt: post.publishedAt,
@@ -608,6 +811,7 @@ function openBlogPostDialog(post = null) {
     form.elements.title.value = post.title;
     form.elements.slug.value = post.slug;
     form.elements.coverUrl.value = post.coverUrl ?? "";
+    form.elements.tags.value = blogTags(post).join(", ");
     form.elements.summary.value = post.summary ?? "";
     form.elements.contentHtml.value = post.contentHtml ?? "";
     form.elements.publishedAt.value = toDatetimeLocal(post.publishedAt);
@@ -1004,13 +1208,14 @@ function renderTopicPageDescriptionStatus() {
 
 function renderGuides() {
   renderGuidePageStatus();
-  $("#guide-list").innerHTML = state.guides.map((guide) => `
-    <article class="guide-card">
+  $("#guide-list").innerHTML = state.guides.map((guide, index) => `
+    <article class="guide-card ${state.guideDragIndex === index ? "dragging" : ""}" draggable="true" data-guide-index="${index}">
       ${guide.photoUrl ? `<img src="${escapeHtml(guide.photoUrl)}" alt="${escapeHtml(guide.name)}" />` : `<div class="guide-placeholder">照片</div>`}
-      <div>
+      <div class="guide-card-copy">
+        <span class="guide-card-order">#${index + 1}</span>
         <h3>${escapeHtml(guide.name)}</h3>
         <p>${escapeHtml(guide.descriptionHtml.replace(/<[^>]+>/g, "")) || "暂未填写详细介绍"}</p>
-        <span>${guide.activities.length} 个关联活动 · ${(guide.images ?? []).length} 张相册照片</span>
+        <small>${guide.activities.length} 个关联活动 · ${(guide.images ?? []).length} 张相册照片</small>
       </div>
       <div class="guide-card-actions">
         <button class="secondary-button" data-edit-guide="${guide.id}">编辑</button>
@@ -1018,24 +1223,81 @@ function renderGuides() {
       </div>
     </article>
   `).join("") || `<div class="empty-state compact-empty"><h2>还没有领队档案</h2><p>可以先新增一位领队。</p></div>`;
+  bindGuideOrderEvents();
   document.querySelectorAll("[data-edit-guide]").forEach((button) => button.addEventListener("click", () => openGuideDialog(state.guides.find((guide) => guide.id === button.dataset.editGuide))));
   document.querySelectorAll("[data-delete-guide]").forEach((button) => button.addEventListener("click", () => deleteGuide(button.dataset.deleteGuide)));
+}
+
+function moveGuide(fromIndex, toIndex) {
+  if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= state.guides.length || toIndex >= state.guides.length) return;
+  const [guide] = state.guides.splice(fromIndex, 1);
+  state.guides.splice(toIndex, 0, guide);
+  state.guideDragIndex = toIndex;
+  state.guideOrderDirty = true;
+  renderGuides();
+}
+
+async function saveGuideOrder() {
+  if (!state.guideOrderDirty) return;
+  try {
+    state.guides = await request("/api/guides/reorder", {
+      method: "PATCH",
+      body: JSON.stringify({ ids: state.guides.map((guide) => guide.id) })
+    });
+    state.guideOrderDirty = false;
+    renderDialogOptions();
+    renderGuides();
+    toast("领队顺序已保存");
+  } catch (error) {
+    toast(error.message);
+    state.guides = await request("/api/guides");
+    state.guideOrderDirty = false;
+    renderGuides();
+  }
+}
+
+function bindGuideOrderEvents() {
+  document.querySelectorAll("[data-guide-index]").forEach((card) => {
+    card.addEventListener("dragstart", (event) => {
+      state.guideDragIndex = Number(card.dataset.guideIndex);
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", card.dataset.guideIndex);
+      card.classList.add("dragging");
+    });
+    card.addEventListener("dragend", async () => {
+      card.classList.remove("dragging");
+      state.guideDragIndex = null;
+      await saveGuideOrder();
+    });
+    card.addEventListener("dragover", (event) => event.preventDefault());
+    card.addEventListener("dragenter", (event) => {
+      event.preventDefault();
+      const targetIndex = Number(card.dataset.guideIndex);
+      if (state.guideDragIndex !== null && state.guideDragIndex !== targetIndex) moveGuide(state.guideDragIndex, targetIndex);
+    });
+    card.addEventListener("drop", async (event) => {
+      event.preventDefault();
+      state.guideDragIndex = null;
+      await saveGuideOrder();
+    });
+  });
 }
 
 async function deleteGuide(id) {
   const guide = state.guides.find((item) => item.id === id);
   if (!guide) return;
-  if ((guide.activities ?? []).length > 0) {
-    toast(`“${guide.name}”还关联着 ${guide.activities.length} 个活动，请先从活动里移除这个领队`);
-    return;
-  }
-  if (!window.confirm(`确定删除“${guide.name}”吗？`)) return;
+  const linkedCount = (guide.activities ?? []).length;
+  const message = linkedCount
+    ? `确定删除“${guide.name}”吗？系统会同时从 ${linkedCount} 个活动里移除这个领队。`
+    : `确定删除“${guide.name}”吗？`;
+  if (!window.confirm(message)) return;
   try {
     await request(`/api/guides/${id}`, { method: "DELETE" });
+    await loadActivities();
     state.guides = await request("/api/guides");
     renderDialogOptions();
     renderGuides();
-    toast("领队档案已删除");
+    toast(linkedCount ? "领队已删除，活动关联已同步移除" : "领队档案已删除");
   } catch (error) {
     toast(error.message);
   }
@@ -2015,6 +2277,10 @@ function insertContentLink(kind, defaultLabel) {
 
 $("#new-activity").addEventListener("click", () => openActivityDialog());
 $("#new-guide").addEventListener("click", () => openGuideDialog());
+document.querySelectorAll("[data-guide-calendar-mode]").forEach((button) => button.addEventListener("click", () => {
+  state.guideCalendarMode = button.dataset.guideCalendarMode;
+  renderGuideCalendar();
+}));
 $("#new-topic-page").addEventListener("click", () => openTopicPageDialog());
 $("#new-home-entry").addEventListener("click", () => openHomeEntryDialog());
 document.querySelectorAll("[data-add-home-module]").forEach((button) => button.addEventListener("click", async () => {
@@ -2312,6 +2578,7 @@ $("#blog-post-form").addEventListener("submit", async (event) => {
         title: values.get("title"),
         slug: values.get("slug"),
         coverUrl: values.get("coverUrl"),
+        tags: values.get("tags"),
         summary: values.get("summary"),
         contentHtml: bodyToHtml(state.blogPostContentDraft),
         publishedAt: values.get("publishedAt") ? new Date(values.get("publishedAt")).toISOString() : new Date().toISOString(),
@@ -2552,6 +2819,41 @@ $("#regular-rule-form").addEventListener("submit", async (event) => {
     await selectActivity(state.currentActivityId);
   } catch (error) { toast(error.message); }
 });
+
+$("#ai-settings-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const values = new FormData(event.currentTarget);
+  await request("/api/ai/settings", {
+    method: "PATCH",
+    body: JSON.stringify({
+      model: values.get("model"),
+      monthlyBudgetCents: Math.round(Number(values.get("monthlyBudgetYuan") || 0) * 100),
+      enabled: values.get("enabled") === "on"
+    })
+  });
+  toast("AI 设置已保存");
+  await loadAiPage();
+});
+
+$("#refresh-ai-questions")?.addEventListener("click", loadAiPage);
+
+$("#faq-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const values = new FormData(event.currentTarget);
+  const id = values.get("id");
+  const payload = {
+    question: values.get("question"),
+    answer: values.get("answer"),
+    sortOrder: Number(values.get("sortOrder") || state.faqs.length + 1),
+    published: values.get("published") === "on"
+  };
+  await request(id ? `/api/faqs/${id}` : "/api/faqs", { method: id ? "PATCH" : "POST", body: JSON.stringify(payload) });
+  toast("FAQ 已保存");
+  resetFaqForm();
+  await loadAiPage();
+});
+
+$("#reset-faq-form")?.addEventListener("click", () => resetFaqForm());
 
 loadBaseData().then(async () => {
   const initialView = new URLSearchParams(window.location.search).get("view");

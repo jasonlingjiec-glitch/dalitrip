@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dali Trip 管理后台</title>
-    <link rel="stylesheet" href="./styles.css?v=64" />
+    <link rel="stylesheet" href="./styles.css?v=76" />
   </head>
   <body>
     <div class="app-shell">
@@ -22,9 +22,11 @@
           <button class="nav-item" data-view="orders"><span>≡</span>订单管理</button>
           <button class="nav-item" data-view="reviews"><span>★</span>评价管理</button>
           <button class="nav-item" data-view="guides"><span>♟</span>领队库</button>
+          <button class="nav-item" data-view="guide-calendar"><span>◷</span>领队日历</button>
           <button class="nav-item" data-view="customers"><span>♙</span>顾客管理</button>
           <button class="nav-item" data-view="pages"><span>▤</span>专题页面</button>
           <button class="nav-item" data-view="blog"><span>✎</span>博客文章</button>
+          <button class="nav-item" data-view="ai"><span>✦</span>AI 问答</button>
           <button class="nav-item" data-view="settings"><span>⚙</span>系统设置</button>
         </nav>
         <div class="sidebar-foot">MVP 测试版</div>
@@ -36,9 +38,11 @@
           <button data-view="orders">订单</button>
           <button data-view="reviews">评价</button>
           <button data-view="guides">领队</button>
+          <button data-view="guide-calendar">日历</button>
           <button data-view="customers">顾客</button>
           <button data-view="pages">专题</button>
           <button data-view="blog">博客</button>
+          <button data-view="ai">AI</button>
           <button data-view="settings">设置</button>
         </div>
         <header id="activity-topbar" class="topbar">
@@ -159,6 +163,73 @@
           <div id="guide-list" class="guide-list"></div>
         </section>
 
+        <section id="guide-calendar-page" class="page-panel" hidden>
+          <div class="page-heading settings-heading">
+            <div>
+              <p class="eyebrow">GUIDE AVAILABILITY</p>
+              <h1>领队日历</h1>
+              <p>仅显示接下来 30 天，以及当前管理范围内活动关联到的领队。</p>
+            </div>
+          </div>
+          <div class="guide-calendar-tabs" role="tablist" aria-label="领队日历视图">
+            <button class="active" type="button" data-guide-calendar-mode="mark">标记占用</button>
+            <button type="button" data-guide-calendar-mode="free">查看空闲</button>
+          </div>
+          <div id="guide-calendar-content" class="guide-calendar-content"></div>
+        </section>
+
+        <section id="ai-page" class="page-panel" hidden>
+          <div class="page-heading settings-heading">
+            <div>
+              <p class="eyebrow">AI ACTIVITY GUIDE</p>
+              <h1>AI 问答与经验库</h1>
+              <p>先记录客人的提问和系统回答，后续可以沉淀成 FAQ。回答范围固定为当前活动库。</p>
+            </div>
+          </div>
+          <section class="ai-admin-grid">
+            <section class="settings-section">
+              <h2>AI 设置</h2>
+              <form id="ai-settings-form" class="stack-form">
+                <div class="ai-settings-fields">
+                  <label>模型名称<input name="model" placeholder="deepseek-chat" /></label>
+                  <label>月预算（元）<input name="monthlyBudgetYuan" type="number" min="0" step="1" /></label>
+                  <label class="checkbox-line"><input name="enabled" type="checkbox" /> 开启首页 AI 活动助手</label>
+                </div>
+                <p class="hint">当前策略：只根据活动库内容回答，不自由编造。预览版不会调用 DeepSeek。</p>
+                <button class="primary-button">保存设置</button>
+              </form>
+            </section>
+            <section class="settings-section">
+              <div class="settings-section-heading">
+                <div>
+                  <h2>客人提问记录</h2>
+                  <p>可以把高价值问答一键变成 FAQ。</p>
+                </div>
+                <button id="refresh-ai-questions" class="secondary-button" type="button">刷新</button>
+              </div>
+              <div id="ai-question-list" class="ai-question-list"></div>
+            </section>
+            <section class="settings-section">
+              <h2>FAQ 编辑</h2>
+              <form id="faq-form" class="stack-form">
+                <input name="id" type="hidden" />
+                <label>问题<input name="question" required /></label>
+                <label>回答<textarea name="answer" rows="5" required></textarea></label>
+                <label>排序<input name="sortOrder" type="number" step="1" /></label>
+                <label class="checkbox-line"><input name="published" type="checkbox" checked /> 显示给客人</label>
+                <div class="inline-actions">
+                  <button class="primary-button">保存 FAQ</button>
+                  <button id="reset-faq-form" class="secondary-button" type="button">清空</button>
+                </div>
+              </form>
+            </section>
+            <section class="settings-section">
+              <h2>FAQ 列表</h2>
+              <div id="faq-list" class="faq-list"></div>
+            </section>
+          </section>
+        </section>
+
         <section id="settings-page" class="page-panel" hidden>
           <div class="page-heading settings-heading">
             <div>
@@ -254,6 +325,7 @@
             </div>
             <button id="new-blog-post" class="primary-button">＋ 新增文章</button>
           </div>
+          <div id="blog-tag-filters" class="blog-filter-row"></div>
           <div id="blog-post-list" class="topic-page-list"></div>
         </section>
       </main>
@@ -456,6 +528,7 @@
         <label>文章标题<input name="title" required maxlength="100" placeholder="例如：我们的山林日常" /></label>
         <label>页面地址<input name="slug" required maxlength="80" pattern="[a-z0-9-]+" placeholder="例如：our-dali-life" /></label>
         <label>封面图片地址<input name="coverUrl" placeholder="https://..." /></label>
+        <label>标签<input name="tags" maxlength="240" placeholder="用逗号分隔，例如：大理生活, 徒步, 旅行记录" /></label>
         <label>简介 / 摘要<textarea name="summary" rows="3" maxlength="300" placeholder="不填写时，客人端自动取正文前 150 字"></textarea></label>
         <textarea name="contentHtml" hidden></textarea>
         <div class="description-field">
@@ -704,6 +777,6 @@
     </dialog>
 
     <div id="toast" class="toast" hidden></div>
-    <script type="module" src="./app.js?v=70"></script>
+    <script type="module" src="./app.js?v=77"></script>
   </body>
 </html>

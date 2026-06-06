@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dali Trip 活动预约</title>
-    <link rel="stylesheet" href="./styles.css?v=62" />
+    <link rel="stylesheet" href="./styles.css?v=64" />
   </head>
   <body>
     <main>
@@ -14,6 +14,18 @@
           <h1>在大理，找到今天想做的事</h1>
           <span>徒步、手作与自然体验</span>
         </header>
+        <section class="ai-guide-card">
+          <div class="ai-guide-heading">
+            <p>AI ACTIVITY GUIDE</p>
+            <h2>告诉我你想怎么度过今天</h2>
+            <span>只从当前活动库里帮你找，不编不存在的活动。</span>
+          </div>
+          <form id="ai-guide-form" class="ai-guide-form">
+            <textarea name="question" rows="3" maxlength="300" placeholder="比如：带 5 岁小孩，想去森林，不想太累"></textarea>
+            <button type="submit">帮我找活动</button>
+          </form>
+          <div id="ai-guide-result" class="ai-guide-result" hidden></div>
+        </section>
         <section id="home-module-container"></section>
         <section class="blog-preview">
           <div class="blog-preview-heading">
@@ -258,6 +270,6 @@
     </dialog>
 
     <div id="toast" class="toast" hidden></div>
-    <script type="module" src="./app.js?v=62"></script>
+    <script type="module" src="./app.js?v=64"></script>
   </body>
 </html>
