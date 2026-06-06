@@ -177,14 +177,168 @@ const ttyyMigrationPreview = [
 ];
 
 const $ = (selector) => document.querySelector(selector);
+let staticDataPromise;
+
+const cloneStatic = (value) => JSON.parse(JSON.stringify(value));
+const loadStaticData = async () => {
+  if (!staticDataPromise) {
+    staticDataPromise = fetch("../../data/runtime-data.json").then((response) => {
+      if (!response.ok) throw new Error("静态数据读取失败");
+      return response.json();
+    });
+  }
+  return staticDataPromise;
+};
+const parseRequestBody = (options) => {
+  if (!options.body) return {};
+  try {
+    return JSON.parse(options.body);
+  } catch {
+    return {};
+  }
+};
+const staticLocalized = (translations) => translations?.["zh-CN"] ?? translations?.en ?? {};
+const staticTag = (tag) => ({ ...tag, name: tag.translations?.["zh-CN"] ?? tag.code ?? tag.id });
+const staticActivity = (activity, data) => ({
+  ...activity,
+  content: staticLocalized(activity.translations),
+  groupName: data.groups.find((group) => group.id === activity.groupId)?.name ?? "活动组",
+  tags: (activity.tagIds ?? []).map((tagId) => data.tags.find((tag) => tag.id === tagId)).filter(Boolean).map(staticTag),
+  guides: (activity.guideIds ?? []).map((guideId) => data.guides.find((guide) => guide.id === guideId)).filter(Boolean),
+  images: (activity.images ?? []).map((image) => ({ ...image, url: image.url ?? demoImageUrls[image.cosKey] ?? image.cosKey }))
+});
+const staticGuide = (guide, data) => ({
+  ...guide,
+  activities: data.activities
+    .filter((activity) => (activity.guideIds ?? []).includes(guide.id))
+    .map((activity) => ({ id: activity.id, name: staticLocalized(activity.translations).name, summary: staticLocalized(activity.translations).summary }))
+});
+const staticAccount = (account, data) => ({
+  ...account,
+  groups: (account.groupIds ?? []).map((groupId) => data.groups.find((group) => group.id === groupId)).filter(Boolean)
+});
+const staticCustomer = (customer, data) => ({
+  ...customer,
+  orderCount: data.orders.filter((order) => order.customerId === customer.id).length,
+  totalPaidCents: data.orders.filter((order) => order.customerId === customer.id && ["BOOKED", "COMPLETED"].includes(order.status)).reduce((sum, order) => sum + order.amountCents, 0)
+});
+const staticOrder = (order, data) => {
+  const activity = data.activities.find((item) => item.id === order.activityId);
+  const slot = data.slots.find((item) => item.id === order.slotId);
+  const customer = data.customers.find((item) => item.id === order.customerId);
+  return {
+    ...order,
+    activityName: staticLocalized(activity?.translations).name ?? "活动",
+    groupName: data.groups.find((group) => group.id === order.groupId)?.name ?? "活动组",
+    customerNickname: customer?.profile?.nickname ?? "客人",
+    customerMobile: customer?.profile?.mobile ?? "",
+    startsAt: slot?.startsAt ?? order.createdAt,
+    endsAt: slot?.endsAt ?? order.createdAt
+  };
+};
+const staticReview = (review, data) => ({
+  ...review,
+  activityName: staticLocalized(data.activities.find((activity) => activity.id === review.activityId)?.translations).name ?? "活动"
+});
+const staticSlot = (slot, data) => {
+  const activity = data.activities.find((item) => item.id === slot.activityId);
+  return {
+    ...slot,
+    activityName: staticLocalized(activity?.translations).name ?? "活动",
+    coverUrl: activity?.coverUrl ?? demoImageUrls[activity?.images?.[0]?.cosKey] ?? "",
+    customerDisplayName: "匿**"
+  };
+};
+const staticManagedGuideIds = (data, adminAccountId) => {
+  const account = data.adminAccounts.find((item) => item.id === adminAccountId);
+  const groupIds = account ? new Set(account.groupIds) : null;
+  return new Set(data.activities
+    .filter((activity) => !groupIds || groupIds.has(activity.groupId))
+    .flatMap((activity) => activity.guideIds ?? [])
+    .filter((guideId) => data.guides.some((guide) => guide.id === guideId)));
+};
+const staticCalendarDates = () => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(new Date()).reduce((result, part) => ({ ...result, [part.type]: part.value }), {});
+  const start = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day));
+  return Array.from({ length: 30 }, (_, index) => new Date(start + index * 86400000).toISOString().slice(0, 10));
+};
+const staticGuideCalendar = (data, adminAccountId = "account-owner") => {
+  const dates = staticCalendarDates();
+  const managedGuideIds = staticManagedGuideIds(data, adminAccountId);
+  return {
+    dates,
+    guides: data.guides.filter((guide) => managedGuideIds.has(guide.id)).map((guide) => staticGuide(guide, data)),
+    availability: (data.guideAvailability ?? []).filter((item) => managedGuideIds.has(item.guideId) && dates.includes(item.date))
+  };
+};
+const staticLimit = (items, params) => items.slice(0, Number(params.get("limit") || items.length));
+const staticPublished = (items, params) => params.get("published") === "true" ? items.filter((item) => item.published !== false) : items;
+
+async function staticRequest(path, options = {}) {
+  const data = await loadStaticData();
+  const url = new URL(path.replace(/^\/api/, ""), "https://dalitrip.local");
+  const route = url.pathname;
+  const params = url.searchParams;
+  const method = (options.method || "GET").toUpperCase();
+  const body = parseRequestBody(options);
+
+  if (route === "/groups") return cloneStatic(data.groups);
+  if (route === "/tags") return data.tags.map(staticTag);
+  if (route === "/guides") return data.guides.map((guide) => staticGuide(guide, data));
+  if (route === "/guide-page") return cloneStatic(data.guidePage);
+  if (route === "/topic-pages") return cloneStatic(data.topicPages);
+  if (route === "/blog-posts") return cloneStatic(data.blogPosts);
+  if (route === "/home-entries") return staticLimit(staticPublished(data.homeEntries, params).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)), params);
+  if (route === "/home-modules") return staticLimit(staticPublished(data.homeModules, params).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)), params);
+  if (route === "/reviews") return data.reviews.map((review) => staticReview(review, data));
+  if (route === "/upcoming-departures") return staticLimit(data.slots.filter((slot) => slot.enabled !== false).map((slot) => staticSlot(slot, data)), params);
+  if (route === "/activities") return data.activities.map((activity) => staticActivity(activity, data));
+  if (/^\/activities\/[^/]+$/.test(route)) {
+    const activity = data.activities.find((item) => item.id === route.split("/")[2]);
+    if (!activity) throw new Error("活动不存在");
+    return staticActivity(activity, data);
+  }
+  if (/^\/activities\/[^/]+\/schedule-rules$/.test(route)) return data.scheduleRules.filter((rule) => rule.activityId === route.split("/")[2]);
+  if (/^\/activities\/[^/]+\/slots$/.test(route)) return data.slots.filter((slot) => slot.activityId === route.split("/")[2]);
+  if (route === "/orders") return data.orders.map((order) => staticOrder(order, data));
+  if (/^\/orders\/[^/]+$/.test(route)) return staticOrder(data.orders.find((order) => order.id === route.split("/")[2]) ?? data.orders[0], data);
+  if (route === "/customers") return data.customers.map((customer) => staticCustomer(customer, data));
+  if (route === "/admin-accounts") return data.adminAccounts.map((account) => staticAccount(account, data));
+  if (route === "/ai/settings") return cloneStatic(data.aiSettings);
+  if (route === "/ai/questions") return cloneStatic(data.aiQuestions ?? []);
+  if (route === "/faqs") return cloneStatic(data.faqs ?? []);
+  if (method === "GET" && route === "/guide-calendar") return staticGuideCalendar(data, params.get("adminAccountId") ?? "account-owner");
+  if (method === "PATCH" && route === "/guide-calendar") {
+    data.guideAvailability = (data.guideAvailability ?? []).filter((item) => !(item.guideId === body.guideId && item.date === body.date));
+    if (body.status !== "FREE") data.guideAvailability.push({ id: `demo-guide-${Date.now()}`, guideId: body.guideId, date: body.date, status: body.status, updatedBy: body.adminAccountId ?? "account-owner", updatedAt: new Date().toISOString() });
+    return staticGuideCalendar(data, body.adminAccountId ?? "account-owner");
+  }
+  if (method === "PATCH" && route === "/guides/reorder") {
+    data.guides.forEach((guide) => { guide.sortOrder = body.ids?.indexOf(guide.id) + 1 || guide.sortOrder || 999; });
+    return data.guides.map((guide) => staticGuide(guide, data));
+  }
+  if (["POST", "PATCH", "DELETE"].includes(method)) return { ok: true, demo: true };
+  throw new Error("静态后台 demo 暂不支持这个操作");
+}
+
 const request = async (path, options = {}) => {
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: { "content-type": "application/json", ...(options.headers ?? {}) },
-    ...options
-  });
-  const body = await response.json();
-  if (!response.ok) throw new Error(body.error?.message ?? "请求失败");
-  return body.data;
+  try {
+    const response = await fetch(`${API_BASE}${path}`, {
+      headers: { "content-type": "application/json", ...(options.headers ?? {}) },
+      ...options
+    });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error?.message ?? "请求失败");
+    return body.data;
+  } catch (error) {
+    console.info("使用静态后台 demo 数据", path, error.message);
+    return staticRequest(path, options);
+  }
 };
 const yuan = (cents) => `¥ ${(cents / 100).toFixed(2)}`;
 const dateTime = (value) => new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
