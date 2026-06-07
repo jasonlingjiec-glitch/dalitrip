@@ -9,6 +9,13 @@ const timeOnly = (value) => String(value).slice(11, 16);
 const managerBody = (input = {}) => JSON.stringify({ ...input, adminAccountId: accountId });
 const managerPath = (path) => `${path}${path.includes("?") ? "&" : "?"}adminAccountId=${accountId}`;
 const htmlToText = (value) => String(value ?? "").replace(/<[^>]+>/g, "").trim();
+const nonActivityGuideNames = new Set(["深夜食堂旧时光", "大家在一起的时间", "在一起的日子"]);
+const isActivitySelectableGuide = (guide) => !nonActivityGuideNames.has(guide?.name);
+const sortGuidesForDisplay = (guides = []) => [...guides].sort((left, right) => {
+  const leftArchived = isActivitySelectableGuide(left) ? 0 : 1;
+  const rightArchived = isActivitySelectableGuide(right) ? 0 : 1;
+  return leftArchived - rightArchived || (left.sortOrder ?? 9999) - (right.sortOrder ?? 9999);
+});
 let staticDataPromise;
 
 const loadStaticData = async () => {
@@ -99,7 +106,7 @@ async function staticRequest(path, options = {}) {
   if (route === "/admin-accounts") return data.adminAccounts.map((item) => staticAccount(data, item.id));
   if (route === "/groups") return data.groups;
   if (route === "/tags") return data.tags;
-  if (route === "/guides") return data.guides.map((guide) => staticPresentGuide(guide, data));
+  if (route === "/guides") return sortGuidesForDisplay(data.guides).map((guide) => staticPresentGuide(guide, data));
   if (route === "/notifications") return data.notifications ?? [];
   if (route === "/orders") return data.orders.filter((order) => !account || account.groupIds.includes(order.groupId)).map((order) => staticOrder(order, data));
   if (route === "/activities") return data.activities.filter((activity) => !account || account.groupIds.includes(activity.groupId)).map((activity) => staticPresentActivity(activity, data));
@@ -419,7 +426,8 @@ function openActivityEdit(activity) {
   form.elements.leaderWechat.value = activity.leaderWechat ?? "";
   form.elements.summary.value = activity.content.summary ?? "";
   $("#activity-edit-tags").innerHTML = state.tags.map((tag) => `<label><input type="checkbox" name="tagIds" value="${tag.id}" ${activity.tagIds.includes(tag.id) ? "checked" : ""} /> ${escapeHtml(tag.name)}</label>`).join("");
-  $("#activity-edit-guides").innerHTML = state.guides.map((guide) => `<label><input type="checkbox" name="guideIds" value="${guide.id}" ${(activity.guideIds ?? []).includes(guide.id) ? "checked" : ""} /> ${escapeHtml(guide.name)}</label>`).join("") || `<p>请先在领队库新增档案。</p>`;
+  const activityGuides = state.guides.filter(isActivitySelectableGuide);
+  $("#activity-edit-guides").innerHTML = activityGuides.map((guide) => `<label><input type="checkbox" name="guideIds" value="${guide.id}" ${(activity.guideIds ?? []).includes(guide.id) ? "checked" : ""} /> ${escapeHtml(guide.name)}</label>`).join("") || `<p>请先在领队库新增档案。</p>`;
   renderEditingMeetingPoint();
   $("#activity-edit-dialog").showModal();
 }
@@ -493,6 +501,7 @@ function renderSchedule() {
   }).join("");
   document.querySelectorAll("[data-edit-rule]").forEach((button) => button.addEventListener("click", () => openWeeklyRuleDialog(state.scheduleRules.find((rule) => rule.id === button.dataset.editRule))));
   document.querySelectorAll("[data-delete-rule]").forEach((button) => button.addEventListener("click", async () => {
+    if (!window.confirm("确定删除这个时间段吗？")) return;
     await request(managerPath(`/schedule-rules/${button.dataset.deleteRule}`), { method: "DELETE" });
     state.scheduleRules = state.scheduleRules.filter((rule) => rule.id !== button.dataset.deleteRule);
     renderSchedule();
@@ -509,6 +518,7 @@ function renderRestDays(banner = "") {
     </article>
   `).join("") || `<div class="empty">暂时没有休息日</div>`);
   document.querySelectorAll("[data-delete-rest]").forEach((button) => button.addEventListener("click", async () => {
+    if (!window.confirm("确定删除这个休息日吗？")) return;
     await request(managerPath(`/schedule-rules/${button.dataset.deleteRest}`), { method: "DELETE" });
     state.restDays = state.restDays.filter((rule) => rule.id !== button.dataset.deleteRest);
     renderSchedule();
@@ -533,6 +543,7 @@ function renderSpecialDays(banner = "") {
   `).join("") || `<div class="empty">暂时没有特殊排班</div>`);
   document.querySelectorAll("[data-edit-special]").forEach((button) => button.addEventListener("click", () => openSpecialDayDialog(button.dataset.editSpecial)));
   document.querySelectorAll("[data-delete-special]").forEach((button) => button.addEventListener("click", async () => {
+    if (!window.confirm("确定删除这个特殊排班吗？")) return;
     await request(managerPath(`/slots/${button.dataset.deleteSpecial}`), { method: "DELETE" });
     state.specialSlots = state.specialSlots.filter((slot) => slot.id !== button.dataset.deleteSpecial);
     renderSchedule();
@@ -576,6 +587,7 @@ function renderSpecialRows() {
     </article>
   `).join("") || `<div class="empty">当天没有时间段，可以点击下方添加。</div>`;
   document.querySelectorAll("[data-remove-special]").forEach((button) => button.addEventListener("click", () => {
+    if (!window.confirm("确定删除这个时间段吗？")) return;
     state.specialDraftRows.splice(Number(button.dataset.removeSpecial), 1);
     renderSpecialRows();
   }));
@@ -684,7 +696,7 @@ async function boot() {
   if (!state.account) throw new Error("当前管理账户不存在");
   state.groups = groups.filter((group) => state.account.groupIds.includes(group.id));
   state.tags = tags;
-  state.guides = guides;
+  state.guides = sortGuidesForDisplay(guides);
   state.activities = activities;
   state.orders = orders;
   state.notifications = notifications;
@@ -831,7 +843,9 @@ $("#special-day-form").addEventListener("submit", async (event) => {
     });
     if (!rows.length) throw new Error("请至少保留一个时间段；整天休息请使用休息日");
     const keptIds = new Set(rows.map((row) => row.id).filter(Boolean));
-    for (const slot of state.specialExistingSlots.filter((row) => row.id && !keptIds.has(row.id))) {
+    const deletedSlots = state.specialExistingSlots.filter((row) => row.id && !keptIds.has(row.id));
+    if (deletedSlots.length && !window.confirm(`保存后会删除 ${deletedSlots.length} 个已有特殊排班，确定继续吗？`)) return;
+    for (const slot of deletedSlots) {
       await request(managerPath(`/slots/${slot.id}`), { method: "DELETE" });
     }
     for (const row of rows) {
@@ -891,7 +905,7 @@ $("#manager-guide-form").addEventListener("submit", async (event) => {
           : `<p>${escapeHtml(description).replaceAll("\n", "<br>")}</p>`
       })
     });
-    state.guides = await request("/guides");
+    state.guides = sortGuidesForDisplay(await request("/guides"));
     $("#manager-guide-dialog").close();
     renderManagerGuides();
     toast(state.editingGuideId ? "领队档案已修改" : "领队档案已新增");

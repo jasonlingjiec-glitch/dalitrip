@@ -30,6 +30,13 @@ const formatBlogDate = (value) => {
   return new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "long", day: "numeric" }).format(date);
 };
 const activityTags = (activity) => Array.isArray(activity?.tags) ? activity.tags : [];
+const nonActivityGuideNames = new Set(["深夜食堂旧时光", "大家在一起的时间", "在一起的日子"]);
+const isActivitySelectableGuide = (guide) => !nonActivityGuideNames.has(guide?.name);
+const sortGuidesForDisplay = (guides = []) => [...guides].sort((left, right) => {
+  const leftArchived = isActivitySelectableGuide(left) ? 0 : 1;
+  const rightArchived = isActivitySelectableGuide(right) ? 0 : 1;
+  return leftArchived - rightArchived || (left.sortOrder ?? 9999) - (right.sortOrder ?? 9999);
+});
 let staticDataPromise;
 const normalizeAssetUrl = (value) => {
   if (typeof value !== "string") return value;
@@ -156,13 +163,28 @@ async function staticRequest(path, options = {}) {
   const params = url.searchParams;
   const method = (options.method || "GET").toUpperCase();
   const activityById = (id) => withActivityContent(data.activities.find((activity) => activity.id === id), data);
+  const guideWithActivityCovers = (guide) => ({
+    ...guide,
+    activities: ((guide.activities ?? []).length
+      ? guide.activities
+      : data.activities
+        .filter((activity) => (activity.guideIds ?? []).includes(guide.id))
+        .map((activity) => ({ id: activity.id, name: staticLocalized(activity.translations).name, summary: staticLocalized(activity.translations).summary })))
+      .map((activity) => {
+        const fullActivity = activityById(activity.id);
+        return { ...activity, coverUrl: activity.coverUrl || staticAiCover(fullActivity) };
+      })
+  });
 
   if (method === "DELETE" && route.startsWith("/reviews/")) return null;
   if (method === "POST" && route === "/orders") {
     const body = parseBody(options);
     const slot = data.slots.find((item) => item.id === body.slotId) ?? data.slots[0];
     const activity = activityById(body.activityId ?? slot?.activityId);
-    const option = slot?.priceOptions?.find((item) => item.id === body.priceOptionId) ?? slot?.priceOptions?.[0] ?? {};
+    const lineItems = normalizeStaticOrderLineItems(body, slot);
+    const quantity = lineItems.reduce((sum, item) => sum + item.quantity, 0);
+    const amountCents = lineItems.reduce((sum, item) => sum + item.amountCents, 0);
+    const firstItem = lineItems[0] ?? {};
     const order = {
       id: `demo-order-${Date.now()}`,
       orderNo: `DEMO${Date.now()}`,
@@ -170,11 +192,12 @@ async function staticRequest(path, options = {}) {
       activityId: activity?.id,
       groupId: activity?.groupId,
       slotId: slot?.id,
-      quantity: Number(body.quantity || 1),
-      priceOptionId: option.id,
-      specification: option.name ?? "成人",
-      unitPriceCents: option.priceCents ?? 0,
-      amountCents: (option.priceCents ?? 0) * Number(body.quantity || 1),
+      quantity,
+      priceOptionId: firstItem.priceOptionId,
+      specification: lineItems.length === 1 ? firstItem.specification : lineItems.map((item) => `${item.specification} × ${item.quantity}`).join("，"),
+      unitPriceCents: firstItem.unitPriceCents ?? 0,
+      amountCents,
+      lineItems,
       status: "PENDING_PAYMENT",
       paymentMethod: "WECHAT",
       profile: body.profile ?? {},
@@ -233,7 +256,7 @@ async function staticRequest(path, options = {}) {
   if (method === "POST" && route === "/ai/ask") return staticAiAsk(data, parseBody(options));
 
   if (route === "/tags") return data.tags;
-  if (route === "/guides") return data.guides;
+  if (route === "/guides") return sortGuidesForDisplay(data.guides).map(guideWithActivityCovers);
   if (route === "/ai/questions") return data.aiQuestions ?? [];
   if (route === "/faqs") return staticLimit(publishedOnly(data.faqs ?? [], params), params);
   if (route === "/guide-page") return data.guidePage;
@@ -288,14 +311,14 @@ async function staticRequest(path, options = {}) {
   }
   if (route === "/reviews") {
     return data.reviews.filter((review) => review.hidden !== true && (!params.get("activityId") || review.activityId === params.get("activityId")))
-      .map((review) => ({ ...review, activityName: activityById(review.activityId)?.content?.name ?? "活动" }))
+      .map((review) => ({ ...review, activityName: review.activityId ? activityById(review.activityId)?.content?.name ?? "活动" : review.activityName ?? "苍山徒步之家" }))
       .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   }
   if (route === "/orders") return data.orders.filter((order) => !params.get("customerId") || order.customerId === params.get("customerId")).map((order) => orderWithDetails(order, data));
   if (/^\/orders\/[^/]+\/cancellation-preview$/.test(route)) {
     const order = orderWithDetails(data.orders.find((item) => item.id === route.split("/")[2]) ?? data.orders[0], data);
     const refundRate = 1;
-    return { order, refundRate, refundAmountCents: order.amountCents, deductAmountCents: 0, leaderWechat: activityById(order.activityId)?.leaderWechat ?? "" };
+    return { order, amountCents: order.amountCents, refundRate, refundAmountCents: order.amountCents, retainedAmountCents: 0, leaderWechat: activityById(order.activityId)?.leaderWechat ?? "" };
   }
   if (/^\/activities\/[^/]+\/slots$/.test(route)) {
     const activityId = route.split("/")[2];
@@ -325,6 +348,22 @@ const demoImageUrls = {
   "demo/wild-tea.jpg": "https://images.unsplash.com/photo-1594631252845-29fc4cc8cde9?auto=format&fit=crop&w=900&q=85",
   "demo/mushroom.jpg": "https://images.unsplash.com/photo-1504545102780-26774c1bb073?auto=format&fit=crop&w=900&q=85",
   "demo/sup.jpg": "https://images.unsplash.com/photo-1526188717906-ab4a2f70b5d3?auto=format&fit=crop&w=900&q=85"
+};
+const normalizeStaticOrderLineItems = (body, slot) => {
+  const rawItems = Array.isArray(body.lineItems) && body.lineItems.length
+    ? body.lineItems
+    : [{ priceOptionId: body.priceOptionId, quantity: body.quantity }];
+  return rawItems.map((item) => {
+    const option = slot?.priceOptions?.find((priceOption) => priceOption.id === item.priceOptionId) ?? slot?.priceOptions?.[0] ?? {};
+    const quantity = Number(item.quantity || 0);
+    return {
+      priceOptionId: option.id,
+      specification: option.name ?? "成人",
+      quantity,
+      unitPriceCents: option.priceCents ?? 0,
+      amountCents: (option.priceCents ?? 0) * quantity
+    };
+  }).filter((item) => item.quantity > 0);
 };
 const isoDate = (value = new Date()) => {
   const date = new Date(value);
@@ -571,6 +610,23 @@ function normalizeTagName(value) {
 function blogPostsForGuide(guide) {
   const guideName = normalizeTagName(guide.name);
   return state.blogPosts.filter((post) => (post.tags ?? []).some((tag) => normalizeTagName(tag) === guideName));
+}
+
+function guideReviewKeywords(guide) {
+  return [...new Set([guide.name, ...(guide.aliases ?? [])]
+    .map(normalizeTagName)
+    .filter((keyword) => keyword.length >= 2))];
+}
+
+function guideReviewsForGuide(guide) {
+  const guideKeywords = guideReviewKeywords(guide);
+  return state.homeReviews
+    .filter((review) => {
+      const content = normalizeTagName(review.content);
+      const displayName = normalizeTagName(review.displayName);
+      return guideKeywords.some((keyword) => content.includes(keyword) || displayName.includes(keyword));
+    })
+    .sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)));
 }
 
 function bindBlogCards() {
@@ -884,7 +940,7 @@ function renderHomepageModules() {
     if (module.type === "GUIDES") return `${moduleHeading(module, "MEET THE GUIDES")}<section class="home-guide-list">${state.guides.slice(0, module.limit).map((guide) => `
       <button data-guide="${guide.id}">${guide.photoUrl ? `<img src="${escapeHtml(guide.photoUrl)}" alt="${escapeHtml(guide.name)}" />` : ""}<strong>${escapeHtml(guide.name)}</strong></button>`).join("")}</section>`;
     if (module.type === "REVIEWS") return `${moduleHeading(module, "LATEST STORIES")}<section class="home-review-strip">${state.homeReviews.slice(0, module.limit).map((review) => `
-      <article class="home-review-card" data-review-activity="${review.activityId}">
+      <article class="home-review-card" ${review.activityId ? `data-review-activity="${escapeHtml(review.activityId)}"` : ""}>
         <div class="home-review-head">
           <span class="review-avatar">${escapeHtml(review.displayName.slice(0, 1))}</span>
           <div>
@@ -946,7 +1002,9 @@ function bindHomepageModules() {
   document.querySelectorAll("[data-topic-page]").forEach((button) => button.addEventListener("click", async () => button.dataset.externalUrl ? window.open(button.dataset.externalUrl, "_blank", "noopener,noreferrer") : openTopicPage(button.dataset.topicPage)));
   document.querySelectorAll("[data-activity]").forEach((card) => card.addEventListener("click", () => openActivity(card.dataset.activity)));
   document.querySelectorAll("[data-guide]").forEach((button) => button.addEventListener("click", () => openGuide(button.dataset.guide)));
-  document.querySelectorAll("[data-review-activity]").forEach((card) => card.addEventListener("click", () => openActivity(card.dataset.reviewActivity)));
+  document.querySelectorAll("[data-review-activity]").forEach((card) => card.addEventListener("click", () => {
+    if (card.dataset.reviewActivity) openActivity(card.dataset.reviewActivity);
+  }));
   document.querySelectorAll("[data-expand-review]").forEach((button) => button.addEventListener("click", (event) => {
     event.stopPropagation();
     const card = button.closest(".home-review-card");
@@ -1016,7 +1074,6 @@ async function openActivity(id, date = "", options = {}) {
       <button data-detail-section="detail-info-section">详情</button>
     </nav>
     <section id="detail-booking-section" class="detail-booking-section">
-      <h2>预约</h2>
       <div class="detail-date-strip">
         ${state.activityDateAvailability.map((item) => {
           const dateObject = new Date(`${item.date}T00:00:00`);
@@ -1162,6 +1219,7 @@ function renderImagePreview() {
 async function openGuide(guideId) {
   if (!state.guides.length) state.guides = await request("/guides");
   if (!state.blogPosts.length) state.blogPosts = await request("/blog-posts?published=true");
+  if (!state.homeReviews.length) state.homeReviews = await request("/reviews");
   const guide = state.guides.find((item) => item.id === guideId);
   if (!guide) return;
   const guideImages = (guide.images ?? [])
@@ -1169,9 +1227,16 @@ async function openGuide(guideId) {
     .sort((left, right) => (left.sortOrder ?? 0) - (right.sortOrder ?? 0))
     .map(activityImageUrl)
     .filter(Boolean);
-  const guideBlogPosts = blogPostsForGuide(guide).slice(0, 4);
+  const guideBlogPosts = blogPostsForGuide(guide);
+  const guideReviews = guideReviewsForGuide(guide);
   $("#guide-profile").innerHTML = `
-    <header><h2>${escapeHtml(guide.name)}</h2><button data-close-guide aria-label="关闭">×</button></header>
+    <header>
+      <div>
+        <p>GUIDE PROFILE</p>
+        <h2>${escapeHtml(guide.name)}</h2>
+      </div>
+      <button data-close-guide aria-label="关闭">×</button>
+    </header>
     ${guide.photoUrl ? `<img src="${escapeHtml(guide.photoUrl)}" alt="${escapeHtml(guide.name)}" />` : ""}
     ${guideImages.length ? `
       <div class="guide-gallery-strip">
@@ -1183,20 +1248,45 @@ async function openGuide(guideId) {
       </div>
     ` : ""}
     <div class="guide-description">${guide.descriptionHtml}</div>
-    <h3>可能带领的活动</h3>
-    <div class="guide-activity-list">
-      ${guide.activities.map((activity) => `
-        <button data-guide-activity="${activity.id}">
-          <strong>${escapeHtml(activity.name)}</strong>
-          <span>${escapeHtml(activity.summary)}</span>
-        </button>
-      `).join("") || `<p>暂时没有关联活动。</p>`}
-    </div>
+    <section class="guide-section">
+      <h3>可能带领的活动</h3>
+      <div class="guide-activity-list">
+        ${guide.activities.map((activity) => `
+          <button data-guide-activity="${activity.id}">
+            <img src="${escapeHtml(activity.coverUrl || cover)}" alt="${escapeHtml(activity.name)}" />
+            <div>
+              <strong>${escapeHtml(activity.name)}</strong>
+              <span>${escapeHtml(activity.summary) || "查看活动详情与可预约时间。"}</span>
+            </div>
+          </button>
+        `).join("") || `<p>暂时没有关联活动。</p>`}
+      </div>
+    </section>
+    <section class="guide-review-section">
+      <div class="guide-review-heading">
+        <h3>客人对${escapeHtml(guide.name)}的评价</h3>
+        <span>${guideReviews.length} 条</span>
+      </div>
+      <div class="guide-review-strip">
+        ${guideReviews.map((review) => `
+          <article class="guide-review-card" data-guide-review-card>
+            <span>${"★".repeat(review.rating)}</span>
+            <strong>${escapeHtml(review.activityName || "苍山徒步之家")}</strong>
+            <div class="guide-review-text">
+              <p>${escapeHtml(review.content)}</p>
+              ${review.content.length > 100 ? `<button type="button" class="review-expand" data-expand-guide-review>展开</button>` : ""}
+            </div>
+            ${(review.imageUrls ?? []).length ? `<div class="guide-review-images">${review.imageUrls.slice(0, 3).map((url, index) => `<button type="button" data-guide-preview-review="${review.id}" data-preview-index="${index}"><img src="${escapeHtml(url)}" alt="评价照片" /></button>`).join("")}${review.imageUrls.length > 3 ? `<button type="button" class="more" data-guide-preview-review="${review.id}" data-preview-index="3">更多</button>` : ""}</div>` : ""}
+            <small>${escapeHtml(review.displayName)} · ${readableDate(review.createdAt)}</small>
+          </article>
+        `).join("") || `<div class="empty">还没有客人评价直接提到 ${escapeHtml(guide.name)}。</div>`}
+      </div>
+    </section>
     <section class="guide-blog-section">
       <div class="blog-preview-heading guide-blog-heading">
         <div>
           <p>DALI LIFE</p>
-          <h2>${escapeHtml(guide.name)}的故事</h2>
+          <h2>和${escapeHtml(guide.name)}有关的记录</h2>
         </div>
         <span>${guideBlogPosts.length} 篇</span>
       </div>
@@ -1211,6 +1301,20 @@ async function openGuide(guideId) {
     $("#guide-dialog").close();
     await openActivity(button.dataset.guideActivity);
   }));
+  $("#guide-profile").onclick = (event) => {
+    const previewButton = event.target.closest("[data-guide-preview-review]");
+    if (previewButton) {
+      const review = state.homeReviews.find((item) => item.id === previewButton.dataset.guidePreviewReview);
+      openImagePreview(review?.imageUrls ?? [], Number(previewButton.dataset.previewIndex));
+      return;
+    }
+    const card = event.target.closest("[data-guide-review-card]");
+    if (!card) return;
+    const expanded = card.classList.toggle("expanded");
+    const button = card.querySelector("[data-expand-guide-review]");
+    if (!button) return;
+    button.textContent = expanded ? "收起" : "展开";
+  };
   document.querySelectorAll("[data-guide-blog-post]").forEach((button) => button.addEventListener("click", async () => {
     $("#guide-dialog").close();
     await openBlogPost(button.dataset.guideBlogPost);
@@ -1220,6 +1324,7 @@ async function openGuide(guideId) {
 
 async function loadGuideHome() {
   [state.guides, state.guidePage] = await Promise.all([request("/guides"), request("/guide-page")]);
+  state.guides = sortGuidesForDisplay(state.guides);
   $("#guide-home-introduction").innerHTML = state.guidePage.introductionHtml || `<p>暂未填写领队介绍。</p>`;
   $("#guide-count").textContent = `${state.guides.length} 位领队`;
   $("#customer-guide-list").innerHTML = state.guides.map((guide) => `
@@ -1264,23 +1369,64 @@ function openBooking(slotId) {
   state.bookingSlot = state.slots.find((slot) => slot.id === slotId);
   const form = $("#booking-form");
   form.reset();
-  form.quantity.value = 1;
   $("#booking-price-options").innerHTML = state.bookingSlot.priceOptions.map((option, index) => `
-    <label>
-      <input name="priceOptionId" type="radio" value="${option.id}" ${index === 0 ? "checked" : ""} required />
-      <span>${option.name} · ${money(option.priceCents)}</span>
-    </label>
+    <div class="booking-line-item" data-booking-line-item="${option.id}">
+      <div>
+        <strong>${escapeHtml(option.name)}</strong>
+        <span>${money(option.priceCents)}</span>
+      </div>
+      <span class="stepper">
+        <button type="button" data-line-quantity-step="-1" data-price-option-id="${option.id}" aria-label="减少${escapeHtml(option.name)}人数">−</button>
+        <input name="lineQuantity:${option.id}" type="number" min="0" value="${index === 0 ? 1 : 0}" readonly />
+        <button type="button" data-line-quantity-step="1" data-price-option-id="${option.id}" aria-label="增加${escapeHtml(option.name)}人数">＋</button>
+      </span>
+    </div>
   `).join("");
-  document.querySelectorAll("input[name=priceOptionId]").forEach((input) => input.addEventListener("change", updateTotal));
+  document.querySelectorAll("[data-line-quantity-step]").forEach((button) => button.addEventListener("click", () => {
+    const input = form.elements[`lineQuantity:${button.dataset.priceOptionId}`];
+    const selectedCount = selectedBookingLineItems().reduce((sum, item) => sum + item.quantity, 0);
+    const available = state.bookingSlot.capacity - state.bookingSlot.bookedCount;
+    const current = Number(input.value);
+    const next = Math.max(0, Math.min(current + Number(button.dataset.lineQuantityStep), available - selectedCount + current));
+    input.value = next;
+    updateTotal();
+  }));
   $("#booking-slot-summary").innerHTML = `<strong>${dateOnly(state.bookingSlot.startsAt)} ${timeOnly(state.bookingSlot.startsAt)}-${timeOnly(state.bookingSlot.endsAt)}</strong><br />${state.bookingSlot.bookedCount} 人预订，最多 ${state.bookingSlot.capacity} 人`;
   updateTotal();
   $("#booking-dialog").showModal();
 }
 
-function updateTotal() {
+function selectedBookingLineItems() {
   const form = $("#booking-form");
-  const option = state.bookingSlot?.priceOptions.find((item) => item.id === form.querySelector("input[name=priceOptionId]:checked")?.value);
-  $("#booking-total").textContent = money((option?.priceCents ?? 0) * Number(form.quantity.value));
+  return (state.bookingSlot?.priceOptions ?? []).map((option) => {
+    const quantity = Number(form.elements[`lineQuantity:${option.id}`]?.value || 0);
+    return {
+      priceOptionId: option.id,
+      quantity,
+      specification: option.name,
+      unitPriceCents: option.priceCents,
+      amountCents: option.priceCents * quantity
+    };
+  }).filter((item) => item.quantity > 0);
+}
+
+function orderLineItems(order) {
+  return (order.lineItems?.length ? order.lineItems : [{
+    priceOptionId: order.priceOptionId,
+    specification: order.specification,
+    quantity: order.quantity,
+    unitPriceCents: order.unitPriceCents,
+    amountCents: order.amountCents
+  }]).filter((item) => Number(item.quantity) > 0);
+}
+
+function orderSpecText(order) {
+  return orderLineItems(order).map((item) => `${item.specification} × ${item.quantity}`).join("，");
+}
+
+function updateTotal() {
+  const amountCents = selectedBookingLineItems().reduce((sum, item) => sum + item.amountCents, 0);
+  $("#booking-total").textContent = money(amountCents);
 }
 
 function renderOrders() {
@@ -1291,7 +1437,7 @@ function renderOrders() {
       <div><strong>${order.groupName}</strong><span>${statusText(order.status)}</span></div>
       <h3>${order.activityName}</h3>
       <p>${dateOnly(order.startsAt)} ${timeOnly(order.startsAt)}-${timeOnly(order.endsAt)}</p>
-      <p>${order.specification} × ${order.quantity} · ${money(order.amountCents)}</p>
+      <p>${escapeHtml(orderSpecText(order))} · ${money(order.amountCents)}</p>
       <p class="order-meeting-point"><strong>集合地点：</strong>${order.meetingPointName || "出发前通知"}${navigationUrl ? `<a class="navigation-link" href="${navigationUrl}" target="_blank" rel="noopener noreferrer">导航</a>` : ""}</p>
       ${["PENDING_PAYMENT", "BOOKED"].includes(order.status) ? `<div class="customer-order-actions"><button class="danger" data-cancel-booking="${order.id}">取消预约</button></div>` : ""}
     </article>
@@ -1337,6 +1483,7 @@ async function loadOrders() {
 async function boot() {
   try {
     [state.tags, state.topicPages, state.blogPosts, state.homeEntries, state.homeModules, state.guides, state.homeReviews] = await Promise.all([request("/tags"), request("/topic-pages?published=true"), request("/blog-posts?published=true"), request("/home-entries?published=true"), request("/home-modules?published=true"), request("/guides"), request("/reviews")]);
+    state.guides = sortGuidesForDisplay(state.guides);
     renderBlogPreview();
     await loadActivities();
   } catch (error) {
@@ -1365,24 +1512,19 @@ $("#back-from-blog-detail").addEventListener("click", openBlogList);
 $("#back-from-topic").addEventListener("click", () => showView("home"));
 $("#back-to-detail-from-reviews").addEventListener("click", () => showView("detail"));
 document.querySelectorAll("[data-close-booking]").forEach((button) => button.addEventListener("click", () => $("#booking-dialog").close()));
-document.querySelectorAll("[data-quantity-step]").forEach((button) => button.addEventListener("click", () => {
-  const input = $("#booking-form").quantity;
-  const next = Math.max(1, Math.min(state.bookingSlot.capacity - state.bookingSlot.bookedCount, Number(input.value) + Number(button.dataset.quantityStep)));
-  input.value = next;
-  updateTotal();
-}));
 $("#booking-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
   const values = new FormData(form);
+  const lineItems = selectedBookingLineItems().map(({ priceOptionId, quantity }) => ({ priceOptionId, quantity }));
+  if (!lineItems.length) return toast("请至少选择 1 位预约人数");
   try {
     const order = await request("/orders", {
       method: "POST",
       body: JSON.stringify({
         customerId: CUSTOMER_ID,
         slotId: state.bookingSlot.id,
-        priceOptionId: values.get("priceOptionId"),
-        quantity: Number(values.get("quantity")),
+        lineItems,
         profile: { mobile: values.get("mobile"), nickname: values.get("nickname"), childInfo: values.get("childInfo") }
       })
     });

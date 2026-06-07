@@ -1,10 +1,10 @@
 :root { color: #252b29; background: #f5f6f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-body { margin: 0; }
+body { margin: 0; overflow-x: hidden; }
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
-main { min-height: calc(100vh - 68px); padding-bottom: 10px; }
+main { min-height: calc(100vh - 68px); overflow-x: hidden; padding-bottom: 10px; }
 .mini-header { padding: 22px 20px 13px; background: #fff; }
 .mini-header p, .simple-header p { margin: 0 0 5px; color: #88701d; font-size: 10px; letter-spacing: 1.4px; }
 h1, h2, h3, p { margin: 0; }
@@ -219,4 +219,56 @@ textarea { padding: 9px; border: 1px solid #dce2df; border-radius: 4px; resize: 
 .manager-notification-card strong { color: #475550; font-size: 14px; }
 .manager-notification-card p { color: #74807c; font-size: 12px; line-height: 1.5; }
 .manager-notification-card small { color: #9aa3a0; font-size: 11px; }
+@media (max-width: 360px) {
+  .controls,
+  .schedule-actions,
+  .order-top,
+  .order-bottom,
+  .activity-top,
+  .weekly-rule-top,
+  .rest-card,
+  .special-card-header,
+  .manager-guide-photo {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .actions,
+  .activity-actions,
+  .weekly-rule-actions,
+  .detail-actions,
+  #weekly-rule-dialog footer,
+  #rest-day-dialog footer,
+  #special-day-dialog footer,
+  #activity-edit-dialog footer,
+  #manager-guide-dialog footer,
+  #manager-reply-dialog footer {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+  .manager-guide-card {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+  .manager-guide-card > button {
+    grid-column: 1 / -1;
+  }
+  .manager-calendar-grid,
+  .manager-free-list,
+  .rule-grid,
+  .price-row,
+  .special-row-grid {
+    grid-template-columns: 1fr;
+  }
+  .manager-guide-half {
+    grid-template-columns: 1fr;
+  }
+  .manager-guide-half span {
+    justify-self: start;
+  }
+  .meeting-point-field {
+    grid-template-columns: 1fr;
+  }
+  dialog { width: calc(100vw - 12px); max-height: calc(100vh - 12px); }
+  dialog form { max-height: calc(100vh - 12px); overflow-y: auto; }
+  .toast { max-width: calc(100vw - 24px); white-space: normal; }
+}
 @media (min-width: 560px) { body { max-width: 480px; margin: auto; border-right: 1px solid #e5e8e7; border-left: 1px solid #e5e8e7; } }

@@ -1,5 +1,12 @@
 const API_BASE = "http://localhost:3000";
 const state = { activities: [], groups: [], tags: [], guides: [], guidePage: { introductionHtml: "" }, guideCalendar: { dates: [], guides: [], availability: [] }, guideCalendarMode: "mark", topicPages: [], blogPosts: [], homeEntries: [], homeModules: [], homePreviewReviews: [], homePreviewSlots: [], orders: [], customers: [], reviews: [], adminAccounts: [], aiSettings: null, aiQuestions: [], faqs: [], editingFaqId: null, selectedTagIds: [], searchText: "", customerSearchText: "", currentActivityId: null, editingActivityId: null, editingGuideId: null, editingTopicPageId: null, editingBlogPostId: null, editingHomeEntryId: null, selectedHomeModuleId: null, editingRuleId: null, editingGroupId: null, editingAdminAccountId: null, cancellingOrderId: null, walletCustomerId: null, replyingReviewId: null, activeScheduleTab: "regular", currentView: "activities", descriptionDraft: "", activityGalleryDraft: [], activityGallerySelectedIds: new Set(), activityGalleryDragIndex: null, activityGalleryEditorOpen: false, guideDescriptionDraft: "", guidePhotoDraft: "", guideGalleryDraft: [], guideGallerySelectedIds: new Set(), guideGalleryDragIndex: null, guideGalleryEditorOpen: false, guideDragIndex: null, guideOrderDirty: false, topicPageIntroductionDraft: "", blogPostContentDraft: "", blogTagFilter: "", editorTarget: "activity", specialDialogSlots: [], specialDialogExistingSlots: [] };
+const nonActivityGuideNames = new Set(["深夜食堂旧时光", "大家在一起的时间", "在一起的日子"]);
+const isActivitySelectableGuide = (guide) => !nonActivityGuideNames.has(guide?.name);
+const sortGuidesForDisplay = (guides = []) => [...guides].sort((left, right) => {
+  const leftArchived = isActivitySelectableGuide(left) ? 0 : 1;
+  const rightArchived = isActivitySelectableGuide(right) ? 0 : 1;
+  return leftArchived - rightArchived || (left.sortOrder ?? 9999) - (right.sortOrder ?? 9999);
+});
 const demoImageUrls = {
   "demo/forest-hike-cover.jpg": "https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=500&q=80",
   "demo/forest-ferns-1.jpg": "https://images.unsplash.com/photo-1530968033775-2c92736b131e?auto=format&fit=crop&w=500&q=80",
@@ -238,7 +245,9 @@ const staticOrder = (order, data) => {
 };
 const staticReview = (review, data) => ({
   ...review,
-  activityName: staticLocalized(data.activities.find((activity) => activity.id === review.activityId)?.translations).name ?? "活动"
+  activityName: review.activityId
+    ? staticLocalized(data.activities.find((activity) => activity.id === review.activityId)?.translations).name ?? "活动"
+    : review.activityName ?? "苍山徒步之家"
 });
 const staticSlot = (slot, data) => {
   const activity = data.activities.find((item) => item.id === slot.activityId);
@@ -289,7 +298,7 @@ async function staticRequest(path, options = {}) {
 
   if (route === "/groups") return cloneStatic(data.groups);
   if (route === "/tags") return data.tags.map(staticTag);
-  if (route === "/guides") return data.guides.map((guide) => staticGuide(guide, data));
+  if (route === "/guides") return sortGuidesForDisplay(data.guides).map((guide) => staticGuide(guide, data));
   if (route === "/guide-page") return cloneStatic(data.guidePage);
   if (route === "/topic-pages") return cloneStatic(data.topicPages);
   if (route === "/blog-posts") return cloneStatic(data.blogPosts);
@@ -318,9 +327,32 @@ async function staticRequest(path, options = {}) {
     if (body.status !== "FREE") data.guideAvailability.push({ id: `demo-guide-${Date.now()}`, guideId: body.guideId, date: body.date, status: body.status, updatedBy: body.adminAccountId ?? "account-owner", updatedAt: new Date().toISOString() });
     return staticGuideCalendar(data, body.adminAccountId ?? "account-owner");
   }
+  if (method === "PATCH" && /^\/reviews\/[^/]+$/.test(route)) {
+    const review = data.reviews.find((item) => item.id === route.split("/")[2]);
+    if (!review) throw new Error("评价不存在");
+    Object.assign(review, {
+      displayName: String(body.displayName ?? review.displayName).trim(),
+      rating: Number(body.rating ?? review.rating),
+      content: String(body.content ?? review.content).trim(),
+      hidden: typeof body.hidden === "boolean" ? body.hidden : review.hidden,
+      updatedAt: new Date().toISOString()
+    });
+    return staticReview(review, data);
+  }
   if (method === "PATCH" && route === "/guides/reorder") {
     data.guides.forEach((guide) => { guide.sortOrder = body.ids?.indexOf(guide.id) + 1 || guide.sortOrder || 999; });
-    return data.guides.map((guide) => staticGuide(guide, data));
+    return sortGuidesForDisplay(data.guides).map((guide) => staticGuide(guide, data));
+  }
+  if (method === "DELETE" && /^\/guides\/[^/]+$/.test(route)) {
+    const id = route.split("/")[2];
+    const guide = data.guides.find((item) => item.id === id);
+    if (!guide) throw new Error("领队不存在");
+    data.activities.forEach((activity) => {
+      activity.guideIds = (activity.guideIds ?? []).filter((guideId) => guideId !== id);
+    });
+    data.guideAvailability = (data.guideAvailability ?? []).filter((item) => item.guideId !== id);
+    data.guides = data.guides.filter((item) => item.id !== id);
+    return staticGuide({ ...guide, activities: [] }, data);
   }
   if (["POST", "PATCH", "DELETE"].includes(method)) return { ok: true, demo: true };
   throw new Error("静态后台 demo 暂不支持这个操作");
@@ -353,6 +385,7 @@ const toast = (message) => {
 
 async function loadBaseData() {
   [state.groups, state.tags, state.guides, state.guidePage, state.topicPages, state.blogPosts, state.homeEntries, state.homeModules, state.homePreviewReviews] = await Promise.all([request("/api/groups"), request("/api/tags"), request("/api/guides"), request("/api/guide-page"), request("/api/topic-pages"), request("/api/blog-posts"), request("/api/home-entries"), request("/api/home-modules"), request("/api/reviews")]);
+  state.guides = sortGuidesForDisplay(state.guides);
   renderTagFilters();
   renderDialogOptions();
   renderOrderFilterOptions();
@@ -401,7 +434,8 @@ function renderDialogOptions() {
   $("#dialog-tags").innerHTML = state.tags.map((tag) => `
     <label class="checkbox-tag"><input type="checkbox" name="tagIds" value="${tag.id}" />${tag.name}</label>
   `).join("");
-  $("#dialog-guides").innerHTML = state.guides.map((guide) => `
+  const activityGuides = state.guides.filter(isActivitySelectableGuide);
+  $("#dialog-guides").innerHTML = activityGuides.map((guide) => `
     <label class="checkbox-tag"><input type="checkbox" name="guideIds" value="${guide.id}" />${escapeHtml(guide.name)}</label>
   `).join("") || `<p class="no-rules">请先在领队库新增档案。</p>`;
   $("#topic-page-tags").innerHTML = state.tags.map((tag) => `
@@ -443,12 +477,14 @@ function renderActivityList() {
   const visibleActivities = searchText
     ? state.activities.filter((activity) => activity.content.name.toLocaleLowerCase().includes(searchText))
     : state.activities;
+  const activitySortRank = (activity) => {
+    if (activity.schedulePaused) return 2;
+    if (!activity.hasSchedule) return 1;
+    return 0;
+  };
   const sortedActivities = [...visibleActivities].sort((left, right) => {
-    const leftInactive = left.schedulePaused || !left.hasSchedule;
-    const rightInactive = right.schedulePaused || !right.hasSchedule;
-    if (leftInactive !== rightInactive) return leftInactive ? 1 : -1;
-    if (left.schedulePaused !== right.schedulePaused) return left.schedulePaused ? 1 : -1;
-    if (!left.hasSchedule !== !right.hasSchedule) return !left.hasSchedule ? 1 : -1;
+    const rankDiff = activitySortRank(left) - activitySortRank(right);
+    if (rankDiff) return rankDiff;
     return left.content.name.localeCompare(right.content.name, "zh-CN");
   });
   $("#activity-count").textContent = searchText
@@ -566,6 +602,20 @@ function paymentMethodLabel(method) {
   return { WECHAT: "微信支付", WALLET: "钱包余额", COMBINED: "钱包 + 微信" }[method] ?? "尚未支付";
 }
 
+function orderLineItems(order) {
+  return (order.lineItems?.length ? order.lineItems : [{
+    priceOptionId: order.priceOptionId,
+    specification: order.specification,
+    quantity: order.quantity,
+    unitPriceCents: order.unitPriceCents,
+    amountCents: order.amountCents
+  }]).filter((item) => Number(item.quantity) > 0);
+}
+
+function orderSpecText(order) {
+  return orderLineItems(order).map((item) => `${item.specification} × ${item.quantity}`).join("，");
+}
+
 async function loadOrders() {
   const values = new FormData($("#order-filters"));
   const params = new URLSearchParams();
@@ -592,7 +642,7 @@ function renderOrders() {
         <div class="order-meta">
           <span>${escapeHtml(order.groupName)}</span>
           <span>${scheduleRange(order.startsAt, order.endsAt)}</span>
-          <span>${escapeHtml(order.specification)} × ${order.quantity}</span>
+          <span>${escapeHtml(orderSpecText(order))}</span>
         </div>
         <div class="order-customer">
           <strong>${escapeHtml(order.customerNickname)}</strong>
@@ -626,12 +676,12 @@ function getVisibleOrders() {
 function exportOrders() {
   const orders = getVisibleOrders();
   if (!orders.length) return toast("当前筛选条件下没有可导出的订单");
-  const headers = ["订单号", "订单状态", "活动组", "活动名称", "活动日期", "开始时间", "结束时间", "顾客昵称", "顾客手机号", "规格", "数量", "单价（元）", "订单金额（元）", "支付方式", "创建时间", "支付时间", "完成时间", "取消时间", "退款金额（元）", "取消备注", "集合地点"];
+  const headers = ["订单号", "订单状态", "活动组", "活动名称", "活动日期", "开始时间", "结束时间", "顾客昵称", "顾客手机号", "规格明细", "数量", "单价明细（元）", "订单金额（元）", "支付方式", "创建时间", "支付时间", "完成时间", "取消时间", "退款金额（元）", "取消备注", "集合地点"];
   const rows = orders.map((order) => [
     order.orderNo, orderStatusLabel(order.status), order.groupName, order.activityName,
     order.startsAt.slice(0, 10), order.startsAt.slice(11, 16), order.endsAt.slice(11, 16),
-    order.customerNickname, order.customerMobile, order.specification, order.quantity,
-    centsAsYuan(order.unitPriceCents), centsAsYuan(order.amountCents), paymentMethodLabel(order.paymentMethod),
+    order.customerNickname, order.customerMobile, orderSpecText(order), order.quantity,
+    orderLineItems(order).map((item) => `${item.specification} ${centsAsYuan(item.unitPriceCents)}`).join("；"), centsAsYuan(order.amountCents), paymentMethodLabel(order.paymentMethod),
     readableExportDate(order.createdAt), readableExportDate(order.paidAt), readableExportDate(order.completedAt),
     readableExportDate(order.cancelledAt), centsAsYuan(order.refundAmountCents), order.cancellationNote ?? "",
     order.meetingPointName ?? ""
@@ -1381,7 +1431,7 @@ function renderGuides() {
         <span class="guide-card-order">#${index + 1}</span>
         <h3>${escapeHtml(guide.name)}</h3>
         <p>${escapeHtml(guide.descriptionHtml.replace(/<[^>]+>/g, "")) || "暂未填写详细介绍"}</p>
-        <small>${guide.activities.length} 个关联活动 · ${(guide.images ?? []).length} 张相册照片</small>
+        <small>${guide.activities.length} 个关联活动 · ${(guide.images ?? []).length} 张相册照片${(guide.aliases ?? []).length ? ` · 关键词：${escapeHtml(guide.aliases.join(" / "))}` : ""}</small>
       </div>
       <div class="guide-card-actions">
         <button class="secondary-button" data-edit-guide="${guide.id}">编辑</button>
@@ -1406,17 +1456,17 @@ function moveGuide(fromIndex, toIndex) {
 async function saveGuideOrder() {
   if (!state.guideOrderDirty) return;
   try {
-    state.guides = await request("/api/guides/reorder", {
+    state.guides = sortGuidesForDisplay(await request("/api/guides/reorder", {
       method: "PATCH",
       body: JSON.stringify({ ids: state.guides.map((guide) => guide.id) })
-    });
+    }));
     state.guideOrderDirty = false;
     renderDialogOptions();
     renderGuides();
     toast("领队顺序已保存");
   } catch (error) {
     toast(error.message);
-    state.guides = await request("/api/guides");
+    state.guides = sortGuidesForDisplay(await request("/api/guides"));
     state.guideOrderDirty = false;
     renderGuides();
   }
@@ -1460,7 +1510,7 @@ async function deleteGuide(id) {
   try {
     await request(`/api/guides/${id}`, { method: "DELETE" });
     await loadActivities();
-    state.guides = await request("/api/guides");
+    state.guides = sortGuidesForDisplay(await request("/api/guides"));
     renderDialogOptions();
     renderGuides();
     toast(linkedCount ? "领队已删除，活动关联已同步移除" : "领队档案已删除");
@@ -1482,6 +1532,7 @@ function openGuideDialog(guide = null) {
   form.querySelector("h2").textContent = guide ? "编辑领队" : "新增领队";
   if (guide) {
     form.elements.name.value = guide.name;
+    form.elements.aliases.value = (guide.aliases ?? []).join("，");
   }
   renderGuidePhotoPreview();
   renderGuideGallery();
@@ -1593,6 +1644,7 @@ async function loadReviews() {
         <span class="review-stars">${"★".repeat(review.rating)}</span>
       </div>
       <p>${escapeHtml(review.content)}</p>
+      ${(review.imageUrls ?? []).length ? `<div class="admin-review-images">${review.imageUrls.slice(0, 6).map((url) => `<img src="${escapeHtml(url)}" alt="评价照片" />`).join("")}${review.imageUrls.length > 6 ? `<span>+${review.imageUrls.length - 6}</span>` : ""}</div>` : ""}
       <div class="admin-review-replies">
         ${(review.replies ?? []).map((reply) => `<p><strong>${escapeHtml(reply.displayName)}</strong>${escapeHtml(reply.content)}</p>`).join("")}
       </div>
@@ -1601,6 +1653,7 @@ async function loadReviews() {
         <span>${escapeHtml(review.createdAt.slice(0, 10))}</span>
       </div>
       <div class="admin-review-actions">
+        <button class="secondary-button" data-edit-review="${review.id}">编辑</button>
         <button class="secondary-button" data-reply-review="${review.id}">回复</button>
         <button class="${review.hidden ? "secondary-button" : "danger-button"}" data-toggle-review="${review.id}" data-next-hidden="${!review.hidden}">
           ${review.hidden ? "恢复显示" : "隐藏评价"}
@@ -1625,6 +1678,21 @@ async function loadReviews() {
       $("#review-reply-dialog").showModal();
     });
   });
+  document.querySelectorAll("[data-edit-review]").forEach((button) => button.addEventListener("click", () => openReviewEditDialog(button.dataset.editReview)));
+}
+
+function openReviewEditDialog(id) {
+  const review = state.reviews.find((item) => item.id === id);
+  if (!review) return;
+  const form = $("#review-edit-form");
+  form.reset();
+  form.elements.id.value = review.id;
+  form.elements.activityName.value = review.activityName || "苍山徒步之家";
+  form.elements.displayName.value = review.displayName;
+  form.elements.rating.value = String(review.rating);
+  form.elements.content.value = review.content;
+  form.elements.hidden.checked = review.hidden === true;
+  $("#review-edit-dialog").showModal();
 }
 
 async function loadSettings() {
@@ -2075,6 +2143,7 @@ function bindRestDayActions() {
   $("#new-rest-day").addEventListener("click", () => $("#rest-day-dialog").showModal());
   document.querySelectorAll("[data-delete-rest-day]").forEach((button) => {
     button.addEventListener("click", async () => {
+      if (!window.confirm("确定删除这个休息日吗？")) return;
       try {
         await request(`/api/schedule-rules/${button.dataset.deleteRestDay}`, { method: "DELETE" });
         toast("休息日已删除");
@@ -2125,6 +2194,7 @@ function renderSpecialDayEditor() {
   });
   document.querySelectorAll("[data-remove-special-slot]").forEach((button) => {
     button.addEventListener("click", () => {
+      if (!window.confirm("确定删除这个时间段吗？")) return;
       state.specialDialogSlots.splice(Number(button.dataset.removeSpecialSlot), 1);
       renderSpecialDayEditor();
     });
@@ -2161,6 +2231,7 @@ function bindSpecialSlotActions(slots, regularRules) {
   });
   document.querySelectorAll("[data-delete-slot]").forEach((button) => {
     button.addEventListener("click", async () => {
+      if (!window.confirm("确定删除这个特殊排班吗？")) return;
       try {
         await request(`/api/slots/${button.dataset.deleteSlot}`, { method: "DELETE" });
         toast("特殊排班已删除");
@@ -2192,6 +2263,7 @@ function addPriceOption(containerId, option = { name: "", priceCents: 0 }) {
   `;
   row.querySelector(".delete-icon").addEventListener("click", () => {
     if (container.children.length === 1) return toast("请至少保留一个规格");
+    if (!window.confirm("确定删除这个价格规格吗？")) return;
     row.remove();
   });
   container.append(row);
@@ -2228,6 +2300,7 @@ function bindRegularRuleActions(rules) {
   });
   document.querySelectorAll("[data-delete-rule]").forEach((button) => {
     button.addEventListener("click", async () => {
+      if (!window.confirm("确定删除这个排班时间段吗？")) return;
       await request(`/api/schedule-rules/${button.dataset.deleteRule}`, { method: "DELETE" });
       toast("排班已删除");
       await selectActivity(state.currentActivityId);
@@ -2506,6 +2579,7 @@ $("#activity-gallery-more").addEventListener("click", () => {
 $("#activity-gallery-delete-selected").addEventListener("click", () => {
   const selectedCount = state.activityGallerySelectedIds.size;
   if (!selectedCount) return;
+  if (!window.confirm(`确定删除所选 ${selectedCount} 张活动照片吗？`)) return;
   state.activityGalleryDraft = state.activityGalleryDraft.filter((image) => !state.activityGallerySelectedIds.has(image.id));
   state.activityGallerySelectedIds = new Set();
   renderActivityGallery();
@@ -2545,6 +2619,7 @@ $("#guide-gallery-more").addEventListener("click", () => {
 $("#guide-gallery-delete-selected").addEventListener("click", () => {
   const selectedCount = state.guideGallerySelectedIds.size;
   if (!selectedCount) return;
+  if (!window.confirm(`确定删除所选 ${selectedCount} 张领队照片吗？`)) return;
   state.guideGalleryDraft = state.guideGalleryDraft.filter((image) => !state.guideGallerySelectedIds.has(image.id));
   state.guideGallerySelectedIds = new Set();
   renderGuideGallery();
@@ -2694,13 +2769,14 @@ $("#guide-form").addEventListener("submit", async (event) => {
       method: state.editingGuideId ? "PATCH" : "POST",
       body: JSON.stringify({
         name: values.get("name"),
+        aliases: String(values.get("aliases") ?? "").split(/[,，\n]/).map((alias) => alias.trim()).filter(Boolean),
         photoUrl: state.guidePhotoDraft,
         descriptionHtml: state.guideDescriptionDraft,
         images: state.guideGalleryDraft.map((image, index) => ({ id: image.id, cosKey: image.cosKey, sortOrder: index + 1 }))
       })
     });
     $("#guide-dialog").close();
-    state.guides = await request("/api/guides");
+    state.guides = sortGuidesForDisplay(await request("/api/guides"));
     renderDialogOptions();
     renderGuides();
     toast(state.editingGuideId ? "领队档案已修改" : "领队档案已新增");
@@ -2837,6 +2913,7 @@ $("#slot-form").addEventListener("submit", async (event) => {
     if (nextSlots.length === 0) throw new Error("请至少保留一个时间段；整天休息请使用“休息日”");
     const keptIds = new Set(nextSlots.map((slot) => slot.id).filter(Boolean));
     const deletedSlots = state.specialDialogExistingSlots.filter((slot) => slot.id && !keptIds.has(slot.id));
+    if (deletedSlots.length && !window.confirm(`保存后会删除 ${deletedSlots.length} 个已有特殊排班，确定继续吗？`)) return;
     for (const slot of deletedSlots) await request(`/api/slots/${slot.id}`, { method: "DELETE" });
     for (const slot of nextSlots) {
       await request(slot.id ? `/api/slots/${slot.id}` : `/api/activities/${state.currentActivityId}/slots`, {
@@ -2920,6 +2997,26 @@ $("#review-reply-form").addEventListener("submit", async (event) => {
     });
     $("#review-reply-dialog").close();
     toast("管理员回复已发送");
+    await loadReviews();
+  } catch (error) { toast(error.message); }
+});
+
+$("#review-edit-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const values = new FormData(event.currentTarget);
+  const id = values.get("id");
+  try {
+    await request(`/api/reviews/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        displayName: values.get("displayName"),
+        rating: Number(values.get("rating")),
+        content: values.get("content"),
+        hidden: values.get("hidden") === "on"
+      })
+    });
+    $("#review-edit-dialog").close();
+    toast("评价已保存");
     await loadReviews();
   } catch (error) { toast(error.message); }
 });

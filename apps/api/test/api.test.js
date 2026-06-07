@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createApp } from "../src/app.js";
+import { seedData } from "../src/seed-data.js";
 import { MemoryStore } from "../src/store.js";
 
 const request = async (app, path, options = {}) => {
@@ -379,6 +380,26 @@ test("calculates an order using the selected specification price", async () => {
   assert.equal(response.json().data.amountCents, 33600);
 });
 
+test("creates one order with multiple specification line items", async () => {
+  const app = createApp();
+  const response = await request(app, "/api/orders", {
+    method: "POST",
+    body: JSON.stringify({
+      customerId: "customer-demo",
+      slotId: "slot-forest-demo",
+      lineItems: [
+        { priceOptionId: "price-slot-adult", quantity: 1 },
+        { priceOptionId: "price-slot-child", quantity: 1 }
+      ]
+    })
+  });
+  assert.equal(response.status, 201);
+  assert.equal(response.json().data.quantity, 2);
+  assert.equal(response.json().data.specification, "成人 × 1，儿童 × 1");
+  assert.equal(response.json().data.amountCents, 43600);
+  assert.deepEqual(response.json().data.lineItems.map((item) => [item.specification, item.quantity, item.amountCents]), [["成人", 1, 26800], ["儿童", 1, 16800]]);
+});
+
 test("lists enriched orders and filters by activity and payment method", async () => {
   const app = createApp();
   const response = await request(app, "/api/orders?activityId=activity-forest-hike&paymentMethod=WECHAT");
@@ -410,7 +431,11 @@ test("filters orders by the booked activity date", async () => {
 });
 
 test("releases capacity immediately when an admin cancels a booked order", async () => {
-  const app = createApp();
+  const data = structuredClone(seedData);
+  const slot = data.slots.find((item) => item.id === "slot-forest-demo");
+  slot.startsAt = "2099-06-06T14:00:00+08:00";
+  slot.endsAt = "2099-06-06T18:00:00+08:00";
+  const app = createApp(new MemoryStore(data));
   const cancelled = await request(app, "/api/orders/order-demo-booked/cancel", {
     method: "PATCH",
     body: JSON.stringify({ note: "客人临时改变行程" })

@@ -5,6 +5,8 @@ import { seedData } from "./seed-data.js";
 const clone = (value) => structuredClone(value);
 const localized = (translations, locale = "zh-CN") =>
   translations[locale] ?? translations["zh-CN"] ?? Object.values(translations)[0];
+const nonActivityGuideNames = new Set(["深夜食堂旧时光", "大家在一起的时间", "在一起的日子"]);
+const isActivitySelectableGuide = (guide) => !nonActivityGuideNames.has(guide?.name);
 
 export class MemoryStore {
   constructor(data = seedData) {
@@ -162,7 +164,11 @@ export class MemoryStore {
   listGuides() {
     return this.guides
       .map((guide, index) => ({ ...guide, sortOrder: Number.isFinite(guide.sortOrder) ? guide.sortOrder : index + 1 }))
-      .sort((left, right) => left.sortOrder - right.sortOrder)
+      .sort((left, right) => {
+        const leftArchived = isActivitySelectableGuide(left) ? 0 : 1;
+        const rightArchived = isActivitySelectableGuide(right) ? 0 : 1;
+        return leftArchived - rightArchived || left.sortOrder - right.sortOrder;
+      })
       .map((guide) => this.#presentGuide(guide));
   }
 
@@ -949,11 +955,14 @@ export class MemoryStore {
     assert(slot?.enabled, 400, "排班不存在或不可预约");
     const activity = this.#requireActivity(slot.activityId);
     assert(!activity.schedulePaused, 409, "当前活动暂时不可预约");
-    assert(Number.isInteger(input.quantity) && input.quantity > 0, 400, "预约人数必须大于 0");
-    assert(slot.bookedCount + input.quantity <= slot.capacity, 409, "剩余名额不足");
+    const lineItems = this.#normalizeOrderLineItems(input, slot);
+    const quantity = lineItems.reduce((sum, item) => sum + item.quantity, 0);
+    assert(quantity > 0, 400, "预约人数必须大于 0");
+    assert(slot.bookedCount + quantity <= slot.capacity, 409, "剩余名额不足");
+    const amountCents = lineItems.reduce((sum, item) => sum + item.amountCents, 0);
 
-    const priceOption = slot.priceOptions.find((option) => option.id === input.priceOptionId) ?? slot.priceOptions[0];
-    slot.bookedCount += input.quantity;
+    slot.bookedCount += quantity;
+    const firstItem = lineItems[0];
     const order = {
       id: randomUUID(),
       orderNo: `DT${now.toISOString().replace(/\D/g, "").slice(0, 14)}${randomUUID().slice(0, 8).toUpperCase()}`,
@@ -961,11 +970,12 @@ export class MemoryStore {
       groupId: activity.groupId,
       activityId: activity.id,
       slotId: slot.id,
-      quantity: input.quantity,
-      priceOptionId: priceOption.id,
-      specification: priceOption.name,
-      unitPriceCents: priceOption.priceCents,
-      amountCents: priceOption.priceCents * input.quantity,
+      quantity,
+      priceOptionId: firstItem.priceOptionId,
+      specification: lineItems.length === 1 ? firstItem.specification : lineItems.map((item) => `${item.specification} × ${item.quantity}`).join("，"),
+      unitPriceCents: firstItem.unitPriceCents,
+      amountCents,
+      lineItems,
       status: "PENDING_PAYMENT",
       capacityLockExpiresAt: new Date(now.getTime() + 15 * 60 * 1000).toISOString(),
       profile: clone(input.profile ?? {}),
@@ -973,6 +983,24 @@ export class MemoryStore {
     };
     this.orders.push(order);
     return clone(order);
+  }
+
+  #normalizeOrderLineItems(input, slot) {
+    const rawItems = Array.isArray(input.lineItems) && input.lineItems.length
+      ? input.lineItems
+      : [{ priceOptionId: input.priceOptionId, quantity: input.quantity }];
+    return rawItems.map((item) => {
+      const quantity = Number(item.quantity);
+      assert(Number.isInteger(quantity) && quantity >= 0, 400, "预约人数必须使用整数");
+      const priceOption = slot.priceOptions.find((option) => option.id === item.priceOptionId) ?? slot.priceOptions[0];
+      return {
+        priceOptionId: priceOption.id,
+        specification: priceOption.name,
+        quantity,
+        unitPriceCents: priceOption.priceCents,
+        amountCents: priceOption.priceCents * quantity
+      };
+    }).filter((item) => item.quantity > 0);
   }
 
   confirmOrderPayment(id, input = {}) {
@@ -1059,7 +1087,7 @@ export class MemoryStore {
     return this.reviews
       .filter((review) => !activityId || review.activityId === activityId)
       .filter((review) => !customerId || review.customerId === customerId)
-      .filter((review) => !account || account.groupIds.includes(this.#requireActivity(review.activityId).groupId))
+      .filter((review) => !account || !review.activityId || account.groupIds.includes(this.#requireActivity(review.activityId).groupId))
       .filter((review) => includeHidden || !review.hidden)
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
       .map((review) => this.#presentReview(review));
@@ -1084,6 +1112,22 @@ export class MemoryStore {
     const review = this.#requireReview(id);
     assert(review.customerId === customerId, 403, "不能删除其他顾客的评价");
     this.reviews = this.reviews.filter((item) => item.id !== id);
+    return this.#presentReview(review);
+  }
+
+  updateReview(id, input) {
+    const review = this.#requireReview(id);
+    assert(input.displayName?.trim(), 400, "评价显示名称不能为空");
+    assert(Number.isInteger(input.rating) && input.rating >= 1 && input.rating <= 5, 400, "评分需要为 1 到 5 星");
+    assert(typeof input.content === "string" && input.content.trim(), 400, "评价内容不能为空");
+    assert(input.content.trim().length <= 3000, 400, "评价内容不能超过 3000 字");
+    Object.assign(review, {
+      displayName: input.displayName.trim(),
+      rating: input.rating,
+      content: input.content.trim(),
+      hidden: typeof input.hidden === "boolean" ? input.hidden : review.hidden,
+      updatedAt: new Date().toISOString()
+    });
     return this.#presentReview(review);
   }
 
@@ -1224,8 +1268,8 @@ export class MemoryStore {
   }
 
   #presentReview(review) {
-    const activity = this.#requireActivity(review.activityId);
-    return clone({ ...review, replies: review.replies ?? [], activityName: localized(activity.translations).name });
+    const activity = review.activityId ? this.#requireActivity(review.activityId) : null;
+    return clone({ ...review, replies: review.replies ?? [], activityName: activity ? localized(activity.translations).name : review.activityName ?? "苍山徒步之家" });
   }
 
   #presentNotification(notification) {
@@ -1362,10 +1406,11 @@ export class MemoryStore {
   #presentGuide(guide) {
     return clone({
       ...guide,
+      aliases: clone(guide.aliases ?? []),
       images: clone(guide.images ?? []),
       activities: this.activities
         .filter((activity) => (activity.guideIds ?? []).includes(guide.id))
-        .map((activity) => ({ id: activity.id, name: localized(activity.translations).name, summary: localized(activity.translations).summary }))
+        .map((activity) => ({ id: activity.id, name: localized(activity.translations).name, summary: localized(activity.translations).summary, coverUrl: this.#activityCover(activity) }))
     });
   }
 
@@ -1478,6 +1523,11 @@ export class MemoryStore {
     assert(input.name?.trim(), 400, "领队名字不能为空");
     assert(typeof (input.photoUrl ?? "") === "string", 400, "领队照片格式无效");
     assert(typeof (input.descriptionHtml ?? "") === "string", 400, "领队详细内容格式无效");
+    const rawAliases = Array.isArray(input.aliases) ? input.aliases : String(input.aliases ?? "").split(/[,，\n]/);
+    const aliases = [...new Set(rawAliases
+      .map((alias) => String(alias ?? "").trim())
+      .filter((alias) => alias && alias !== input.name.trim() && alias.length >= 2))]
+      .slice(0, 12);
     const images = clone(input.images ?? []).map((image, index) => {
       assert(typeof (image.cosKey ?? "") === "string" && image.cosKey.trim(), 400, "领队相册图片格式无效");
       return {
@@ -1486,7 +1536,7 @@ export class MemoryStore {
         sortOrder: Number.isInteger(image.sortOrder) ? image.sortOrder : index + 1
       };
     });
-    return { name: input.name.trim(), photoUrl: input.photoUrl?.trim() ?? "", descriptionHtml: input.descriptionHtml ?? "", images };
+    return { name: input.name.trim(), aliases, photoUrl: input.photoUrl?.trim() ?? "", descriptionHtml: input.descriptionHtml ?? "", images };
   }
 
   #validateTopicPageInput(input, editingId = null) {

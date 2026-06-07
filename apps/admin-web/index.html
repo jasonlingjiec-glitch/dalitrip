@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dali Trip 管理后台</title>
-    <link rel="stylesheet" href="./styles.css?v=77" />
+    <link rel="stylesheet" href="./styles.css?v=81" />
   </head>
   <body>
     <div class="app-shell">
@@ -722,6 +722,38 @@
       </form>
     </dialog>
 
+    <dialog id="review-edit-dialog">
+      <form id="review-edit-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">REVIEW EDIT</p>
+            <h2>编辑评价</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-dialog>×</button>
+        </div>
+        <input name="id" type="hidden" />
+        <label>关联活动<input name="activityName" disabled /></label>
+        <div class="form-grid">
+          <label>显示名称<input name="displayName" required maxlength="80" /></label>
+          <label>评分
+            <select name="rating" required>
+              <option value="5">★★★★★ 5 星</option>
+              <option value="4">★★★★ 4 星</option>
+              <option value="3">★★★ 3 星</option>
+              <option value="2">★★ 2 星</option>
+              <option value="1">★ 1 星</option>
+            </select>
+          </label>
+        </div>
+        <label>评价内容<textarea name="content" rows="10" maxlength="3000" required></textarea></label>
+        <label class="checkbox-tag"><input name="hidden" type="checkbox" />隐藏这条评价</label>
+        <div class="dialog-actions">
+          <button type="button" class="secondary-button" data-close-dialog>取消</button>
+          <button class="primary-button">保存评价</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="guide-dialog">
       <form id="guide-form" method="dialog">
         <div class="dialog-header">
@@ -732,6 +764,7 @@
           <button type="button" class="icon-button" data-close-dialog>×</button>
         </div>
         <label>领队名字<input name="name" required maxlength="80" /></label>
+        <label>评价关键词/别名<input name="aliases" maxlength="160" placeholder="例如：真好、小景、小米，用逗号分隔" /></label>
         <div class="guide-photo-field">
           <div>
             <strong>领队照片</strong>
@@ -777,6 +810,6 @@
     </dialog>
 
     <div id="toast" class="toast" hidden></div>
-    <script type="module" src="./app.js?v=79"></script>
+    <script type="module" src="./app.js?v=91"></script>
   </body>
 </html>

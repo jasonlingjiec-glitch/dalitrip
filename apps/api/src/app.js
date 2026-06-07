@@ -308,6 +308,9 @@ export function createApp(store = new MemoryStore()) {
       if (request.method === "DELETE" && parts[1] === "reviews" && parts.length === 3) {
         return json(response, 200, { data: store.deleteReview(parts[2], url.searchParams.get("customerId")) });
       }
+      if (request.method === "PATCH" && parts[1] === "reviews" && parts.length === 3) {
+        return json(response, 200, { data: store.updateReview(parts[2], await readJson(request)) });
+      }
       if (request.method === "PATCH" && parts[1] === "reviews" && parts[3] === "hidden") {
         const body = await readJson(request);
         return json(response, 200, { data: store.setReviewHidden(parts[2], body.hidden) });
