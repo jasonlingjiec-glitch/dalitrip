@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dali Trip 管理后台</title>
-    <link rel="stylesheet" href="./styles.css?v=81" />
+    <link rel="stylesheet" href="./styles.css?v=101" />
   </head>
   <body>
     <div class="app-shell">
@@ -18,13 +18,14 @@
         </div>
         <nav>
           <button class="nav-item active" data-view="activities"><span>▦</span>活动管理</button>
+          <button class="nav-item" data-view="local-info"><span>⌘</span>在地信息</button>
           <button class="nav-item" data-view="schedule-overview"><span>◷</span>排班总览</button>
           <button class="nav-item" data-view="orders"><span>≡</span>订单管理</button>
           <button class="nav-item" data-view="reviews"><span>★</span>评价管理</button>
           <button class="nav-item" data-view="guides"><span>♟</span>领队库</button>
           <button class="nav-item" data-view="guide-calendar"><span>◷</span>领队日历</button>
           <button class="nav-item" data-view="customers"><span>♙</span>顾客管理</button>
-          <button class="nav-item" data-view="pages"><span>▤</span>专题页面</button>
+          <button class="nav-item" data-view="pages"><span>▤</span>首页和专页</button>
           <button class="nav-item" data-view="blog"><span>✎</span>博客文章</button>
           <button class="nav-item" data-view="ai"><span>✦</span>AI 问答</button>
           <button class="nav-item" data-view="settings"><span>⚙</span>系统设置</button>
@@ -35,12 +36,13 @@
       <main>
         <div class="mobile-nav">
           <button class="active" data-view="activities">活动</button>
+          <button data-view="local-info">在地</button>
           <button data-view="orders">订单</button>
           <button data-view="reviews">评价</button>
           <button data-view="guides">领队</button>
           <button data-view="guide-calendar">日历</button>
           <button data-view="customers">顾客</button>
-          <button data-view="pages">专题</button>
+          <button data-view="pages">页面</button>
           <button data-view="blog">博客</button>
           <button data-view="ai">AI</button>
           <button data-view="settings">设置</button>
@@ -265,13 +267,17 @@
         <section id="pages-page" class="page-panel" hidden>
           <div class="page-heading settings-heading">
             <div>
-              <p class="eyebrow">TOPIC PAGES</p>
-              <h1>专题页面</h1>
-              <p>新建徒步、亲子等独立页面。选择多个标签后，只展示同时拥有这些标签的活动。</p>
+              <p class="eyebrow">PAGE BUILDER</p>
+              <h1>首页和专页</h1>
+              <p>首页和独立专页都用模块搭建。后续不同专题页都可以继续扩展。</p>
             </div>
             <button id="new-topic-page" class="primary-button">＋ 新增专题</button>
           </div>
-          <section class="homepage-builder">
+          <div class="page-builder-tabs" role="tablist" aria-label="页面搭建类型">
+            <button class="active" type="button" data-page-builder-tab="home">首页</button>
+            <button type="button" data-page-builder-tab="special">专页</button>
+          </div>
+          <section id="home-builder-panel" class="homepage-builder">
             <aside class="builder-library">
               <h2>添加模块</h2>
               <p>点击加入首页，再拖动调整顺序。</p>
@@ -279,6 +285,7 @@
               <button data-add-home-module="NAV" title="简洁的中英文文字导航"><strong><b>≡</b>导航</strong></button>
               <button data-add-home-module="ACTIVITIES" title="按标签挑选活动并设置排列"><strong><b>▤</b>活动</strong></button>
               <button data-add-home-module="TOPICS" title="展示专题页"><strong><b>▧</b>专题</strong></button>
+              <button data-add-home-module="BLOG" title="展示博客文章"><strong><b>✎</b>博客</strong></button>
               <button data-add-home-module="GUIDES" title="展示领队档案"><strong><b>♟</b>领队</strong></button>
               <button data-add-home-module="REVIEWS" title="展示最新公开评价"><strong><b>★</b>评价</strong></button>
               <button data-add-home-module="UPCOMING" title="未来已有报名的活动"><strong><b>◷</b>成行</strong></button>
@@ -293,27 +300,37 @@
                 <div id="home-module-list" class="home-module-list"></div>
               </div>
             </section>
-            <aside id="home-module-settings" class="builder-settings">
-              <div class="builder-settings-empty">
-                <h2>模块设置</h2>
-                <p>选择中间的模块后，在这里修改内容。</p>
-              </div>
+            <aside id="home-module-settings" class="builder-settings"></aside>
+          </section>
+          <section id="special-builder-panel" class="homepage-builder special-page-builder" hidden>
+            <aside class="builder-library special-page-library">
+              <h2>专页</h2>
+              <p>选择要编辑的专页，基础信息仍在编辑弹窗里维护。</p>
+              <button id="new-topic-page-inline" type="button" class="wide-builder-button">＋ 新建专页</button>
+              <div id="special-page-list" class="special-page-list"></div>
+              <h2>添加模块</h2>
+              <p>点击加入当前专页，再拖动调整顺序。</p>
+              <button data-add-page-module="CUBE" title="专题、活动和外部内容入口"><strong><b>▦</b>魔方</strong></button>
+              <button data-add-page-module="NAV" title="简洁的中英文文字导航"><strong><b>≡</b>导航</strong></button>
+              <button data-add-page-module="ACTIVITIES" title="按标签挑选活动并设置排列"><strong><b>▤</b>活动</strong></button>
+              <button data-add-page-module="TOPICS" title="展示专题页"><strong><b>▧</b>专题</strong></button>
+              <button data-add-page-module="BLOG" title="展示博客文章"><strong><b>✎</b>博客</strong></button>
+              <button data-add-page-module="GUIDES" title="展示领队档案"><strong><b>♟</b>领队</strong></button>
+              <button data-add-page-module="REVIEWS" title="展示最新公开评价"><strong><b>★</b>评价</strong></button>
+              <button data-add-page-module="UPCOMING" title="未来已有报名的活动"><strong><b>◷</b>成行</strong></button>
+              <button data-add-page-module="BANNER" title="单图、轮播或横向图片"><strong><b>▰</b>图片</strong></button>
+              <button data-add-page-module="TEXT" title="补充一段文字"><strong><b>Ｔ</b>文本</strong></button>
+              <button data-add-page-module="COLLAPSE" title="可点击展开收起的说明内容"><strong><b>▣</b>折叠</strong></button>
+              <button data-add-page-module="DIVIDER" title="留白或分割线"><strong><b>—</b>分割</strong></button>
             </aside>
-          </section>
-          <section class="settings-section home-entry-section">
-            <div class="settings-section-heading">
-              <div>
-                <h2>魔方内容</h2>
-                <p>魔方可以跳转到专题、活动、领队主页或外部内容。</p>
+            <section class="builder-stage">
+              <div class="builder-phone">
+                <div id="special-page-phone-title" class="builder-phone-top">选择一个专页</div>
+                <div id="special-page-module-list" class="home-module-list"></div>
               </div>
-              <button id="new-home-entry" class="secondary-button">＋ 新增入口</button>
-            </div>
-            <div id="home-entry-list" class="home-entry-list"></div>
+            </section>
+            <aside id="special-page-module-settings" class="builder-settings"></aside>
           </section>
-          <section class="settings-section">
-            <h2>专题库</h2>
-          </section>
-          <div id="topic-page-list" class="topic-page-list"></div>
         </section>
 
         <section id="blog-page" class="page-panel" hidden>
@@ -327,6 +344,28 @@
           </div>
           <div id="blog-tag-filters" class="blog-filter-row"></div>
           <div id="blog-post-list" class="topic-page-list"></div>
+        </section>
+
+        <section id="local-info-page" class="page-panel" hidden>
+          <div class="page-heading settings-heading">
+            <div>
+              <p class="eyebrow">LOCAL DIRECTORY</p>
+              <h1>在地信息</h1>
+              <p id="local-info-count">正在载入</p>
+            </div>
+            <button id="new-local-info" class="primary-button">＋ 新增信息</button>
+          </div>
+          <div id="local-info-tag-filters" class="blog-filter-row"></div>
+          <section class="local-info-tag-manager">
+            <div class="local-info-tag-manager-heading">
+              <div>
+                <h2>标签管理</h2>
+                <p id="local-info-tag-manager-count">正在载入</p>
+              </div>
+            </div>
+            <div id="local-info-tag-manager-list" class="local-info-tag-manager-list"></div>
+          </section>
+          <div id="local-info-list" class="topic-page-list"></div>
         </section>
       </main>
     </div>
@@ -461,22 +500,16 @@
           <button type="button" class="icon-button" data-close-dialog>×</button>
         </div>
         <label>专题标题<input name="title" required maxlength="80" placeholder="例如：轻徒步专题" /></label>
-        <label>页面地址<input name="slug" required maxlength="80" pattern="[a-z0-9-]+" placeholder="例如：light-hiking" /></label>
-        <label>入口简介<textarea name="summary" rows="3" maxlength="240" placeholder="显示在首页专题入口下方"></textarea></label>
-        <label>入口图片地址<input name="imageUrl" placeholder="https://..." /></label>
-        <label>外部链接<input name="externalUrl" placeholder="选填；填写后入口将直接打开外部内容" /></label>
-        <fieldset>
-          <legend>专题活动标签</legend>
-          <div id="topic-page-tags" class="checkbox-tags"></div>
-        </fieldset>
-        <label class="checkbox-tag"><input name="published" type="checkbox" checked />在客人首页展示</label>
-        <div class="description-field">
+        <div class="topic-image-field">
           <div>
-            <strong>专题页详细介绍</strong>
-            <p id="topic-page-description-status">暂未填写详细介绍</p>
+            <strong>入口图片</strong>
+            <p>用于首页专题入口和专题模块展示</p>
           </div>
-          <button id="open-topic-page-editor" type="button" class="secondary-button">编辑详细介绍</button>
+          <img id="topic-page-image-preview" alt="专题入口图预览" hidden />
+          <label class="secondary-button">上传图片<input id="topic-page-image-input" type="file" accept="image/*" hidden /></label>
+          <input name="imageUrl" type="hidden" />
         </div>
+        <p id="delete-topic-page-warning" class="inline-delete-warning" hidden>再次点击红色按钮确认删除，这个操作不能撤销。</p>
         <div class="dialog-actions">
           <button id="delete-topic-page" type="button" class="danger-button" hidden>删除专题</button>
           <button type="button" class="secondary-button" data-close-dialog>取消</button>
@@ -544,6 +577,56 @@
           <button id="delete-blog-post" type="button" class="danger-button" hidden>删除文章</button>
           <button type="button" class="secondary-button" data-close-dialog>取消</button>
           <button class="primary-button" value="default">保存文章</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="local-info-dialog">
+      <form id="local-info-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">LOCAL INFO</p>
+            <h2>在地信息</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-dialog>×</button>
+        </div>
+        <div class="form-grid">
+          <label>名称<input name="title" placeholder="例如：某某咖啡馆" required /></label>
+          <label>排序<input name="sortOrder" type="number" min="0" step="1" value="999" /></label>
+          <label class="full">简介<textarea name="summary" rows="2" placeholder="一句话介绍"></textarea></label>
+          <label class="full">封面图片地址<input name="coverUrl" placeholder="https://..." /></label>
+          <label>标签<input name="tags" placeholder="餐馆，咖啡馆，工作室" /></label>
+          <label>营业/开放时间<input name="openingHours" placeholder="例如：10:00-19:00" /></label>
+          <label>地址<input name="address" placeholder="例如：大理古城附近" /></label>
+          <label>联系方式<input name="contact" placeholder="微信、电话或备注" /></label>
+          <label class="full">地图链接<input name="mapUrl" placeholder="选填" /></label>
+          <label class="full">详细介绍<textarea name="contentHtml" rows="6" placeholder="可以直接写文字，也可以写简单 HTML"></textarea></label>
+          <label class="checkbox-tag full"><input type="checkbox" name="published" checked /> 前台显示</label>
+        </div>
+        <div class="dialog-actions">
+          <button type="button" class="danger-button" id="delete-local-info" hidden>删除</button>
+          <button type="button" class="secondary-button" data-close-dialog>取消</button>
+          <button class="primary-button">保存</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="local-info-tag-dialog">
+      <form id="local-info-tag-form" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">LOCAL TAG</p>
+            <h2>修改标签</h2>
+            <p id="local-info-tag-rename-note">调整后会同步到相关在地信息。</p>
+          </div>
+          <button type="button" class="icon-button" data-close-dialog>×</button>
+        </div>
+        <input name="type" type="hidden" />
+        <input name="oldName" type="hidden" />
+        <label>标签名称<input name="name" required maxlength="60" /></label>
+        <div class="dialog-actions">
+          <button type="button" class="secondary-button" data-close-dialog>取消</button>
+          <button class="primary-button">保存</button>
         </div>
       </form>
     </dialog>
@@ -810,6 +893,6 @@
     </dialog>
 
     <div id="toast" class="toast" hidden></div>
-    <script type="module" src="./app.js?v=91"></script>
+    <script type="module" src="./app.js?v=119"></script>
   </body>
 </html>

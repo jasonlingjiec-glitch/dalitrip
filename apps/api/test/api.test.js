@@ -790,6 +790,39 @@ test("creates guide profiles and links them to bookable activities", async () =>
   assert.equal(guides.json().data.find((guide) => guide.id === guideId).activities[0].id, "activity-forest-hike");
 });
 
+test("pauses guide profiles from public lists and activity selection", async () => {
+  const app = createApp();
+  const created = await request(app, "/api/guides", {
+    method: "POST",
+    body: JSON.stringify({
+      name: "临时暂停领队",
+      photoUrl: "https://example.com/paused-guide.jpg",
+      descriptionHtml: "<p>用于测试暂停状态。</p>"
+    })
+  });
+  const guideId = created.json().data.id;
+
+  const paused = await request(app, `/api/guides/${guideId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ paused: true })
+  });
+  assert.equal(paused.status, 200);
+  assert.equal(paused.json().data.paused, true);
+
+  const publicGuides = await request(app, "/api/guides");
+  assert.equal(publicGuides.json().data.some((guide) => guide.id === guideId), false);
+
+  const adminGuides = await request(app, "/api/guides?includePaused=true");
+  assert.equal(adminGuides.status, 200);
+  assert.equal(adminGuides.json().data.at(-1).id, guideId);
+
+  const activity = await request(app, "/api/activities/activity-forest-hike", {
+    method: "PATCH",
+    body: JSON.stringify({ guideIds: [guideId] })
+  });
+  assert.equal(activity.status, 400);
+});
+
 test("updates the guide homepage introduction", async () => {
   const app = createApp();
   const updated = await request(app, "/api/guide-page", {
@@ -829,6 +862,18 @@ test("creates and filters a published topic page", async () => {
     body: JSON.stringify({ published: false })
   });
   assert.equal(updated.json().data.published, false);
+});
+
+test("deletes topic pages and removes homepage references", async () => {
+  const app = createApp();
+  const deleted = await request(app, "/api/topic-pages/topic-light-hiking", { method: "DELETE" });
+  assert.equal(deleted.status, 200);
+
+  const topicPages = await request(app, "/api/topic-pages");
+  assert.equal(topicPages.json().data.some((page) => page.id === "topic-light-hiking"), false);
+
+  const homeEntries = await request(app, "/api/home-entries");
+  assert.equal(homeEntries.json().data.some((entry) => entry.targetType === "TOPIC" && entry.targetValue === "light-hiking"), false);
 });
 
 test("creates edits and deletes a homepage entry", async () => {
@@ -915,6 +960,44 @@ test("creates edits and reorders homepage modules", async () => {
   assert.equal(navigation.status, 201);
   assert.equal(navigation.json().data.type, "NAV");
   assert.equal(navigation.json().data.navItems[0].title, "向导");
+});
+
+test("creates filters hides and deletes local information entries", async () => {
+  const app = createApp();
+  const created = await request(app, "/api/local-infos", {
+    method: "POST",
+    body: JSON.stringify({
+      title: "测试咖啡馆",
+      summary: "靠近古城的小店",
+      coverUrl: "https://example.com/cafe.jpg",
+      tags: "咖啡馆, 古城",
+      openingHours: "10:00-18:00",
+      address: "古城附近",
+      contact: "微信咨询",
+      contentHtml: "<p>适合坐一会儿。</p>",
+      published: true,
+      sortOrder: 8
+    })
+  });
+  assert.equal(created.status, 201);
+  assert.deepEqual(created.json().data.tags, ["咖啡馆", "古城"]);
+
+  const filtered = await request(app, "/api/local-infos?published=true&tag=咖啡馆");
+  assert.equal(filtered.status, 200);
+  assert.ok(filtered.json().data.some((item) => item.title === "测试咖啡馆"));
+
+  const hidden = await request(app, `/api/local-infos/${created.json().data.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ published: false })
+  });
+  assert.equal(hidden.status, 200);
+  assert.equal(hidden.json().data.published, false);
+
+  const published = await request(app, "/api/local-infos?published=true&tag=咖啡馆");
+  assert.equal(published.json().data.some((item) => item.title === "测试咖啡馆"), false);
+
+  const deleted = await request(app, `/api/local-infos/${created.json().data.id}`, { method: "DELETE" });
+  assert.equal(deleted.status, 200);
 });
 
 test("notifies only related enabled subaccounts about reviews and customer replies", async () => {

@@ -1,12 +1,60 @@
 const API_BASE = "http://localhost:3000";
-const state = { activities: [], groups: [], tags: [], guides: [], guidePage: { introductionHtml: "" }, guideCalendar: { dates: [], guides: [], availability: [] }, guideCalendarMode: "mark", topicPages: [], blogPosts: [], homeEntries: [], homeModules: [], homePreviewReviews: [], homePreviewSlots: [], orders: [], customers: [], reviews: [], adminAccounts: [], aiSettings: null, aiQuestions: [], faqs: [], editingFaqId: null, selectedTagIds: [], searchText: "", customerSearchText: "", currentActivityId: null, editingActivityId: null, editingGuideId: null, editingTopicPageId: null, editingBlogPostId: null, editingHomeEntryId: null, selectedHomeModuleId: null, editingRuleId: null, editingGroupId: null, editingAdminAccountId: null, cancellingOrderId: null, walletCustomerId: null, replyingReviewId: null, activeScheduleTab: "regular", currentView: "activities", descriptionDraft: "", activityGalleryDraft: [], activityGallerySelectedIds: new Set(), activityGalleryDragIndex: null, activityGalleryEditorOpen: false, guideDescriptionDraft: "", guidePhotoDraft: "", guideGalleryDraft: [], guideGallerySelectedIds: new Set(), guideGalleryDragIndex: null, guideGalleryEditorOpen: false, guideDragIndex: null, guideOrderDirty: false, topicPageIntroductionDraft: "", blogPostContentDraft: "", blogTagFilter: "", editorTarget: "activity", specialDialogSlots: [], specialDialogExistingSlots: [] };
+const state = { activities: [], groups: [], tags: [], guides: [], guidePage: { introductionHtml: "" }, guideCalendar: { dates: [], guides: [], availability: [] }, guideCalendarMode: "mark", topicPages: [], blogPosts: [], localInfos: [], homeEntries: [], homeModules: [], homePreviewReviews: [], homePreviewSlots: [], orders: [], customers: [], reviews: [], adminAccounts: [], aiSettings: null, aiQuestions: [], faqs: [], editingFaqId: null, selectedTagIds: [], expandedTagGroups: [], searchText: "", customerSearchText: "", currentActivityId: null, editingActivityId: null, editingGuideId: null, editingTopicPageId: null, editingBlogPostId: null, editingLocalInfoId: null, editingHomeEntryId: null, selectedHomeModuleId: null, selectedSpecialPageId: null, selectedPageModuleId: null, pageBuilderTab: "home", editingRuleId: null, editingGroupId: null, editingAdminAccountId: null, cancellingOrderId: null, walletCustomerId: null, replyingReviewId: null, activeScheduleTab: "regular", currentView: "activities", descriptionDraft: "", activityGalleryDraft: [], activityGallerySelectedIds: new Set(), activityGalleryDragIndex: null, activityGalleryEditorOpen: false, guideDescriptionDraft: "", guidePhotoDraft: "", guideGalleryDraft: [], guideGallerySelectedIds: new Set(), guideGalleryDragIndex: null, guideGalleryEditorOpen: false, guideDragIndex: null, guideOrderDirty: false, topicPageIntroductionDraft: "", blogPostContentDraft: "", blogTagFilter: "", localInfoTagFilter: "", localInfoExpandedTagGroups: [], editorTarget: "activity", specialDialogSlots: [], specialDialogExistingSlots: [] };
 const nonActivityGuideNames = new Set(["深夜食堂旧时光", "大家在一起的时间", "在一起的日子"]);
-const isActivitySelectableGuide = (guide) => !nonActivityGuideNames.has(guide?.name);
+const isActivitySelectableGuide = (guide) => guide?.paused !== true && !nonActivityGuideNames.has(guide?.name);
 const sortGuidesForDisplay = (guides = []) => [...guides].sort((left, right) => {
+  const pausedDiff = (left.paused ? 1 : 0) - (right.paused ? 1 : 0);
+  if (pausedDiff) return pausedDiff;
   const leftArchived = isActivitySelectableGuide(left) ? 0 : 1;
   const rightArchived = isActivitySelectableGuide(right) ? 0 : 1;
   return leftArchived - rightArchived || (left.sortOrder ?? 9999) - (right.sortOrder ?? 9999);
 });
+const guidesRequestPath = "/api/guides?includePaused=true";
+const tagParts = (tag) => {
+  const parts = String(tag.name ?? "").split("·").map((part) => part.trim()).filter(Boolean);
+  return parts.length > 1 ? { group: parts[0], child: parts.slice(1).join(" · ") } : { group: "", child: tag.name };
+};
+const groupedTags = (tags = []) => {
+  const groups = new Map();
+  const standalone = [];
+  tags.forEach((tag) => {
+    const parts = tagParts(tag);
+    if (!parts.group) return standalone.push({ ...tag, displayName: parts.child });
+    if (!groups.has(parts.group)) groups.set(parts.group, []);
+    groups.get(parts.group).push({ ...tag, displayName: parts.child });
+  });
+  return { standalone, groups: [...groups.entries()].map(([name, children]) => ({ name, children })) };
+};
+const toggleInList = (list, value) => list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
+const singleSelectedTag = (list, value) => list.includes(value) ? [] : [value];
+const renderGroupedTagFilter = (selectedIds = state.selectedTagIds) => {
+  const { standalone, groups } = groupedTags(state.tags);
+  return [
+    `<div class="tag-filter-plain">`,
+    ...standalone.map((tag) => `<button class="tag-filter ${selectedIds.includes(tag.id) ? "selected" : ""}" data-tag-id="${tag.id}">${escapeHtml(tag.displayName)}</button>`),
+    `</div>`,
+    groups.length ? `<div class="tag-filter-main">` : "",
+    ...groups.map((group) => {
+      const hasSelected = group.children.some((tag) => selectedIds.includes(tag.id));
+      const expanded = state.expandedTagGroups.includes(group.name) || hasSelected;
+      return `<button class="tag-filter ${expanded ? "selected" : ""}" data-tag-group="${escapeHtml(group.name)}">${escapeHtml(group.name)}</button>`;
+    }),
+    groups.length ? `</div>` : "",
+    ...groups.map((group) => {
+      const hasSelected = group.children.some((tag) => selectedIds.includes(tag.id));
+      const expanded = state.expandedTagGroups.includes(group.name) || hasSelected;
+      return expanded ? `<div class="tag-filter-sub">${group.children.map((tag) => `<button class="tag-filter ${selectedIds.includes(tag.id) ? "selected" : ""}" data-tag-id="${tag.id}">${escapeHtml(tag.displayName)}</button>`).join("")}</div>` : "";
+    })
+  ].join("");
+};
+const renderCheckboxTags = (selectedIds = []) => {
+  const selected = new Set(selectedIds);
+  const { standalone, groups } = groupedTags(state.tags);
+  return [
+    ...standalone.map((tag) => `<label class="checkbox-tag"><input type="checkbox" name="tagIds" value="${tag.id}" ${selected.has(tag.id) ? "checked" : ""} />${escapeHtml(tag.displayName)}</label>`),
+    ...groups.map((group) => `<div class="checkbox-tag-group"><strong>${escapeHtml(group.name)}</strong><div>${group.children.map((tag) => `<label class="checkbox-tag"><input type="checkbox" name="tagIds" value="${tag.id}" ${selected.has(tag.id) ? "checked" : ""} />${escapeHtml(tag.displayName)}</label>`).join("")}</div></div>`)
+  ].join("");
+};
 const demoImageUrls = {
   "demo/forest-hike-cover.jpg": "https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=500&q=80",
   "demo/forest-ferns-1.jpg": "https://images.unsplash.com/photo-1530968033775-2c92736b131e?auto=format&fit=crop&w=500&q=80",
@@ -384,7 +432,7 @@ const toast = (message) => {
 };
 
 async function loadBaseData() {
-  [state.groups, state.tags, state.guides, state.guidePage, state.topicPages, state.blogPosts, state.homeEntries, state.homeModules, state.homePreviewReviews] = await Promise.all([request("/api/groups"), request("/api/tags"), request("/api/guides"), request("/api/guide-page"), request("/api/topic-pages"), request("/api/blog-posts"), request("/api/home-entries"), request("/api/home-modules"), request("/api/reviews")]);
+  [state.groups, state.tags, state.guides, state.guidePage, state.topicPages, state.blogPosts, state.localInfos, state.homeEntries, state.homeModules, state.homePreviewReviews] = await Promise.all([request("/api/groups"), request("/api/tags"), request(guidesRequestPath), request("/api/guide-page"), request("/api/topic-pages"), request("/api/blog-posts"), request("/api/local-infos"), request("/api/home-entries"), request("/api/home-modules"), request("/api/reviews")]);
   state.guides = sortGuidesForDisplay(state.guides);
   renderTagFilters();
   renderDialogOptions();
@@ -392,6 +440,7 @@ async function loadBaseData() {
   await loadActivities();
   if (state.currentView === "pages") renderTopicPages();
   if (state.currentView === "blog") renderBlogPosts();
+  if (state.currentView === "local-info") renderLocalInfos();
 }
 
 async function loadActivities() {
@@ -404,7 +453,7 @@ async function loadActivities() {
   if (state.currentActivityId && state.activities.some(({ id }) => id === state.currentActivityId)) {
     await selectActivity(state.currentActivityId);
   }
-  if (state.currentView === "pages") renderHomeModules();
+  if (state.currentView === "pages") renderTopicPages();
 }
 
 async function loadHomePreviewSlots() {
@@ -412,17 +461,17 @@ async function loadHomePreviewSlots() {
 }
 
 function renderTagFilters() {
-  $("#tag-filters").innerHTML = state.tags.map((tag) => `
-    <button class="tag-filter ${state.selectedTagIds.includes(tag.id) ? "selected" : ""}" data-tag-id="${tag.id}">
-      ${tag.name}
-    </button>
-  `).join("");
+  $("#tag-filters").innerHTML = renderGroupedTagFilter();
+  document.querySelectorAll("[data-tag-group]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.expandedTagGroups = toggleInList(state.expandedTagGroups, button.dataset.tagGroup);
+      renderTagFilters();
+    });
+  });
   document.querySelectorAll("[data-tag-id]").forEach((button) => {
     button.addEventListener("click", async () => {
       const { tagId } = button.dataset;
-      state.selectedTagIds = state.selectedTagIds.includes(tagId)
-        ? state.selectedTagIds.filter((id) => id !== tagId)
-        : [...state.selectedTagIds, tagId];
+      state.selectedTagIds = singleSelectedTag(state.selectedTagIds, tagId);
       renderTagFilters();
       await loadActivities();
     });
@@ -431,16 +480,12 @@ function renderTagFilters() {
 
 function renderDialogOptions() {
   $("#activity-form select[name=groupId]").innerHTML = state.groups.map((group) => `<option value="${group.id}">${group.name}</option>`).join("");
-  $("#dialog-tags").innerHTML = state.tags.map((tag) => `
-    <label class="checkbox-tag"><input type="checkbox" name="tagIds" value="${tag.id}" />${tag.name}</label>
-  `).join("");
+  $("#dialog-tags").innerHTML = renderCheckboxTags();
   const activityGuides = state.guides.filter(isActivitySelectableGuide);
   $("#dialog-guides").innerHTML = activityGuides.map((guide) => `
     <label class="checkbox-tag"><input type="checkbox" name="guideIds" value="${guide.id}" />${escapeHtml(guide.name)}</label>
   `).join("") || `<p class="no-rules">请先在领队库新增档案。</p>`;
-  $("#topic-page-tags").innerHTML = state.tags.map((tag) => `
-    <label class="checkbox-tag"><input type="checkbox" name="tagIds" value="${tag.id}" />${tag.name}</label>
-  `).join("");
+  if ($("#topic-page-tags")) $("#topic-page-tags").innerHTML = renderCheckboxTags();
 }
 
 function renderTagManager() {
@@ -894,11 +939,12 @@ async function updateGuideAvailability(button) {
 }
 
 async function showView(view) {
-  if (!["activities", "orders", "reviews", "guides", "guide-calendar", "customers", "pages", "blog", "ai", "settings"].includes(view)) return toast("这个模块会在后续版本接入");
+  if (!["activities", "local-info", "orders", "reviews", "guides", "guide-calendar", "customers", "pages", "blog", "ai", "settings"].includes(view)) return toast("这个模块会在后续版本接入");
   state.currentView = view;
   document.querySelectorAll("[data-view]").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
   $("#activity-topbar").hidden = view !== "activities";
   $("#activity-workspace").hidden = view !== "activities";
+  $("#local-info-page").hidden = view !== "local-info";
   $("#orders-page").hidden = view !== "orders";
   $("#reviews-page").hidden = view !== "reviews";
   $("#guides-page").hidden = view !== "guides";
@@ -912,6 +958,7 @@ async function showView(view) {
     renderOrderFilterOptions();
     await loadOrders();
   }
+  if (view === "local-info") renderLocalInfos();
   if (view === "customers") await loadCustomers();
   if (view === "reviews") await loadReviews();
   if (view === "guides") renderGuides();
@@ -923,9 +970,27 @@ async function showView(view) {
 }
 
 function renderTopicPages() {
+  if (!state.topicPages.some((page) => page.id === state.selectedSpecialPageId)) {
+    state.selectedSpecialPageId = state.topicPages[0]?.id ?? null;
+  }
+  if (!state.selectedSpecialPageId) state.selectedPageModuleId = null;
+  renderPageBuilderTabs();
   renderHomeModules();
   renderHomeEntries();
-  $("#topic-page-list").innerHTML = state.topicPages.map((page) => `
+  renderTopicLibrary();
+  renderSpecialPagesBuilder();
+}
+
+function renderPageBuilderTabs() {
+  document.querySelectorAll("[data-page-builder-tab]").forEach((button) => button.classList.toggle("active", button.dataset.pageBuilderTab === state.pageBuilderTab));
+  $("#home-builder-panel").hidden = state.pageBuilderTab !== "home";
+  $("#special-builder-panel").hidden = state.pageBuilderTab !== "special";
+}
+
+function renderTopicLibrary() {
+  const list = $("#topic-page-list");
+  if (!list) return;
+  list.innerHTML = state.topicPages.map((page) => `
     <article class="topic-page-card">
       ${page.imageUrl ? `<img src="${escapeHtml(page.imageUrl)}" alt="${escapeHtml(page.title)}" />` : `<div class="topic-page-placeholder">入口图</div>`}
       <div>
@@ -937,7 +1002,247 @@ function renderTopicPages() {
       <button class="secondary-button" data-edit-topic-page="${page.id}">编辑</button>
     </article>
   `).join("") || `<div class="empty-state compact-empty"><h2>还没有专题页</h2><p>可以先新增一个徒步或亲子专题。</p></div>`;
-  document.querySelectorAll("[data-edit-topic-page]").forEach((button) => button.addEventListener("click", () => openTopicPageDialog(state.topicPages.find((page) => page.id === button.dataset.editTopicPage))));
+  list.querySelectorAll("[data-edit-topic-page]").forEach((button) => button.addEventListener("click", () => openTopicPageDialog(state.topicPages.find((page) => page.id === button.dataset.editTopicPage))));
+}
+
+const sortedPageModules = (page) => [...(page?.modules ?? [])].sort((left, right) => (left.sortOrder ?? 0) - (right.sortOrder ?? 0));
+const selectedSpecialPage = () => state.topicPages.find((page) => page.id === state.selectedSpecialPageId);
+const selectedPageModule = () => sortedPageModules(selectedSpecialPage()).find((module) => module.id === state.selectedPageModuleId);
+const localModuleId = () => `page-module-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+function defaultPageModulePayload(type, sortOrder) {
+  const payload = { id: localModuleId(), type, title: homeModuleNames[type], sortOrder, limit: type === "REVIEWS" ? 5 : 4, tagIds: [], published: true, style: {} };
+  if (type === "COLLAPSE") {
+    Object.assign(payload, {
+      title: "常见问题",
+      limit: 3,
+      items: [
+        { title: "这个专页适合谁？", content: "这里可以写这个专题适合的人群、强度和体验方式。" },
+        { title: "如何选择活动？", content: "可以根据年龄、时长、当天状态和领队建议来选择。" }
+      ],
+      style: { backgroundColor: "#fffaf0", padding: 16, collapseTitleStyle: "SOFT_BLOCK" }
+    });
+  }
+  return payload;
+}
+
+function renderSpecialPagesBuilder() {
+  renderSpecialPageList();
+  renderSpecialPageModules();
+  renderSpecialPageModuleSettings();
+}
+
+function renderSpecialPageList() {
+  const list = $("#special-page-list");
+  if (!list) return;
+  list.innerHTML = state.topicPages.map((page) => `
+    <button type="button" class="special-page-card ${page.id === state.selectedSpecialPageId ? "selected" : ""}" data-special-page="${page.id}">
+      ${page.imageUrl ? `<img src="${escapeHtml(page.imageUrl)}" alt="${escapeHtml(page.title)}" />` : `<div class="topic-page-placeholder">图</div>`}
+      <span><strong>${escapeHtml(page.title)}</strong><small>${page.published ? "显示" : "隐藏"} · ${sortedPageModules(page).length} 个模块</small></span>
+      <span class="special-page-edit" data-edit-special-page="${page.id}">编辑</span>
+    </button>
+  `).join("") || `<div class="empty-state compact-empty"><p>还没有专页。</p></div>`;
+  list.querySelectorAll("[data-special-page]").forEach((button) => button.addEventListener("click", (event) => {
+    const editButton = event.target.closest("[data-edit-special-page]");
+    if (editButton) {
+      openTopicPageDialog(state.topicPages.find((page) => page.id === editButton.dataset.editSpecialPage));
+      return;
+    }
+    state.selectedSpecialPageId = button.dataset.specialPage;
+    state.selectedPageModuleId = sortedPageModules(selectedSpecialPage())[0]?.id ?? null;
+    renderSpecialPagesBuilder();
+  }));
+}
+
+function renderSpecialPageModules() {
+  const page = selectedSpecialPage();
+  const list = $("#special-page-module-list");
+  if (!list) return;
+  $("#special-page-phone-title").textContent = page ? `专页 · ${page.title}` : "选择一个专页";
+  if (!page) {
+    list.innerHTML = `<div class="builder-empty">先在左侧新建或选择一个专页</div>`;
+    return;
+  }
+  const modules = sortedPageModules(page);
+  list.innerHTML = `
+    ${modules.map((module) => `
+      <article class="home-module-card ${module.id === state.selectedPageModuleId ? "selected" : ""} ${module.published ? "" : "is-hidden"}" draggable="true" data-page-module="${module.id}">
+        <div class="module-toolbar">
+          <span class="module-drag" title="拖动排序">⠿ 拖动排序</span>
+          <small>${homeModuleNames[module.type]} · ${module.limit} 条${module.published ? "" : " · 已隐藏"}</small>
+        </div>
+        <div class="builder-module-preview">${homeModulePreview(module)}</div>
+      </article>
+    `).join("") || `<div class="builder-empty">点击左侧添加专页模块</div>`}`;
+  list.querySelectorAll("[data-page-module]").forEach((card) => {
+    card.addEventListener("click", () => {
+      state.selectedPageModuleId = card.dataset.pageModule;
+      renderSpecialPageModules();
+      renderSpecialPageModuleSettings();
+    });
+    card.addEventListener("dragstart", (event) => {
+      homeModuleDragActive = true;
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", card.dataset.pageModule);
+    });
+    card.addEventListener("dragover", (event) => event.preventDefault());
+    card.addEventListener("drop", async (event) => {
+      event.preventDefault();
+      const draggedId = event.dataTransfer.getData("text/plain");
+      const targetId = card.dataset.pageModule;
+      if (!draggedId || draggedId === targetId) return;
+      const ordered = sortedPageModules(page);
+      const ids = ordered.map((item) => item.id).filter((id) => id !== draggedId);
+      ids.splice(ids.indexOf(targetId), 0, draggedId);
+      page.modules = ids.map((id, index) => ({ ...ordered.find((item) => item.id === id), sortOrder: index + 1 }));
+      await saveSelectedSpecialPageModules("专页顺序已更新");
+    });
+  });
+}
+
+function renderSpecialPageModuleSettings() {
+  const page = selectedSpecialPage();
+  const module = selectedPageModule();
+  const panel = $("#special-page-module-settings");
+  if (!page) {
+    panel.innerHTML = "";
+    return;
+  }
+  if (!module) {
+    panel.innerHTML = "";
+    return;
+  }
+  const style = moduleStyle(module);
+  const showTags = module.type === "ACTIVITIES";
+  const showBlogOptions = module.type === "BLOG";
+  const showMedia = module.type === "BANNER";
+  const showSubtitle = ["TEXT", "BANNER"].includes(module.type);
+  const showLayout = ["CUBE", "NAV", "ACTIVITIES", "BANNER", "BLOG"].includes(module.type);
+  const showCardStyle = ["CUBE", "ACTIVITIES", "BANNER"].includes(module.type);
+  const showSpacing = ["CUBE", "ACTIVITIES", "BANNER"].includes(module.type);
+  const showTextStyle = module.type === "TEXT";
+  const showCollapse = module.type === "COLLAPSE";
+  const showCollapseStyle = module.type === "COLLAPSE";
+  const showDivider = module.type === "DIVIDER";
+  const showNavigation = module.type === "NAV";
+  const layoutOptions = module.type === "CUBE"
+    ? [["TWO", "1 行 2 个"], ["THREE", "1 行 3 个"], ["FEATURE", "1 大 2 小"]]
+    : module.type === "NAV"
+      ? [["FOUR", "1 行 4 个"], ["THREE", "1 行 3 个"]]
+    : module.type === "ACTIVITIES"
+      ? [["LIST", "详细列表"], ["GRID", "1 行 2 个"], ["SCROLL", "横向滚动"]]
+    : module.type === "BLOG"
+      ? [["LIST", "一行一条"], ["GRID", "两条方格"]]
+      : [["SINGLE", "单图"], ["CAROUSEL", "轮播海报"], ["SCROLL", "横向滚动"]];
+  panel.innerHTML = `
+    <form id="page-module-settings-form">
+      <div class="builder-settings-heading"><h2>${homeModuleNames[module.type]}</h2><button type="button" class="module-delete" title="删除模块">删除</button></div>
+      ${showDivider ? "" : `<label>模块标题<input name="title" maxlength="40" value="${escapeHtml(module.title)}" /></label>`}
+      ${showSubtitle ? `<label>补充文字<textarea name="subtitle" rows="4">${escapeHtml(module.subtitle ?? "")}</textarea></label>` : ""}
+      ${showCollapse ? renderCollapseItemEditors(module, "page") : ""}
+      ${showMedia ? `<label>图片地址，每行一张<textarea name="imageUrls" rows="5" placeholder="https://...">${escapeHtml((module.imageUrls?.length ? module.imageUrls : [module.imageUrl]).filter(Boolean).join("\n"))}</textarea></label><label>跳转链接<input name="linkUrl" value="${escapeHtml(module.linkUrl ?? "")}" placeholder="https://..." /></label>` : ""}
+      ${showNavigation ? `<fieldset class="navigation-items-fieldset"><legend>导航内容</legend><div class="navigation-item-list">${(module.navItems ?? []).map((item, index) => `
+        <div class="navigation-item-editor">
+          <input name="navTitle" maxlength="20" value="${escapeHtml(item.title)}" placeholder="中文标题" />
+          <input name="navSubtitle" maxlength="30" value="${escapeHtml(item.subtitle)}" placeholder="英文小标题" />
+          <select name="navTarget">${navigationTargetOptions(item.targetType, item.targetValue)}</select>
+          <button type="button" class="navigation-item-remove" data-remove-page-nav-item="${index}" title="删除导航项">×</button>
+        </div>`).join("")}</div><button type="button" class="navigation-item-add" ${module.navItems?.length >= 8 ? "disabled" : ""}>＋ 增加导航项</button></fieldset>` : ""}
+      ${showDivider ? "" : `<label>显示数量<input name="limit" type="number" min="1" max="${showCollapse ? 5 : 20}" value="${Math.min(module.limit, showCollapse ? 5 : 20)}" /></label>`}
+      ${showTags ? `<fieldset><legend>按标签挑选活动</legend><div class="checkbox-tags">${renderCheckboxTags(module.tagIds)}</div></fieldset>` : ""}
+      ${showBlogOptions ? `<label>博客标签<select name="blogTag">${blogTagOptions(module.blogTag ?? "")}</select></label>` : ""}
+      ${showLayout ? `<fieldset><legend>排列样式</legend><div class="builder-option-grid">${layoutOptions.map(([value, label]) => `<label><input type="radio" name="layout" value="${value}" ${style.layout === value || (!style.layout && value === layoutOptions[0][0]) ? "checked" : ""} /><span>${label}</span></label>`).join("")}</div></fieldset>` : ""}
+      ${showCardStyle ? `<fieldset><legend>图片样式</legend><div class="builder-option-grid"><label><input type="radio" name="cardStyle" value="PLAIN" ${style.cardStyle === "PLAIN" ? "checked" : ""} /><span>常规</span></label><label><input type="radio" name="cardStyle" value="SHADOW" ${style.cardStyle === "SHADOW" ? "checked" : ""} /><span>投影</span></label></div></fieldset>` : ""}
+      ${showSpacing ? `<label>圆角 <span class="builder-value">${style.radius}px</span><input name="radius" type="range" min="0" max="24" value="${style.radius}" /></label><label>内容间距 <span class="builder-value">${style.gap}px</span><input name="gap" type="range" min="0" max="32" value="${style.gap}" /></label><label>页面边距 <span class="builder-value">${style.padding}px</span><input name="padding" type="range" min="0" max="32" value="${style.padding}" /></label>` : ""}
+      ${showTextStyle ? `<fieldset><legend>文字位置</legend><div class="builder-option-grid"><label><input type="radio" name="textAlign" value="LEFT" ${style.textAlign === "LEFT" ? "checked" : ""} /><span>居左</span></label><label><input type="radio" name="textAlign" value="CENTER" ${style.textAlign === "CENTER" ? "checked" : ""} /><span>居中</span></label></div></fieldset><label>内边距 <span class="builder-value">${style.padding}px</span><input name="padding" type="range" min="0" max="32" value="${style.padding}" /></label><label>背景颜色<input name="backgroundColor" type="color" value="${escapeHtml(style.backgroundColor)}" /></label>` : ""}
+      ${showCollapseStyle ? `<fieldset><legend>标题样式</legend><div class="builder-option-grid">${collapseTitleStyleOptions(style.collapseTitleStyle)}</div></fieldset><label>内边距 <span class="builder-value">${style.padding}px</span><input name="padding" type="range" min="0" max="32" value="${style.padding}" /></label><label>背景颜色<input name="backgroundColor" type="color" value="${escapeHtml(style.backgroundColor)}" /></label>` : ""}
+      ${showDivider ? `<fieldset><legend>分割类型</legend><div class="builder-option-grid"><label><input type="radio" name="dividerStyle" value="SPACE" ${style.dividerStyle === "SPACE" ? "checked" : ""} /><span>辅助留白</span></label><label><input type="radio" name="dividerStyle" value="LINE" ${style.dividerStyle === "LINE" ? "checked" : ""} /><span>分割线</span></label></div></fieldset><label>高度 <span class="builder-value">${style.height}px</span><input name="height" type="range" min="4" max="80" value="${style.height}" /></label>` : ""}
+      <label class="checkbox-tag"><input name="published" type="checkbox" ${module.published ? "checked" : ""} />在这个专页展示</label>
+      <button class="primary-button">保存模块</button>
+    </form>`;
+  $("#page-module-settings-form").addEventListener("submit", savePageModule);
+  $("#page-module-settings-form").addEventListener("input", previewPageModuleSettings);
+  panel.querySelector(".module-delete").addEventListener("click", deletePageModule);
+  panel.querySelector(".navigation-item-add")?.addEventListener("click", addPageNavigationItem);
+  panel.querySelectorAll("[data-remove-page-nav-item]").forEach((button) => button.addEventListener("click", () => removePageNavigationItem(Number(button.dataset.removePageNavItem))));
+  panel.querySelector(".collapse-item-add")?.addEventListener("click", addPageCollapseItem);
+  panel.querySelectorAll("[data-remove-page-collapse-item]").forEach((button) => button.addEventListener("click", () => removePageCollapseItem(Number(button.dataset.removePageCollapseItem))));
+}
+
+async function saveSelectedSpecialPageModules(message) {
+  const page = selectedSpecialPage();
+  if (!page) return;
+  try {
+    page.modules = sortedPageModules(page).map((module, index) => ({ ...module, sortOrder: index + 1 }));
+    await request(`/api/topic-pages/${page.id}`, { method: "PATCH", body: JSON.stringify({ modules: page.modules }) });
+    state.topicPages = await request("/api/topic-pages");
+    state.selectedSpecialPageId = page.id;
+    if (state.selectedPageModuleId && !sortedPageModules(selectedSpecialPage()).some((module) => module.id === state.selectedPageModuleId)) state.selectedPageModuleId = null;
+    renderSpecialPagesBuilder();
+    if (message) toast(message);
+  } catch (error) { toast(error.message); }
+}
+
+function addPageNavigationItem() {
+  const module = selectedPageModule();
+  Object.assign(module, homeModuleValues($("#page-module-settings-form"), module));
+  module.navItems = [...(module.navItems ?? []), { title: "新入口", subtitle: "DISCOVER", targetType: "GUIDES", targetValue: "" }];
+  renderSpecialPageModules();
+  renderSpecialPageModuleSettings();
+}
+
+function removePageNavigationItem(index) {
+  const module = selectedPageModule();
+  Object.assign(module, homeModuleValues($("#page-module-settings-form"), module));
+  module.navItems.splice(index, 1);
+  renderSpecialPageModules();
+  renderSpecialPageModuleSettings();
+}
+
+function addPageCollapseItem() {
+  const module = selectedPageModule();
+  Object.assign(module, homeModuleValues($("#page-module-settings-form"), module));
+  if ((module.items ?? []).length >= 5) return;
+  module.items = [...(module.items ?? []), { title: "新问题", content: "" }];
+  module.limit = Math.min(5, Math.max(module.limit ?? 1, module.items.length));
+  renderSpecialPageModules();
+  renderSpecialPageModuleSettings();
+}
+
+function removePageCollapseItem(index) {
+  const module = selectedPageModule();
+  Object.assign(module, homeModuleValues($("#page-module-settings-form"), module));
+  module.items = (module.items ?? []).filter((_, itemIndex) => itemIndex !== index);
+  module.limit = Math.max(1, Math.min(module.limit ?? 1, module.items.length || 1, 5));
+  renderSpecialPageModules();
+  renderSpecialPageModuleSettings();
+}
+
+function previewPageModuleSettings(event) {
+  const module = selectedPageModule();
+  if (!module) return;
+  Object.assign(module, homeModuleValues(event.currentTarget, module));
+  renderSpecialPageModules();
+  document.querySelectorAll("#special-page-module-settings .builder-value").forEach((label) => {
+    const range = label.nextElementSibling;
+    if (range) label.textContent = `${range.value}px`;
+  });
+}
+
+async function savePageModule(event) {
+  event.preventDefault();
+  const module = selectedPageModule();
+  if (!module) return;
+  Object.assign(module, homeModuleValues(event.currentTarget, module));
+  await saveSelectedSpecialPageModules("专页模块已保存");
+}
+
+async function deletePageModule() {
+  const page = selectedSpecialPage();
+  if (!page || !state.selectedPageModuleId || !window.confirm("确定删除这个专页模块吗？")) return;
+  page.modules = sortedPageModules(page).filter((module) => module.id !== state.selectedPageModuleId);
+  state.selectedPageModuleId = null;
+  await saveSelectedSpecialPageModules("专页模块已删除");
 }
 
 const stripHtml = (html) => String(html ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -945,6 +1250,7 @@ const blogSummary = (post) => post.summary?.trim() || stripHtml(post.contentHtml
 const blogTags = (post) => Array.isArray(post.tags) ? post.tags : [];
 const blogTagNames = () => [...new Set(state.blogPosts.flatMap((post) => blogTags(post)))].sort((a, b) => a.localeCompare(b, "zh-CN"));
 const filteredBlogPosts = () => state.blogTagFilter ? state.blogPosts.filter((post) => blogTags(post).includes(state.blogTagFilter)) : state.blogPosts;
+const blogTagOptions = (selectedTag = "") => [`<option value="">全部文章</option>`, ...blogTagNames().map((tag) => `<option value="${escapeHtml(tag)}" ${selectedTag === tag ? "selected" : ""}>${escapeHtml(tag)}</option>`)].join("");
 const renderBlogTags = (post) => {
   const tags = blogTags(post);
   if (!tags.length) return "";
@@ -1039,9 +1345,225 @@ function openBlogPostDialog(post = null) {
   $("#blog-post-dialog").showModal();
 }
 
-const homeModuleNames = { CUBE: "魔方", NAV: "文本导航", ACTIVITIES: "活动", TOPICS: "专题", GUIDES: "领队", REVIEWS: "评价", UPCOMING: "即将出发的旅行", BANNER: "图片广告", TEXT: "标题文本", COLLAPSE: "折叠文本", DIVIDER: "辅助分割" };
-const homeModuleIcons = { CUBE: "▦", NAV: "≡", ACTIVITIES: "▤", TOPICS: "▧", GUIDES: "♟", REVIEWS: "★", UPCOMING: "◷", BANNER: "▰", TEXT: "Ｔ", COLLAPSE: "▣", DIVIDER: "—" };
+const localInfoTags = () => [...new Set(state.localInfos.flatMap((item) => item.tags ?? []))].sort((a, b) => a.localeCompare(b, "zh-CN"));
+const filteredLocalInfos = () => state.localInfos.filter((item) => !state.localInfoTagFilter || (item.tags ?? []).includes(state.localInfoTagFilter));
+const renderLocalInfoTags = (item) => (item.tags ?? []).length ? `<div class="blog-tag-row">${item.tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")}</div>` : "";
+const localInfoTagParts = (name) => {
+  const parts = String(name ?? "").split("·").map((part) => part.trim()).filter(Boolean);
+  return parts.length > 1 ? { group: parts[0], child: parts.slice(1).join(" · ") } : { group: parts[0] ?? "", child: "" };
+};
+const groupedLocalInfoTags = () => {
+  const groups = new Map();
+  localInfoTags().forEach((name) => {
+    const parts = localInfoTagParts(name);
+    if (!parts.group) return;
+    if (!groups.has(parts.group)) groups.set(parts.group, new Set());
+    if (parts.child) groups.get(parts.group).add(name);
+  });
+  return [...groups.entries()].map(([name, children]) => ({ name, children: [...children].sort((a, b) => a.localeCompare(b, "zh-CN")) }));
+};
+const localInfoTagsForGroup = (groupName) => localInfoTags().filter((tag) => localInfoTagParts(tag).group === groupName);
+const localInfoTagItemCount = (tagName) => state.localInfos.filter((item) => (item.tags ?? []).includes(tagName)).length;
+const localInfoGroupItemCount = (groupName) => state.localInfos.filter((item) => (item.tags ?? []).some((tag) => localInfoTagParts(tag).group === groupName)).length;
+
+function renderLocalInfoTagManager() {
+  const groups = groupedLocalInfoTags();
+  const standaloneGroups = groups.filter((group) => !group.children.length);
+  const nestedGroups = groups.filter((group) => group.children.length);
+  $("#local-info-tag-manager-count").textContent = `${groups.length} 个主标签 · ${localInfoTags().length} 个标签`;
+  $("#local-info-tag-manager-list").innerHTML = [
+    standaloneGroups.length ? `<div class="local-info-standalone-tags">
+      ${standaloneGroups.map((group) => `
+        <span class="local-info-standalone-tag">
+          <strong>${escapeHtml(group.name)}</strong>
+          <em>${localInfoGroupItemCount(group.name)}</em>
+          <button type="button" data-rename-local-main-tag="${escapeHtml(group.name)}">改名</button>
+          <button type="button" data-delete-local-main-tag="${escapeHtml(group.name)}">删除</button>
+        </span>
+      `).join("")}
+    </div>` : "",
+    ...nestedGroups.map((group) => `
+      <article class="local-info-tag-group-card">
+        <div class="local-info-tag-group-head">
+          <div>
+            <strong>${escapeHtml(group.name)}</strong>
+            <span>${localInfoGroupItemCount(group.name)} 条信息</span>
+          </div>
+          <div>
+            <button type="button" class="secondary-button" data-rename-local-main-tag="${escapeHtml(group.name)}">改名</button>
+            <button type="button" class="danger-button" data-delete-local-main-tag="${escapeHtml(group.name)}">删除</button>
+          </div>
+        </div>
+        <div class="local-info-child-tags">${group.children.map((tag) => `
+          <span>
+            ${escapeHtml(localInfoTagParts(tag).child)}
+            <em>${localInfoTagItemCount(tag)}</em>
+            <button type="button" data-rename-local-child-tag="${escapeHtml(tag)}">改名</button>
+            <button type="button" data-delete-local-child-tag="${escapeHtml(tag)}">删除</button>
+          </span>
+        `).join("")}</div>
+      </article>
+    `)
+  ].join("") || `<p class="no-rules">暂时没有标签。</p>`;
+  document.querySelectorAll("[data-rename-local-main-tag]").forEach((button) => button.addEventListener("click", () => renameLocalInfoMainTag(button.dataset.renameLocalMainTag)));
+  document.querySelectorAll("[data-delete-local-main-tag]").forEach((button) => button.addEventListener("click", () => deleteLocalInfoMainTag(button.dataset.deleteLocalMainTag)));
+  document.querySelectorAll("[data-rename-local-child-tag]").forEach((button) => button.addEventListener("click", () => renameLocalInfoChildTag(button.dataset.renameLocalChildTag)));
+  document.querySelectorAll("[data-delete-local-child-tag]").forEach((button) => button.addEventListener("click", () => deleteLocalInfoChildTag(button.dataset.deleteLocalChildTag)));
+}
+
+async function updateLocalInfoTags(transform, message) {
+  const updates = state.localInfos.map((item) => {
+    const currentTags = item.tags ?? [];
+    const nextTags = [...new Set(currentTags.map(transform).filter(Boolean))];
+    return nextTags.join("\n") === currentTags.join("\n") ? null : { item, nextTags };
+  }).filter(Boolean);
+  if (!updates.length) {
+    toast("没有需要修改的内容");
+    return false;
+  }
+  try {
+    for (const { item, nextTags } of updates) {
+      await request(`/api/local-infos/${item.id}`, { method: "PATCH", body: JSON.stringify({ tags: nextTags }) });
+    }
+    state.localInfos = await request("/api/local-infos");
+    renderLocalInfos();
+    toast(`${message}，已更新 ${updates.length} 条信息`);
+    return true;
+  } catch (error) {
+    toast(error.message);
+    return false;
+  }
+}
+
+function openLocalInfoTagRenameDialog(type, oldName) {
+  const form = $("#local-info-tag-form");
+  const parts = type === "child" ? localInfoTagParts(oldName) : null;
+  form.reset();
+  form.elements.type.value = type;
+  form.elements.oldName.value = oldName;
+  form.elements.name.value = type === "child" ? (parts.child || oldName) : oldName;
+  $("#local-info-tag-rename-note").textContent = type === "child"
+    ? `正在修改「${oldName}」这个子标签。`
+    : `正在修改「${oldName}」这一组主标签，子标签会一起迁移。`;
+  $("#local-info-tag-dialog").showModal();
+}
+
+function renameLocalInfoMainTag(oldName) {
+  openLocalInfoTagRenameDialog("main", oldName);
+}
+
+function deleteLocalInfoMainTag(groupName) {
+  if (!window.confirm(`确定删除「${groupName}」这一组标签吗？会从相关在地信息里移除。`)) return;
+  updateLocalInfoTags((tag) => localInfoTagParts(tag).group === groupName ? "" : tag, "主标签已删除");
+}
+
+function renameLocalInfoChildTag(oldTag) {
+  openLocalInfoTagRenameDialog("child", oldTag);
+}
+
+function deleteLocalInfoChildTag(tagName) {
+  if (!window.confirm(`确定删除「${tagName}」吗？会从相关在地信息里移除。`)) return;
+  updateLocalInfoTags((tag) => tag === tagName ? "" : tag, "子标签已删除");
+}
+
+function renderLocalInfos() {
+  const tagNames = localInfoTags();
+  const groups = groupedLocalInfoTags();
+  if (state.localInfoTagFilter && !tagNames.includes(state.localInfoTagFilter)) state.localInfoTagFilter = "";
+  const items = filteredLocalInfos();
+  const tagFilter = $("#local-info-tag-filters");
+  renderLocalInfoTagManager();
+  tagFilter.innerHTML = [
+    `<button class="${state.localInfoTagFilter ? "" : "active"}" data-local-info-tag-filter="">全部</button>`,
+    ...groups.map((group) => {
+      const active = state.localInfoTagFilter === group.name || localInfoTagParts(state.localInfoTagFilter).group === group.name;
+      const expanded = state.localInfoExpandedTagGroups.includes(group.name) || active;
+      return `
+        <button class="${active || expanded ? "active" : ""}" data-local-info-tag-main="${escapeHtml(group.name)}">${escapeHtml(group.name)}</button>
+        ${expanded && group.children.length ? group.children.map((tag) => `<button class="local-info-sub-tag ${state.localInfoTagFilter === tag ? "active" : ""}" data-local-info-tag-filter="${escapeHtml(tag)}">${escapeHtml(localInfoTagParts(tag).child)}</button>`).join("") : ""}
+      `;
+    })
+  ].join("");
+  tagFilter.querySelectorAll("[data-local-info-tag-main]").forEach((button) => button.addEventListener("click", () => {
+    const name = button.dataset.localInfoTagMain;
+    const isActive = state.localInfoTagFilter === name;
+    state.localInfoTagFilter = isActive ? "" : name;
+    state.localInfoExpandedTagGroups = isActive ? [] : [name];
+    renderLocalInfos();
+  }));
+  tagFilter.querySelectorAll("[data-local-info-tag-filter]").forEach((button) => button.addEventListener("click", () => {
+    const tag = button.dataset.localInfoTagFilter;
+    state.localInfoTagFilter = tag;
+    state.localInfoExpandedTagGroups = tag ? [localInfoTagParts(tag).group] : [];
+    renderLocalInfos();
+  }));
+  $("#local-info-count").textContent = state.localInfoTagFilter ? `${items.length} / ${state.localInfos.length} 条信息 · ${state.localInfoTagFilter}` : `${state.localInfos.length} 条信息`;
+  $("#local-info-list").innerHTML = items.map((item) => `
+    <article class="topic-page-card">
+      ${item.coverUrl ? `<img src="${escapeHtml(item.coverUrl)}" alt="${escapeHtml(item.title)}" />` : `<div class="topic-page-placeholder">封面</div>`}
+      <div>
+        <span class="status-badge ${item.published ? "status-booked" : "status-cancelled"}">${item.published ? "前台显示" : "已隐藏"}</span>
+        <h3>${escapeHtml(item.title)}</h3>
+        ${renderLocalInfoTags(item)}
+        <p>${escapeHtml(item.summary || item.address || "暂未填写简介")}</p>
+        <small>${escapeHtml([item.openingHours, item.address].filter(Boolean).join(" · ") || "暂无营业信息")} · 顺序 ${item.sortOrder ?? 999}</small>
+      </div>
+      <div class="topic-card-actions">
+        ${item.mapUrl ? `<a class="secondary-button" href="${escapeHtml(item.mapUrl)}" target="_blank" rel="noopener noreferrer">导航</a>` : ""}
+        <button class="secondary-button" data-toggle-local-info="${item.id}">${item.published ? "隐藏" : "显示"}</button>
+        <button class="secondary-button" data-edit-local-info="${item.id}">编辑</button>
+        <button class="danger-button" data-delete-local-info="${item.id}">删除</button>
+      </div>
+    </article>
+  `).join("") || `<div class="empty-state compact-empty"><h2>还没有在地信息</h2><p>可以先新增餐馆、咖啡馆或工作室。</p></div>`;
+  document.querySelectorAll("[data-edit-local-info]").forEach((button) => button.addEventListener("click", () => openLocalInfoDialog(state.localInfos.find((item) => item.id === button.dataset.editLocalInfo))));
+  document.querySelectorAll("[data-toggle-local-info]").forEach((button) => button.addEventListener("click", async () => {
+    const item = state.localInfos.find((candidate) => candidate.id === button.dataset.toggleLocalInfo);
+    if (!item) return;
+    try {
+      await request(`/api/local-infos/${item.id}`, { method: "PATCH", body: JSON.stringify({ ...item, published: !item.published }) });
+      state.localInfos = await request("/api/local-infos");
+      renderLocalInfos();
+      toast(item.published ? "在地信息已隐藏" : "在地信息已显示");
+    } catch (error) { toast(error.message); }
+  }));
+  document.querySelectorAll("[data-delete-local-info]").forEach((button) => button.addEventListener("click", () => deleteLocalInfo(button.dataset.deleteLocalInfo)));
+}
+
+function openLocalInfoDialog(item = null) {
+  state.editingLocalInfoId = item?.id ?? null;
+  const form = $("#local-info-form");
+  form.reset();
+  form.querySelector("h2").textContent = item ? "编辑在地信息" : "新增在地信息";
+  form.elements.published.checked = item?.published ?? true;
+  form.elements.sortOrder.value = item?.sortOrder ?? 999;
+  if (item) {
+    form.elements.title.value = item.title ?? "";
+    form.elements.summary.value = item.summary ?? "";
+    form.elements.coverUrl.value = item.coverUrl ?? "";
+    form.elements.tags.value = (item.tags ?? []).join(", ");
+    form.elements.openingHours.value = item.openingHours ?? "";
+    form.elements.address.value = item.address ?? "";
+    form.elements.contact.value = item.contact ?? "";
+    form.elements.mapUrl.value = item.mapUrl ?? "";
+    form.elements.contentHtml.value = item.contentHtml ?? "";
+  }
+  $("#delete-local-info").hidden = !item;
+  $("#local-info-dialog").showModal();
+}
+
+const homeModuleNames = { CUBE: "魔方", NAV: "文本导航", ACTIVITIES: "活动", TOPICS: "专题", BLOG: "博客", GUIDES: "领队", REVIEWS: "评价", UPCOMING: "即将出发的旅行", BANNER: "图片广告", TEXT: "标题文本", COLLAPSE: "折叠文本", DIVIDER: "辅助分割" };
+const homeModuleIcons = { CUBE: "▦", NAV: "≡", ACTIVITIES: "▤", TOPICS: "▧", BLOG: "✎", GUIDES: "♟", REVIEWS: "★", UPCOMING: "◷", BANNER: "▰", TEXT: "Ｔ", COLLAPSE: "▣", DIVIDER: "—" };
 const builderCover = "https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=500&q=80";
+
+function slugFromTitle(title = "") {
+  const ascii = String(title)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return ascii || `page-${Date.now().toString(36)}`;
+}
 
 function moduleStyle(module) {
   return {
@@ -1053,7 +1575,8 @@ function moduleStyle(module) {
     textAlign: module.style?.textAlign || "LEFT",
     dividerStyle: module.style?.dividerStyle || "SPACE",
     height: module.style?.height ?? 24,
-    backgroundColor: module.style?.backgroundColor || "#ffffff"
+    backgroundColor: module.style?.backgroundColor || "#ffffff",
+    collapseTitleStyle: module.style?.collapseTitleStyle || "SOFT_BLOCK"
   };
 }
 
@@ -1083,6 +1606,14 @@ function homeModulePreview(module) {
     <div class="builder-preview-upcoming"><span>${escapeHtml(slot.customerDisplayName)}</span><img src="${builderCover}" alt="" /><strong>${escapeHtml(slot.activityName)}</strong><small>${slot.startsAt.slice(5, 10)} ${slot.startsAt.slice(11, 16)}-${slot.endsAt.slice(11, 16)}</small><em>已有 ${slot.bookedCount} 人报名</em></div>`).join("") || `<small>暂无已有报名的未来活动</small>`}</div>`;
   if (module.type === "TOPICS") return `${heading}<div class="builder-preview-grid">${state.topicPages.slice(0, module.limit).map((page) => `
     <div>${page.imageUrl ? `<img src="${escapeHtml(page.imageUrl)}" alt="" />` : ""}<strong>${escapeHtml(page.title)}</strong></div>`).join("") || `<small>暂无专题</small>`}</div>`;
+  if (module.type === "BLOG") {
+    const tag = module.blogTag ?? "";
+    const posts = state.blogPosts
+      .filter((post) => !tag || blogTags(post).includes(tag))
+      .slice(0, module.limit);
+    return `${heading}<div class="builder-preview-blog layout-${style.layout || "GRID"}">${posts.map((post) => `
+      <div>${post.coverUrl ? `<img src="${escapeHtml(post.coverUrl)}" alt="" />` : ""}<strong>${escapeHtml(post.title)}</strong><small>${escapeHtml(blogTags(post).slice(0, 3).join(" · "))}</small></div>`).join("") || `<small>暂无匹配文章</small>`}</div>`;
+  }
   if (module.type === "REVIEWS") return `${heading}<div class="builder-preview-scroll">${state.homePreviewReviews.slice(0, module.limit).map((review) => `
     <div class="builder-preview-review"><strong>${escapeHtml(review.displayName)}</strong><span>${"★".repeat(review.rating)}</span><p>${escapeHtml(review.content)}</p><small>${escapeHtml(review.activityName)}</small></div>`).join("") || `<small>暂无公开评价</small>`}</div>`;
   if (module.type === "ACTIVITIES") {
@@ -1096,7 +1627,7 @@ function homeModulePreview(module) {
     const images = (module.imageUrls?.length ? module.imageUrls : [module.imageUrl]).filter(Boolean);
     return `<div class="builder-preview-banners layout-${style.layout || "SINGLE"} card-${style.cardStyle}" ${vars}>${images.map((imageUrl) => `<div class="builder-preview-banner"><img src="${escapeHtml(imageUrl)}" alt="" /><strong>${escapeHtml(module.title)}</strong></div>`).join("") || `<div class="builder-preview-banner"><strong>${escapeHtml(module.title)}</strong></div>`}</div>`;
   }
-  if (module.type === "COLLAPSE") return `<div class="builder-preview-collapse" style="padding:${style.padding}px;background:${escapeHtml(style.backgroundColor)}"><strong>${escapeHtml(module.title)}</strong>${(module.items ?? []).slice(0, module.limit).map((item) => `
+  if (module.type === "COLLAPSE") return `<div class="builder-preview-collapse" style="padding:${style.padding}px;background:${escapeHtml(style.backgroundColor)}"><strong class="collapse-title-${style.collapseTitleStyle}">${escapeHtml(module.title)}</strong>${(module.items ?? []).slice(0, module.limit).map((item) => `
     <div class="builder-preview-collapse-row"><span>☏</span><p>${escapeHtml(item.title)}</p><em>⌄</em></div>`).join("") || `<small>暂无折叠内容</small>`}</div>`;
   if (module.type === "DIVIDER") return `<div class="builder-preview-divider ${style.dividerStyle === "LINE" ? "is-line" : "is-space"}" style="height:${style.height}px"><span></span></div>`;
   return `<div class="builder-preview-text" style="padding:${style.padding}px;text-align:${style.textAlign === "CENTER" ? "center" : "left"};background:${escapeHtml(style.backgroundColor)}"><strong>${escapeHtml(module.title)}</strong><p>${escapeHtml(module.subtitle ?? "")}</p></div>`;
@@ -1115,6 +1646,55 @@ function parseCollapseItems(text) {
       return { title: lines.shift().trim(), content: lines.join("\n").trim() };
     })
     .filter((item) => item.title);
+}
+
+function collapseTitleStyleOptions(selected = "SOFT_BLOCK") {
+  return [
+    ["SOFT_BLOCK", "清透蓝块"],
+    ["SIDE_LINE", "左侧细线"],
+    ["PLAIN", "朴素标题"]
+  ].map(([value, label]) => `<label><input type="radio" name="collapseTitleStyle" value="${value}" ${selected === value ? "checked" : ""} /><span>${label}</span></label>`).join("");
+}
+
+function normalizeCollapseItems(items = []) {
+  const normalized = items
+    .map((item) => ({
+      title: String(item.title ?? "").trim(),
+      content: String(item.content ?? "").trim()
+    }))
+    .filter((item) => item.title || item.content)
+    .map((item) => ({ ...item, title: item.title || "未命名问题" }))
+    .slice(0, 5);
+  return normalized.length ? normalized : [{ title: "新问题", content: "" }];
+}
+
+function renderCollapseItemEditors(module, scope) {
+  const items = normalizeCollapseItems(module.items ?? []);
+  const removeAttr = scope === "page" ? "data-remove-page-collapse-item" : "data-remove-collapse-item";
+  return `
+    <fieldset class="collapse-items-fieldset">
+      <legend>折叠条目</legend>
+      <div class="collapse-item-list">${items.map((item, index) => `
+        <article class="collapse-item-editor">
+          <div class="collapse-item-editor-head">
+            <strong>第 ${index + 1} 条</strong>
+            <button type="button" class="collapse-item-remove" ${removeAttr}="${index}" ${items.length <= 1 ? "disabled" : ""}>删除</button>
+          </div>
+          <label>标题<input name="collapseTitle" maxlength="40" value="${escapeHtml(item.title)}" placeholder="例如：我们从哪里来？" /></label>
+          <label>正文<textarea name="collapseContent" rows="5" placeholder="可以写多段文字，段落之间空一行。">${escapeHtml(item.content)}</textarea></label>
+        </article>
+      `).join("")}</div>
+      <button type="button" class="collapse-item-add" ${items.length >= 5 ? "disabled" : ""}>＋ 增加一条</button>
+      <small>最多 5 条；每条正文可以写多段，段落之间空一行。</small>
+    </fieldset>`;
+}
+
+function collapseItemsFromForm(form, module) {
+  if (!form.querySelector(".collapse-item-list")) return module.items ?? [];
+  return normalizeCollapseItems([...form.querySelectorAll(".collapse-item-editor")].map((row) => ({
+    title: row.querySelector("[name=collapseTitle]")?.value ?? "",
+    content: row.querySelector("[name=collapseContent]")?.value ?? ""
+  })));
 }
 
 let homeModuleDragScrollFrame = null;
@@ -1191,12 +1771,18 @@ function renderHomeModules() {
 
 function renderHomeModuleSettings() {
   const module = state.homeModules.find((item) => item.id === state.selectedHomeModuleId);
-  if (!module) return;
+  if (!module) {
+    $("#home-module-settings").hidden = true;
+    $("#home-module-settings").innerHTML = "";
+    return;
+  }
+  $("#home-module-settings").hidden = false;
   const style = moduleStyle(module);
   const showTags = module.type === "ACTIVITIES";
+  const showBlogOptions = module.type === "BLOG";
   const showMedia = module.type === "BANNER";
   const showSubtitle = ["TEXT", "BANNER"].includes(module.type);
-  const showLayout = ["CUBE", "NAV", "ACTIVITIES", "BANNER"].includes(module.type);
+  const showLayout = ["CUBE", "NAV", "ACTIVITIES", "BANNER", "BLOG"].includes(module.type);
   const showCardStyle = ["CUBE", "ACTIVITIES", "BANNER"].includes(module.type);
   const showSpacing = ["CUBE", "ACTIVITIES", "BANNER"].includes(module.type);
   const showTextStyle = module.type === "TEXT";
@@ -1204,19 +1790,23 @@ function renderHomeModuleSettings() {
   const showCollapseStyle = module.type === "COLLAPSE";
   const showDivider = module.type === "DIVIDER";
   const showNavigation = module.type === "NAV";
+  const showCubeEntries = module.type === "CUBE";
+  const showTopicLibrary = module.type === "TOPICS";
   const layoutOptions = module.type === "CUBE"
     ? [["TWO", "1 行 2 个"], ["THREE", "1 行 3 个"], ["FEATURE", "1 大 2 小"]]
     : module.type === "NAV"
       ? [["FOUR", "1 行 4 个"], ["THREE", "1 行 3 个"]]
     : module.type === "ACTIVITIES"
       ? [["LIST", "详细列表"], ["GRID", "1 行 2 个"], ["SCROLL", "横向滚动"]]
+    : module.type === "BLOG"
+      ? [["LIST", "一行一条"], ["GRID", "两条方格"]]
       : [["SINGLE", "单图"], ["CAROUSEL", "轮播海报"], ["SCROLL", "横向滚动"]];
   $("#home-module-settings").innerHTML = `
     <form id="home-module-settings-form">
       <div class="builder-settings-heading"><h2>${homeModuleNames[module.type]}</h2><button type="button" class="module-delete" title="删除模块">删除</button></div>
       ${showDivider ? "" : `<label>模块标题<input name="title" maxlength="40" value="${escapeHtml(module.title)}" /></label>`}
       ${showSubtitle ? `<label>补充文字<textarea name="subtitle" rows="4">${escapeHtml(module.subtitle ?? "")}</textarea></label>` : ""}
-      ${showCollapse ? `<label>折叠内容<textarea name="itemsText" rows="12" placeholder="我们从哪里来？&#10;在这里写正文。&#10;&#10;我们在做什么？&#10;在这里写正文。">${escapeHtml(collapseItemsText(module))}</textarea><small>每一段第一行是标题，下面是正文；段落之间空一行。</small></label>` : ""}
+      ${showCollapse ? renderCollapseItemEditors(module, "home") : ""}
       ${showMedia ? `<label>图片地址，每行一张<textarea name="imageUrls" rows="5" placeholder="https://...">${escapeHtml((module.imageUrls?.length ? module.imageUrls : [module.imageUrl]).filter(Boolean).join("\n"))}</textarea></label><label>跳转链接<input name="linkUrl" value="${escapeHtml(module.linkUrl ?? "")}" placeholder="https://..." /></label>` : ""}
       ${showNavigation ? `<fieldset class="navigation-items-fieldset"><legend>导航内容</legend><div class="navigation-item-list">${(module.navItems ?? []).map((item, index) => `
         <div class="navigation-item-editor">
@@ -1225,13 +1815,16 @@ function renderHomeModuleSettings() {
           <select name="navTarget">${navigationTargetOptions(item.targetType, item.targetValue)}</select>
           <button type="button" class="navigation-item-remove" data-remove-nav-item="${index}" title="删除导航项">×</button>
         </div>`).join("")}</div><button type="button" class="navigation-item-add" ${module.navItems?.length >= 8 ? "disabled" : ""}>＋ 增加导航项</button></fieldset>` : ""}
-      ${showDivider ? "" : `<label>显示数量<input name="limit" type="number" min="1" max="20" value="${module.limit}" /></label>`}
-      ${showTags ? `<fieldset><legend>按标签挑选活动</legend><div class="checkbox-tags">${state.tags.map((tag) => `<label class="checkbox-tag"><input type="checkbox" name="tagIds" value="${tag.id}" ${module.tagIds.includes(tag.id) ? "checked" : ""} />${escapeHtml(tag.name)}</label>`).join("")}</div></fieldset>` : ""}
+      ${showDivider ? "" : `<label>显示数量<input name="limit" type="number" min="1" max="${showCollapse ? 5 : 20}" value="${Math.min(module.limit, showCollapse ? 5 : 20)}" /></label>`}
+      ${showCubeEntries ? `<fieldset class="home-entry-settings-fieldset"><legend>魔方内容</legend><p>魔方可以跳转到专题、活动、领队主页或外部内容。</p><button type="button" class="secondary-button home-entry-add">＋ 新增入口</button><div id="home-entry-list" class="home-entry-list compact-home-entry-list"></div></fieldset>` : ""}
+      ${showTopicLibrary ? `<fieldset class="topic-page-settings-fieldset"><legend>专题库</legend><p>这里管理专题模块里可展示的专题页。</p><button type="button" class="secondary-button topic-page-add">＋ 新增专题</button><div id="topic-page-list" class="topic-page-list compact-topic-page-list"></div></fieldset>` : ""}
+      ${showTags ? `<fieldset><legend>按标签挑选活动</legend><div class="checkbox-tags">${renderCheckboxTags(module.tagIds)}</div></fieldset>` : ""}
+      ${showBlogOptions ? `<label>博客标签<select name="blogTag">${blogTagOptions(module.blogTag ?? "")}</select></label>` : ""}
       ${showLayout ? `<fieldset><legend>排列样式</legend><div class="builder-option-grid">${layoutOptions.map(([value, label]) => `<label><input type="radio" name="layout" value="${value}" ${style.layout === value || (!style.layout && value === layoutOptions[0][0]) ? "checked" : ""} /><span>${label}</span></label>`).join("")}</div></fieldset>` : ""}
       ${showCardStyle ? `<fieldset><legend>图片样式</legend><div class="builder-option-grid"><label><input type="radio" name="cardStyle" value="PLAIN" ${style.cardStyle === "PLAIN" ? "checked" : ""} /><span>常规</span></label><label><input type="radio" name="cardStyle" value="SHADOW" ${style.cardStyle === "SHADOW" ? "checked" : ""} /><span>投影</span></label></div></fieldset>` : ""}
       ${showSpacing ? `<label>圆角 <span class="builder-value">${style.radius}px</span><input name="radius" type="range" min="0" max="24" value="${style.radius}" /></label><label>内容间距 <span class="builder-value">${style.gap}px</span><input name="gap" type="range" min="0" max="32" value="${style.gap}" /></label><label>页面边距 <span class="builder-value">${style.padding}px</span><input name="padding" type="range" min="0" max="32" value="${style.padding}" /></label>` : ""}
       ${showTextStyle ? `<fieldset><legend>文字位置</legend><div class="builder-option-grid"><label><input type="radio" name="textAlign" value="LEFT" ${style.textAlign === "LEFT" ? "checked" : ""} /><span>居左</span></label><label><input type="radio" name="textAlign" value="CENTER" ${style.textAlign === "CENTER" ? "checked" : ""} /><span>居中</span></label></div></fieldset><label>内边距 <span class="builder-value">${style.padding}px</span><input name="padding" type="range" min="0" max="32" value="${style.padding}" /></label><label>背景颜色<input name="backgroundColor" type="color" value="${escapeHtml(style.backgroundColor)}" /></label>` : ""}
-      ${showCollapseStyle ? `<label>内边距 <span class="builder-value">${style.padding}px</span><input name="padding" type="range" min="0" max="32" value="${style.padding}" /></label><label>背景颜色<input name="backgroundColor" type="color" value="${escapeHtml(style.backgroundColor)}" /></label>` : ""}
+      ${showCollapseStyle ? `<fieldset><legend>标题样式</legend><div class="builder-option-grid">${collapseTitleStyleOptions(style.collapseTitleStyle)}</div></fieldset><label>内边距 <span class="builder-value">${style.padding}px</span><input name="padding" type="range" min="0" max="32" value="${style.padding}" /></label><label>背景颜色<input name="backgroundColor" type="color" value="${escapeHtml(style.backgroundColor)}" /></label>` : ""}
       ${showDivider ? `<fieldset><legend>分割类型</legend><div class="builder-option-grid"><label><input type="radio" name="dividerStyle" value="SPACE" ${style.dividerStyle === "SPACE" ? "checked" : ""} /><span>辅助留白</span></label><label><input type="radio" name="dividerStyle" value="LINE" ${style.dividerStyle === "LINE" ? "checked" : ""} /><span>分割线</span></label></div></fieldset><label>高度 <span class="builder-value">${style.height}px</span><input name="height" type="range" min="4" max="80" value="${style.height}" /></label>` : ""}
       <label class="checkbox-tag"><input name="published" type="checkbox" ${module.published ? "checked" : ""} />在客人首页展示</label>
       <button class="primary-button">保存模块</button>
@@ -1241,6 +1834,12 @@ function renderHomeModuleSettings() {
   $(".module-delete").addEventListener("click", deleteHomeModule);
   $(".navigation-item-add")?.addEventListener("click", addNavigationItem);
   document.querySelectorAll("[data-remove-nav-item]").forEach((button) => button.addEventListener("click", () => removeNavigationItem(Number(button.dataset.removeNavItem))));
+  $(".collapse-item-add")?.addEventListener("click", addCollapseItem);
+  document.querySelectorAll("[data-remove-collapse-item]").forEach((button) => button.addEventListener("click", () => removeCollapseItem(Number(button.dataset.removeCollapseItem))));
+  $(".home-entry-add")?.addEventListener("click", () => openHomeEntryDialog());
+  $(".topic-page-add")?.addEventListener("click", () => openTopicPageDialog());
+  if (showCubeEntries) renderHomeEntries();
+  if (showTopicLibrary) renderTopicLibrary();
 }
 
 function homeModuleValues(form, module) {
@@ -1261,9 +1860,10 @@ function homeModuleValues(form, module) {
         targetValue: targetParts.join(":")
       };
     }),
-    items: values.has("itemsText") ? parseCollapseItems(values.get("itemsText")) : (module.items ?? []),
+    items: values.has("itemsText") ? parseCollapseItems(values.get("itemsText")) : collapseItemsFromForm(form, module),
     linkUrl: values.get("linkUrl") ?? "",
-    limit: values.has("limit") ? Number(values.get("limit")) : module.limit,
+    blogTag: values.get("blogTag") ?? module.blogTag ?? "",
+    limit: values.has("limit") ? Math.min(Number(values.get("limit")), form.querySelector(".collapse-item-list") ? 5 : 20) : module.limit,
     tagIds: values.getAll("tagIds"),
     published: values.get("published") === "on",
     style: {
@@ -1275,7 +1875,8 @@ function homeModuleValues(form, module) {
       textAlign: values.get("textAlign") ?? style.textAlign,
       dividerStyle: values.get("dividerStyle") ?? style.dividerStyle,
       height: numberValue("height", style.height),
-      backgroundColor: values.get("backgroundColor") ?? style.backgroundColor
+      backgroundColor: values.get("backgroundColor") ?? style.backgroundColor,
+      collapseTitleStyle: values.get("collapseTitleStyle") ?? style.collapseTitleStyle
     }
   };
 }
@@ -1292,6 +1893,25 @@ function removeNavigationItem(index) {
   const module = state.homeModules.find((item) => item.id === state.selectedHomeModuleId);
   Object.assign(module, homeModuleValues($("#home-module-settings-form"), module));
   module.navItems.splice(index, 1);
+  renderHomeModules();
+  renderHomeModuleSettings();
+}
+
+function addCollapseItem() {
+  const module = state.homeModules.find((item) => item.id === state.selectedHomeModuleId);
+  Object.assign(module, homeModuleValues($("#home-module-settings-form"), module));
+  if ((module.items ?? []).length >= 5) return;
+  module.items = [...(module.items ?? []), { title: "新问题", content: "" }];
+  module.limit = Math.min(5, Math.max(module.limit ?? 1, module.items.length));
+  renderHomeModules();
+  renderHomeModuleSettings();
+}
+
+function removeCollapseItem(index) {
+  const module = state.homeModules.find((item) => item.id === state.selectedHomeModuleId);
+  Object.assign(module, homeModuleValues($("#home-module-settings-form"), module));
+  module.items = (module.items ?? []).filter((_, itemIndex) => itemIndex !== index);
+  module.limit = Math.max(1, Math.min(module.limit ?? 1, module.items.length || 1, 5));
   renderHomeModules();
   renderHomeModuleSettings();
 }
@@ -1324,7 +1944,8 @@ async function deleteHomeModule() {
   state.homeModules = await request("/api/home-modules");
   state.selectedHomeModuleId = null;
   renderHomeModules();
-  $("#home-module-settings").innerHTML = `<div class="builder-settings-empty"><h2>模块设置</h2><p>选择中间的模块后，在这里修改内容。</p></div>`;
+  $("#home-module-settings").hidden = true;
+  $("#home-module-settings").innerHTML = "";
   toast("首页模块已删除");
 }
 
@@ -1336,7 +1957,9 @@ function homeEntryTargetLabel(entry) {
 }
 
 function renderHomeEntries() {
-  $("#home-entry-list").innerHTML = state.homeEntries.map((entry) => `
+  const list = $("#home-entry-list");
+  if (!list) return;
+  list.innerHTML = state.homeEntries.map((entry) => `
     <article class="home-entry-card">
       ${entry.imageUrl ? `<img src="${escapeHtml(entry.imageUrl)}" alt="${escapeHtml(entry.title)}" />` : `<div class="home-entry-placeholder">入口图</div>`}
       <div>
@@ -1345,10 +1968,10 @@ function renderHomeEntries() {
         <small>${escapeHtml(entry.subtitle || "未填写英文小标题")}</small>
         <p>${escapeHtml(homeEntryTargetLabel(entry))} · 顺序 ${entry.sortOrder}</p>
       </div>
-      <button class="secondary-button" data-edit-home-entry="${entry.id}">编辑</button>
+      <button type="button" class="secondary-button" data-edit-home-entry="${entry.id}">编辑</button>
     </article>
   `).join("") || `<div class="empty-state compact-empty"><p>还没有首页入口。</p></div>`;
-  document.querySelectorAll("[data-edit-home-entry]").forEach((button) => button.addEventListener("click", () => openHomeEntryDialog(state.homeEntries.find((entry) => entry.id === button.dataset.editHomeEntry))));
+  list.querySelectorAll("[data-edit-home-entry]").forEach((button) => button.addEventListener("click", () => openHomeEntryDialog(state.homeEntries.find((entry) => entry.id === button.dataset.editHomeEntry))));
 }
 
 function renderHomeEntryTargetOptions(selectedValue = "") {
@@ -1402,45 +2025,54 @@ function openTopicPageDialog(page = null) {
   const form = $("#topic-page-form");
   form.reset();
   form.querySelector("h2").textContent = page ? "编辑专题页" : "新增专题页";
-  form.elements.published.checked = page?.published ?? true;
   if (page) {
     form.elements.title.value = page.title;
-    form.elements.slug.value = page.slug;
-    form.elements.summary.value = page.summary ?? "";
     form.elements.imageUrl.value = page.imageUrl ?? "";
-    form.elements.externalUrl.value = page.externalUrl ?? "";
-    const selectedTagIds = new Set(page.tagIds);
-    form.querySelectorAll("input[name=tagIds]").forEach((input) => { input.checked = selectedTagIds.has(input.value); });
   }
+  renderTopicPageImagePreview();
   $("#delete-topic-page").hidden = !page;
-  renderTopicPageDescriptionStatus();
+  resetTopicPageDeleteConfirm();
   $("#topic-page-dialog").showModal();
 }
 
-function renderTopicPageDescriptionStatus() {
-  const text = state.topicPageIntroductionDraft.replace(/<[^>]+>/g, "").trim();
-  $("#topic-page-description-status").textContent = text || state.topicPageIntroductionDraft.includes("<") ? "已填写，可继续编辑" : "暂未填写详细介绍";
+function resetTopicPageDeleteConfirm() {
+  const button = $("#delete-topic-page");
+  const warning = $("#delete-topic-page-warning");
+  if (!button || !warning) return;
+  button.textContent = "删除专题";
+  button.dataset.confirmDelete = "";
+  button.classList.remove("is-confirming");
+  warning.hidden = true;
+}
+
+function renderTopicPageImagePreview() {
+  const preview = $("#topic-page-image-preview");
+  const imageUrl = $("#topic-page-form").elements.imageUrl.value;
+  preview.src = imageUrl || "";
+  preview.hidden = !imageUrl;
 }
 
 function renderGuides() {
   renderGuidePageStatus();
   $("#guide-list").innerHTML = state.guides.map((guide, index) => `
-    <article class="guide-card ${state.guideDragIndex === index ? "dragging" : ""}" draggable="true" data-guide-index="${index}">
+    <article class="guide-card ${state.guideDragIndex === index ? "dragging" : ""} ${guide.paused ? "paused" : ""}" draggable="true" data-guide-index="${index}">
       ${guide.photoUrl ? `<img src="${escapeHtml(guide.photoUrl)}" alt="${escapeHtml(guide.name)}" />` : `<div class="guide-placeholder">照片</div>`}
       <div class="guide-card-copy">
         <span class="guide-card-order">#${index + 1}</span>
-        <h3>${escapeHtml(guide.name)}</h3>
+        <h3>${escapeHtml(guide.name)}${guide.paused ? `<em class="guide-paused-badge">已暂停</em>` : ""}</h3>
         <p>${escapeHtml(guide.descriptionHtml.replace(/<[^>]+>/g, "")) || "暂未填写详细介绍"}</p>
         <small>${guide.activities.length} 个关联活动 · ${(guide.images ?? []).length} 张相册照片${(guide.aliases ?? []).length ? ` · 关键词：${escapeHtml(guide.aliases.join(" / "))}` : ""}</small>
       </div>
       <div class="guide-card-actions">
         <button class="secondary-button" data-edit-guide="${guide.id}">编辑</button>
+        <button class="secondary-button" data-toggle-guide-paused="${guide.id}">${guide.paused ? "恢复" : "暂停"}</button>
         <button class="danger-button" data-delete-guide="${guide.id}">删除</button>
       </div>
     </article>
   `).join("") || `<div class="empty-state compact-empty"><h2>还没有领队档案</h2><p>可以先新增一位领队。</p></div>`;
   bindGuideOrderEvents();
   document.querySelectorAll("[data-edit-guide]").forEach((button) => button.addEventListener("click", () => openGuideDialog(state.guides.find((guide) => guide.id === button.dataset.editGuide))));
+  document.querySelectorAll("[data-toggle-guide-paused]").forEach((button) => button.addEventListener("click", () => toggleGuidePaused(button.dataset.toggleGuidePaused)));
   document.querySelectorAll("[data-delete-guide]").forEach((button) => button.addEventListener("click", () => deleteGuide(button.dataset.deleteGuide)));
 }
 
@@ -1466,7 +2098,7 @@ async function saveGuideOrder() {
     toast("领队顺序已保存");
   } catch (error) {
     toast(error.message);
-    state.guides = sortGuidesForDisplay(await request("/api/guides"));
+    state.guides = sortGuidesForDisplay(await request(guidesRequestPath));
     state.guideOrderDirty = false;
     renderGuides();
   }
@@ -1510,10 +2142,27 @@ async function deleteGuide(id) {
   try {
     await request(`/api/guides/${id}`, { method: "DELETE" });
     await loadActivities();
-    state.guides = sortGuidesForDisplay(await request("/api/guides"));
+    state.guides = sortGuidesForDisplay(await request(guidesRequestPath));
     renderDialogOptions();
     renderGuides();
     toast(linkedCount ? "领队已删除，活动关联已同步移除" : "领队档案已删除");
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+async function toggleGuidePaused(id) {
+  const guide = state.guides.find((item) => item.id === id);
+  if (!guide) return;
+  try {
+    await request(`/api/guides/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ paused: !guide.paused })
+    });
+    state.guides = sortGuidesForDisplay(await request(guidesRequestPath));
+    renderDialogOptions();
+    renderGuides();
+    toast(guide.paused ? "领队已恢复，可在前台和活动中选择" : "领队已暂停，不会在前台和活动可选列表显示");
   } catch (error) {
     toast(error.message);
   }
@@ -2012,6 +2661,7 @@ async function selectActivity(id) {
       </div>
     </div>
   `;
+  $("#detail-panel").scrollTop = 0;
   $("#edit-activity").addEventListener("click", () => openActivityDialog(activity));
   $("#toggle-pause").addEventListener("click", async () => {
     await toggleActivitySchedulePause(activity);
@@ -2521,7 +3171,20 @@ document.querySelectorAll("[data-guide-calendar-mode]").forEach((button) => butt
   renderGuideCalendar();
 }));
 $("#new-topic-page").addEventListener("click", () => openTopicPageDialog());
-$("#new-home-entry").addEventListener("click", () => openHomeEntryDialog());
+$("#new-topic-page-inline")?.addEventListener("click", () => openTopicPageDialog());
+document.querySelectorAll("[data-page-builder-tab]").forEach((button) => button.addEventListener("click", () => {
+  state.pageBuilderTab = button.dataset.pageBuilderTab;
+  renderTopicPages();
+}));
+$("#new-home-entry")?.addEventListener("click", () => openHomeEntryDialog());
+$("#topic-page-image-input").addEventListener("change", (event) => {
+  readFilesAsDataUrls(event.currentTarget.files, (url) => {
+    $("#topic-page-form").elements.imageUrl.value = url;
+    renderTopicPageImagePreview();
+    toast("专题入口图已上传");
+  });
+  event.currentTarget.value = "";
+});
 document.querySelectorAll("[data-add-home-module]").forEach((button) => button.addEventListener("click", async () => {
   const type = button.dataset.addHomeModule;
   try {
@@ -2535,7 +3198,7 @@ document.querySelectorAll("[data-add-home-module]").forEach((button) => button.a
           { title: "我们在做什么？", content: "我们希望把没有太多游客的森林、溪流、植物和村庄体验，用更轻松、更可靠的方式分享给来大理的朋友。" },
           { title: "预订前需要知道什么？", content: "每个活动都会写明适合年龄、集合地点、提前预约时间和取消规则。天气原因需要调整时，请先联系领队。" }
         ],
-        style: { backgroundColor: "#fffaf0", padding: 16 }
+        style: { backgroundColor: "#fffaf0", padding: 16, collapseTitleStyle: "SOFT_BLOCK" }
       });
     }
     const module = await request("/api/home-modules", {
@@ -2549,8 +3212,18 @@ document.querySelectorAll("[data-add-home-module]").forEach((button) => button.a
     toast("首页模块已添加");
   } catch (error) { toast(error.message); }
 }));
+document.querySelectorAll("[data-add-page-module]").forEach((button) => button.addEventListener("click", async () => {
+  const page = selectedSpecialPage();
+  if (!page) return toast("请先选择或新建一个专页");
+  const type = button.dataset.addPageModule;
+  page.modules = sortedPageModules(page);
+  const module = defaultPageModulePayload(type, page.modules.length + 1);
+  page.modules.push(module);
+  state.selectedPageModuleId = module.id;
+  await saveSelectedSpecialPageModules("专页模块已添加");
+}));
 $("#edit-guide-page").addEventListener("click", () => openDescriptionEditor("guidePage"));
-$("#open-topic-page-editor").addEventListener("click", () => openDescriptionEditor("topicPage"));
+$("#open-topic-page-editor")?.addEventListener("click", () => openDescriptionEditor("topicPage"));
 $("#manage-tags").addEventListener("click", () => {
   renderTagManager();
   $("#tag-dialog").showModal();
@@ -2744,7 +3417,7 @@ $("#activity-form").addEventListener("submit", async (event) => {
         groupId: values.get("groupId"),
         advanceBookingHours: Number(values.get("advanceBookingHours")),
         leaderWechat: values.get("leaderWechat"),
-        tagIds: values.getAll("tagIds"),
+        tagIds: [],
         guideIds: values.getAll("guideIds"),
         images: state.activityGalleryDraft.map((image, index) => ({ id: image.id, cosKey: image.cosKey, sortOrder: index + 1 })),
         meetingLatitude: values.get("meetingLatitude") ? Number(values.get("meetingLatitude")) : null,
@@ -2764,19 +3437,22 @@ $("#activity-form").addEventListener("submit", async (event) => {
 $("#guide-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const values = new FormData(event.currentTarget);
+  const existingPage = state.topicPages.find((page) => page.id === state.editingTopicPageId);
+  const title = String(values.get("title") ?? "").trim();
   try {
     await request(state.editingGuideId ? `/api/guides/${state.editingGuideId}` : "/api/guides", {
       method: state.editingGuideId ? "PATCH" : "POST",
       body: JSON.stringify({
         name: values.get("name"),
         aliases: String(values.get("aliases") ?? "").split(/[,，\n]/).map((alias) => alias.trim()).filter(Boolean),
+        paused: state.guides.find((guide) => guide.id === state.editingGuideId)?.paused === true,
         photoUrl: state.guidePhotoDraft,
         descriptionHtml: state.guideDescriptionDraft,
         images: state.guideGalleryDraft.map((image, index) => ({ id: image.id, cosKey: image.cosKey, sortOrder: index + 1 }))
       })
     });
     $("#guide-dialog").close();
-    state.guides = sortGuidesForDisplay(await request("/api/guides"));
+    state.guides = sortGuidesForDisplay(await request(guidesRequestPath));
     renderDialogOptions();
     renderGuides();
     toast(state.editingGuideId ? "领队档案已修改" : "领队档案已新增");
@@ -2787,23 +3463,26 @@ $("#guide-form").addEventListener("submit", async (event) => {
 $("#topic-page-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const values = new FormData(event.currentTarget);
+  const existingPage = state.topicPages.find((page) => page.id === state.editingTopicPageId);
   try {
-    await request(state.editingTopicPageId ? `/api/topic-pages/${state.editingTopicPageId}` : "/api/topic-pages", {
+    const savedPage = await request(state.editingTopicPageId ? `/api/topic-pages/${state.editingTopicPageId}` : "/api/topic-pages", {
       method: state.editingTopicPageId ? "PATCH" : "POST",
       body: JSON.stringify({
-        title: values.get("title"),
-        slug: values.get("slug"),
-        summary: values.get("summary"),
+        title,
+        slug: existingPage?.slug ?? slugFromTitle(title),
+        summary: existingPage?.summary ?? "",
         imageUrl: values.get("imageUrl"),
-        externalUrl: values.get("externalUrl"),
-        tagIds: values.getAll("tagIds"),
-        introductionHtml: state.topicPageIntroductionDraft,
-        published: values.get("published") === "on"
+        externalUrl: existingPage?.externalUrl ?? "",
+        tagIds: [],
+        introductionHtml: existingPage?.introductionHtml ?? "",
+        published: existingPage?.published ?? true
       })
     });
     $("#topic-page-dialog").close();
     state.topicPages = await request("/api/topic-pages");
+    state.selectedSpecialPageId = savedPage.id;
     renderTopicPages();
+    renderHomeModuleSettings();
     toast(state.editingTopicPageId ? "专题页已修改" : "专题页已新增");
     state.editingTopicPageId = null;
   } catch (error) { toast(error.message); }
@@ -2847,6 +3526,86 @@ $("#delete-blog-post").addEventListener("click", async () => {
   } catch (error) { toast(error.message); }
 });
 
+$("#new-local-info").addEventListener("click", () => openLocalInfoDialog());
+$("#local-info-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const values = new FormData(event.currentTarget);
+  try {
+    await request(state.editingLocalInfoId ? `/api/local-infos/${state.editingLocalInfoId}` : "/api/local-infos", {
+      method: state.editingLocalInfoId ? "PATCH" : "POST",
+      body: JSON.stringify({
+        title: values.get("title"),
+        summary: values.get("summary"),
+        coverUrl: values.get("coverUrl"),
+        tags: values.get("tags"),
+        openingHours: values.get("openingHours"),
+        address: values.get("address"),
+        contact: values.get("contact"),
+        mapUrl: values.get("mapUrl"),
+        contentHtml: bodyToHtml(values.get("contentHtml")),
+        published: values.get("published") === "on",
+        sortOrder: Number(values.get("sortOrder"))
+      })
+    });
+    $("#local-info-dialog").close();
+    state.localInfos = await request("/api/local-infos");
+    renderLocalInfos();
+    toast(state.editingLocalInfoId ? "在地信息已修改" : "在地信息已新增");
+    state.editingLocalInfoId = null;
+  } catch (error) { toast(error.message); }
+});
+
+$("#delete-local-info").addEventListener("click", async () => {
+  if (!state.editingLocalInfoId) return;
+  await deleteLocalInfo(state.editingLocalInfoId, { closeDialog: true });
+});
+
+$("#local-info-tag-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const type = form.elements.type.value;
+  const oldName = form.elements.oldName.value;
+  const nextName = form.elements.name.value.trim();
+  if (!nextName || !oldName) return;
+
+  if (type === "main") {
+    if (nextName === oldName) {
+      $("#local-info-tag-dialog").close();
+      return;
+    }
+    const ok = await updateLocalInfoTags((tag) => {
+      const parts = localInfoTagParts(tag);
+      if (parts.group !== oldName) return tag;
+      return parts.child ? `${nextName} · ${parts.child}` : nextName;
+    }, "主标签已改名");
+    if (ok) $("#local-info-tag-dialog").close();
+    return;
+  }
+
+  const parts = localInfoTagParts(oldName);
+  if (nextName === (parts.child || oldName)) {
+    $("#local-info-tag-dialog").close();
+    return;
+  }
+  const nextTag = parts.child ? `${parts.group} · ${nextName}` : nextName;
+  const ok = await updateLocalInfoTags((tag) => tag === oldName ? nextTag : tag, "子标签已改名");
+  if (ok) $("#local-info-tag-dialog").close();
+});
+
+async function deleteLocalInfo(id, options = {}) {
+  const item = state.localInfos.find((candidate) => candidate.id === id);
+  const name = item?.title ? `「${item.title}」` : "这条在地信息";
+  if (!window.confirm(`确定删除${name}吗？`)) return;
+  try {
+    await request(`/api/local-infos/${id}`, { method: "DELETE" });
+    if (options.closeDialog) $("#local-info-dialog").close();
+    state.localInfos = await request("/api/local-infos");
+    if (state.editingLocalInfoId === id) state.editingLocalInfoId = null;
+    renderLocalInfos();
+    toast("在地信息已删除");
+  } catch (error) { toast(error.message); }
+}
+
 $("#home-entry-form").elements.targetType.addEventListener("change", () => renderHomeEntryTargetOptions());
 $("#home-entry-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -2866,7 +3625,8 @@ $("#home-entry-form").addEventListener("submit", async (event) => {
     });
     $("#home-entry-dialog").close();
     state.homeEntries = await request("/api/home-entries");
-    renderHomeEntries();
+    renderHomeModules();
+    renderHomeModuleSettings();
     toast(state.editingHomeEntryId ? "首页入口已修改" : "首页入口已新增");
     state.editingHomeEntryId = null;
   } catch (error) { toast(error.message); }
@@ -2879,19 +3639,30 @@ $("#delete-home-entry").addEventListener("click", async () => {
     $("#home-entry-dialog").close();
     state.homeEntries = await request("/api/home-entries");
     state.editingHomeEntryId = null;
-    renderHomeEntries();
+    renderHomeModules();
+    renderHomeModuleSettings();
     toast("首页入口已删除");
   } catch (error) { toast(error.message); }
 });
 
 $("#delete-topic-page").addEventListener("click", async () => {
-  if (!state.editingTopicPageId || !window.confirm("确定删除这个专题页吗？")) return;
+  if (!state.editingTopicPageId) return;
+  const button = $("#delete-topic-page");
+  const warning = $("#delete-topic-page-warning");
+  if (button.dataset.confirmDelete !== state.editingTopicPageId) {
+    button.dataset.confirmDelete = state.editingTopicPageId;
+    button.textContent = "确认删除专题";
+    button.classList.add("is-confirming");
+    warning.hidden = false;
+    return;
+  }
   try {
     await request(`/api/topic-pages/${state.editingTopicPageId}`, { method: "DELETE" });
     $("#topic-page-dialog").close();
     state.topicPages = await request("/api/topic-pages");
     state.editingTopicPageId = null;
     renderTopicPages();
+    renderHomeModuleSettings();
     toast("专题页已删除");
   } catch (error) { toast(error.message); }
 });

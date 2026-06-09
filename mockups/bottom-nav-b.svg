@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="180" viewBox="0 0 420 180">
+  <rect width="420" height="180" fill="#fffaf0"/>
+  <text x="24" y="34" fill="#26332f" font-size="18" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif" font-weight="700">方案 B：顶部细色条</text>
+  <rect x="18" y="70" width="384" height="76" rx="10" fill="#ffffff" stroke="#dde6e2"/>
+  <rect x="58" y="70" width="56" height="4" rx="2" fill="#2b8798"/>
+  <text x="86" y="105" text-anchor="middle" fill="#26332f" font-size="20" font-family="-apple-system,BlinkMacSystemFont,sans-serif">⌂</text>
+  <text x="86" y="124" text-anchor="middle" fill="#26332f" font-size="13" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif" font-weight="700">首页</text>
+  <text x="210" y="105" text-anchor="middle" fill="#94a09d" font-size="20" font-family="-apple-system,BlinkMacSystemFont,sans-serif">✓</text>
+  <text x="210" y="124" text-anchor="middle" fill="#94a09d" font-size="13" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif">日期预约</text>
+  <text x="334" y="105" text-anchor="middle" fill="#94a09d" font-size="20" font-family="-apple-system,BlinkMacSystemFont,sans-serif">☆</text>
+  <text x="334" y="124" text-anchor="middle" fill="#94a09d" font-size="13" font-family="-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif">我的</text>
+</svg>

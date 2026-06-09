@@ -1,0 +1,273 @@
+{
+  "sourceCsv": "/Users/ling/Downloads/qcwwsq-qi-all-published-reviews-in-judgeme-format-2026-06-06-1780774888.csv",
+  "totalRows": 823,
+  "importedTotal": 783,
+  "importedActivityReviews": 720,
+  "importedBrandReviews": 63,
+  "exactActivityReviews": 716,
+  "fuzzyImportedActivityReviews": 4,
+  "keptExistingNonJudgeMeReviews": 1,
+  "unmatchedRows": 40,
+  "fuzzyMatches": [
+    {
+      "productHandle": "paint-the-stones-by-creek",
+      "count": 3,
+      "activityId": "6b7478e0-35ca-48ee-8110-361e27f05f39",
+      "activityName": "和舒沙一起捡“宝石”·玩水·画画",
+      "reason": "旧英文名，对应现有 paintstone“捡宝石/玩水/画画”"
+    },
+    {
+      "productHandle": "nature-observation-mini-hiking-plants-and-insects-复制",
+      "count": 1,
+      "activityId": "c9ce5d36-93c7-42d8-92b8-374e86eef6bc",
+      "activityName": "自然观察与笔记 | 鸟类、植物和昆虫",
+      "reason": "与现有自然观察 handle 高度一致，仅多 bird 字段"
+    }
+  ],
+  "unmatchedByProductHandle": [
+    {
+      "productHandle": "horse-and-armour-block-printing-experience-blessings-under-the-carving-knife-复制-1",
+      "count": 7
+    },
+    {
+      "productHandle": "zhiyucat",
+      "count": 7
+    },
+    {
+      "productHandle": "birdwatching-on-a-boat-trip",
+      "count": 6
+    },
+    {
+      "productHandle": "horse-and-armour-block-printing-experience-blessings-under-the-carving-knife-复制-2",
+      "count": 6
+    },
+    {
+      "productHandle": "tea-roasting-tasting-experience-mo-cui-tea-house-复制",
+      "count": 4
+    },
+    {
+      "productHandle": "moyafarmbrunch",
+      "count": 2
+    },
+    {
+      "productHandle": "fengyuhiking",
+      "count": 2
+    },
+    {
+      "productHandle": "bafel",
+      "count": 1
+    },
+    {
+      "productHandle": "woodblock-carving-for-your-pet-复制-1",
+      "count": 1
+    },
+    {
+      "productHandle": "kintsugi",
+      "count": 1
+    },
+    {
+      "productHandle": "making-a-d-tuned-short-chinese-flute-by-yourself",
+      "count": 1
+    },
+    {
+      "productHandle": "muxiangping",
+      "count": 1
+    },
+    {
+      "productHandle": "make-a-leather-crafting-stuff-with-huazi",
+      "count": 1
+    }
+  ],
+  "topImportedActivities": [
+    {
+      "activityId": "activity-forest-hike",
+      "activityName": "徒步蕨类森林",
+      "count": 57
+    },
+    {
+      "activityId": "05f7267f-6303-4a14-89e1-fd713932744c",
+      "activityName": "桨板 | 去山下美丽的湖泊",
+      "count": 47
+    },
+    {
+      "activityId": "60f1b661-43c3-45d3-88db-44226cb64b47",
+      "activityName": "自然观察Mini徒步 | 鸟类，植物和昆虫",
+      "count": 45
+    },
+    {
+      "activityId": "b4b55039-e274-42e8-8b94-933dfce59f51",
+      "activityName": "上山采蘑菇 | 在农家吃菌子餐",
+      "count": 41
+    },
+    {
+      "activityId": "5cadb276-7a56-4a0c-9978-6886e726c94c",
+      "activityName": "养蜂人春雨 | 了解蜜蜂生活，品尝最新鲜蜂蜜",
+      "count": 37
+    },
+    {
+      "activityId": "b8b00b58-a8f2-4f4d-940e-97607272756b",
+      "activityName": "阔松坪轻徒步 | 田野 · 溪流 · 森林",
+      "count": 33
+    },
+    {
+      "activityId": "a0f1479d-c0a2-4ecf-a9de-6e52176b1b3d",
+      "activityName": "洱源乡村旅行 | 乳扇制作坊 坐船 乡村漫步和田野边的温泉",
+      "count": 30
+    },
+    {
+      "activityId": "1b3499ac-ee3d-4406-9200-7c5b6173e4e8",
+      "activityName": "伙山轻徒步看日落 | 环半个洱海，拜访山里的农民画社",
+      "count": 30
+    },
+    {
+      "activityId": "a4e36977-219d-4233-86c9-ebce9c295ea4",
+      "activityName": "Mini徒步去山间采摘 | 溪边拓染",
+      "count": 30
+    },
+    {
+      "activityId": "c9ce5d36-93c7-42d8-92b8-374e86eef6bc",
+      "activityName": "自然观察与笔记 | 鸟类、植物和昆虫",
+      "count": 27
+    },
+    {
+      "activityId": "e7d187d3-0718-424e-9050-da892c284f37",
+      "activityName": "和阿土去观星 | 坐船在夜晚的星空之下的湖上",
+      "count": 24
+    },
+    {
+      "activityId": "84f59b07-e511-48ff-99d8-f8dff9a01404",
+      "activityName": "西坡山里人家的一天",
+      "count": 22
+    },
+    {
+      "activityId": "efd8e373-db6c-4d85-8be7-330dfcbd3c51",
+      "activityName": "森林野道采蘑菇捡松果 | 徒步后寂照庵吃素斋",
+      "count": 21
+    },
+    {
+      "activityId": "145c2c0b-e937-405a-a671-da42f627f2bb",
+      "activityName": "轻徒步茶马古道和山里的南诏遗址",
+      "count": 18
+    },
+    {
+      "activityId": "38b95cfd-2b2b-414e-bd78-33d114a8adca",
+      "activityName": "面包车旅行 | 弥苴河畔古树林散步拓染，田边采野菜做天妇罗",
+      "count": 18
+    },
+    {
+      "activityId": "39f8669e-cbaa-4202-ae4e-8a98b1f2e90e",
+      "activityName": "云之山脊 ｜ 徒步在大理的原始森林",
+      "count": 17
+    },
+    {
+      "activityId": "e83a108e-87e5-4e90-9b10-53cd9f795bee",
+      "activityName": "去有机农场采摘 | 和红红一起在家做饭",
+      "count": 16
+    },
+    {
+      "activityId": "57cfd5b2-ff1c-4fc7-95b9-ca2b8ba2bf00",
+      "activityName": "美丽湖上体验驾驶小帆船",
+      "count": 16
+    },
+    {
+      "activityId": "d035b7c5-c627-4552-a96d-9669d7823ca9",
+      "activityName": "拜访古寺庙｜苍山野道徒步捡松果",
+      "count": 14
+    },
+    {
+      "activityId": "116a5fc6-e255-4f0c-b87e-8976ddd5ed05",
+      "activityName": "在碧蓝的金沙江划桨板 | 去对岸采摘沃柑",
+      "count": 13
+    },
+    {
+      "activityId": "137ff3d4-5965-4135-8340-1ec64ca0d5ce",
+      "activityName": "徒步去波罗寺吃斋饭，拜访莫残溪（中距离）",
+      "count": 12
+    },
+    {
+      "activityId": "c08fec6c-01e0-4438-b971-026eeb079b62",
+      "activityName": "苍山采野生茶 制作自己的白茶",
+      "count": 12
+    },
+    {
+      "activityId": "8f1a926a-638b-4b00-b840-adc9521aa53f",
+      "activityName": "景山 | 陶艺遇上植物和绘画",
+      "count": 11
+    },
+    {
+      "activityId": "5c17a57e-8ef4-4edb-8e11-20b5d24f0573",
+      "activityName": "山间四季的集采",
+      "count": 11
+    },
+    {
+      "activityId": "c882206b-6da6-4edb-a3ad-719d3d3a278d",
+      "activityName": "制作「蘑菇灯」| 用自己森林里采集的蘑菇",
+      "count": 10
+    },
+    {
+      "activityId": "51a3d3ec-9f5d-4186-9efc-0589ac04b841",
+      "activityName": "徒步到中和寺，并享用斋饭，穿越中和大峡谷（中距离）",
+      "count": 10
+    },
+    {
+      "activityId": "6b7478e0-35ca-48ee-8110-361e27f05f39",
+      "activityName": "和舒沙一起捡“宝石”·玩水·画画",
+      "count": 10
+    },
+    {
+      "activityId": "4edd6b64-781a-4461-b6a1-dca2e72b9725",
+      "activityName": "去凤羽传统市集赶集 |  山谷里的茶马古镇 (每周二)",
+      "count": 8
+    },
+    {
+      "activityId": "b19a0881-4bb6-4ee2-aa25-df237eb678db",
+      "activityName": "喜洲骑行 | 和兰迪探索村庄，田野和洱海",
+      "count": 8
+    },
+    {
+      "activityId": "e17341ea-fb84-49cf-bc60-b08f34935e8c",
+      "activityName": "苍山龙首关上轻徒步",
+      "count": 8
+    },
+    {
+      "activityId": "756b5612-9665-412f-b430-134f7c40e27b",
+      "activityName": "徒步去鸡足山 | 一条佛教朝圣步道（中距离）",
+      "count": 7
+    },
+    {
+      "activityId": "a46bfc1d-b22d-4781-8cb4-3e8b349fea63",
+      "activityName": "深入香格里拉牧区 2天的旅行",
+      "count": 6
+    },
+    {
+      "activityId": "edc7ce61-e4ac-4727-8144-764be5f10bdf",
+      "activityName": "在小羊的酒吧学习调酒",
+      "count": 5
+    },
+    {
+      "activityId": "8def72bd-95ec-42b2-9c88-f2d8b93b6a8b",
+      "activityName": "骑行大理周边 | 探寻苍山脚下的村落与人",
+      "count": 5
+    },
+    {
+      "activityId": "ed7fd313-ee8d-4e1f-9baf-558e51e2edc6",
+      "activityName": "阿瓜 | 制作植物昆虫标本",
+      "count": 5
+    }
+  ],
+  "brandReviewSources": [
+    [
+      "reviews-tab",
+      55
+    ],
+    [
+      "all-reviews-page",
+      6
+    ],
+    [
+      "web",
+      2
+    ]
+  ],
+  "generatedAt": "2026-06-06T20:35:35.967257Z"
+}

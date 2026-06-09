@@ -6,7 +6,7 @@ const clone = (value) => structuredClone(value);
 const localized = (translations, locale = "zh-CN") =>
   translations[locale] ?? translations["zh-CN"] ?? Object.values(translations)[0];
 const nonActivityGuideNames = new Set(["深夜食堂旧时光", "大家在一起的时间", "在一起的日子"]);
-const isActivitySelectableGuide = (guide) => !nonActivityGuideNames.has(guide?.name);
+const isActivitySelectableGuide = (guide) => guide?.paused !== true && !nonActivityGuideNames.has(guide?.name);
 
 export class MemoryStore {
   constructor(data = seedData) {
@@ -28,6 +28,7 @@ export class MemoryStore {
     this.topicPages = clone(data.topicPages ?? []);
     this.blogPosts = clone(data.blogPosts ?? []);
     this.blogComments = clone(data.blogComments ?? []);
+    this.localInfos = clone(data.localInfos ?? seedData.localInfos ?? []);
     this.homeEntries = clone(data.homeEntries ?? []);
     this.homeModules = clone(data.homeModules ?? []);
     this.activities = clone(data.activities);
@@ -54,6 +55,7 @@ export class MemoryStore {
       topicPages: this.topicPages,
       blogPosts: this.blogPosts,
       blogComments: this.blogComments,
+      localInfos: this.localInfos,
       homeEntries: this.homeEntries,
       homeModules: this.homeModules,
       activities: this.activities,
@@ -161,10 +163,13 @@ export class MemoryStore {
     return clone(removed);
   }
 
-  listGuides() {
+  listGuides({ includePaused = false } = {}) {
     return this.guides
+      .filter((guide) => includePaused || guide.paused !== true)
       .map((guide, index) => ({ ...guide, sortOrder: Number.isFinite(guide.sortOrder) ? guide.sortOrder : index + 1 }))
       .sort((left, right) => {
+        const pausedDiff = (left.paused ? 1 : 0) - (right.paused ? 1 : 0);
+        if (pausedDiff) return pausedDiff;
         const leftArchived = isActivitySelectableGuide(left) ? 0 : 1;
         const rightArchived = isActivitySelectableGuide(right) ? 0 : 1;
         return leftArchived - rightArchived || left.sortOrder - right.sortOrder;
@@ -207,14 +212,16 @@ export class MemoryStore {
       this.homeEntries
         .filter((entry) => entry.targetType === "TOPIC" && entry.targetValue === previousSlug)
         .forEach((entry) => { entry.targetValue = page.slug; });
+      this.#replaceTopicNavigationReferences(previousSlug, page.slug);
     }
     return this.#presentTopicPage(page);
   }
 
   deleteTopicPage(id) {
     const page = this.#requireTopicPage(id);
-    assert(!this.homeEntries.some((entry) => entry.targetType === "TOPIC" && entry.targetValue === page.slug), 409, "专题正在被首页入口使用，请先调整首页入口");
-    this.topicPages = this.topicPages.filter((item) => item.id !== id);
+    this.homeEntries = this.homeEntries.filter((entry) => !(entry.targetType === "TOPIC" && entry.targetValue === page.slug));
+    this.#removeTopicNavigationReferences(page.slug);
+    this.topicPages = this.topicPages.filter((item) => item.id !== page.id);
     return this.#presentTopicPage(page);
   }
 
@@ -612,6 +619,43 @@ export class MemoryStore {
     return this.#presentActivity(activity);
   }
 
+  listLocalInfos({ publishedOnly = false, tag = "" } = {}) {
+    const normalizedTag = tag.trim().toLowerCase();
+    return this.localInfos
+      .filter((item) => !publishedOnly || item.published !== false)
+      .filter((item) => !normalizedTag || (item.tags ?? []).some((name) => name.toLowerCase() === normalizedTag))
+      .sort((left, right) =>
+        (left.published === false ? 1 : 0) - (right.published === false ? 1 : 0) ||
+        (left.sortOrder ?? 9999) - (right.sortOrder ?? 9999) ||
+        left.title.localeCompare(right.title, "zh-CN")
+      )
+      .map((item) => this.#presentLocalInfo(item));
+  }
+
+  getLocalInfo(id) {
+    return this.#presentLocalInfo(this.#requireLocalInfo(id));
+  }
+
+  createLocalInfo(input) {
+    const fields = this.#validateLocalInfoInput(input);
+    const item = { id: randomUUID(), ...fields, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    this.localInfos.push(item);
+    return this.#presentLocalInfo(item);
+  }
+
+  updateLocalInfo(id, input) {
+    const item = this.#requireLocalInfo(id);
+    const fields = this.#validateLocalInfoInput({ ...item, ...clone(input) });
+    Object.assign(item, fields, { updatedAt: new Date().toISOString() });
+    return this.#presentLocalInfo(item);
+  }
+
+  deleteLocalInfo(id) {
+    const item = this.#requireLocalInfo(id);
+    this.localInfos = this.localInfos.filter((candidate) => candidate.id !== id);
+    return this.#presentLocalInfo(item);
+  }
+
   setSchedulePaused(activityId, paused, adminAccountId) {
     assert(typeof paused === "boolean", 400, "paused 必须为布尔值");
     const activity = this.#requireActivity(activityId);
@@ -915,7 +959,7 @@ export class MemoryStore {
     this.releaseExpiredCapacityLocks();
     const nowTimestamp = now.getTime();
     return this.slots
-      .filter((slot) => slot.enabled && slot.bookedCount > 0 && Date.parse(slot.startsAt) >= nowTimestamp)
+      .filter((slot) => slot.enabled && Date.parse(slot.startsAt) >= nowTimestamp)
       .sort((left, right) => left.startsAt.localeCompare(right.startsAt))
       .slice(0, Math.min(Math.max(Number(limit) || 30, 1), 30))
       .map((slot) => {
@@ -1194,8 +1238,12 @@ export class MemoryStore {
         const tag = this.tags.find((item) => item.id === tagId);
         return { id: tag.id, code: tag.code, name: localized(tag.translations, locale) };
       }),
-      guides: (activity.guideIds ?? []).map((guideId) => clone(this.#requireGuide(guideId)))
+      guides: (activity.guideIds ?? []).map((guideId) => clone(this.#requireGuide(guideId))).filter((guide) => guide.paused !== true)
     };
+  }
+
+  #presentLocalInfo(item) {
+    return clone({ ...item, tags: item.tags ?? [] });
   }
 
   #presentOrder(order) {
@@ -1420,6 +1468,12 @@ export class MemoryStore {
     return activity;
   }
 
+  #requireLocalInfo(id) {
+    const item = this.localInfos.find((candidate) => candidate.id === id);
+    assert(item, 404, "在地信息不存在");
+    return item;
+  }
+
   #requireOrder(id) {
     const order = this.orders.find((item) => item.id === id);
     assert(order, 404, "订单不存在");
@@ -1460,6 +1514,24 @@ export class MemoryStore {
     const module = this.homeModules.find((item) => item.id === id);
     assert(module, 404, "首页模块不存在");
     return module;
+  }
+
+  #navigationModules() {
+    return [...this.homeModules, ...this.topicPages.flatMap((page) => page.modules ?? [])];
+  }
+
+  #replaceTopicNavigationReferences(previousSlug, nextSlug) {
+    this.#navigationModules().forEach((module) => {
+      module.navItems = (module.navItems ?? []).map((item) => item.targetType === "TOPIC" && item.targetValue === previousSlug
+        ? { ...item, targetValue: nextSlug }
+        : item);
+    });
+  }
+
+  #removeTopicNavigationReferences(slug) {
+    this.#navigationModules().forEach((module) => {
+      module.navItems = (module.navItems ?? []).filter((item) => !(item.targetType === "TOPIC" && item.targetValue === slug));
+    });
   }
 
   #requireReview(id) {
@@ -1515,8 +1587,28 @@ export class MemoryStore {
       assert(this.tags.some((tag) => tag.id === tagId), 400, `标签不存在: ${tagId}`);
     }
     for (const guideId of input.guideIds ?? []) {
-      assert(this.guides.some((guide) => guide.id === guideId), 400, `领队档案不存在: ${guideId}`);
+      assert(this.guides.some((guide) => guide.id === guideId && guide.paused !== true), 400, `领队档案不存在或已暂停: ${guideId}`);
     }
+  }
+
+  #validateLocalInfoInput(input) {
+    assert(input.title?.trim(), 400, "标题不能为空");
+    const rawTags = Array.isArray(input.tags) ? input.tags : String(input.tags ?? "").split(/[,，\n]/);
+    const tags = [...new Set(rawTags.map((tag) => String(tag ?? "").trim()).filter(Boolean))].slice(0, 12);
+    return {
+      title: input.title.trim(),
+      summary: input.summary?.trim() ?? "",
+      coverUrl: input.coverUrl?.trim() ?? "",
+      address: input.address?.trim() ?? "",
+      openingHours: input.openingHours?.trim() ?? "",
+      contact: input.contact?.trim() ?? "",
+      mapUrl: input.mapUrl?.trim() ?? "",
+      contentHtml: input.contentHtml ?? "",
+      tags,
+      shopify: input.shopify ? clone(input.shopify) : undefined,
+      published: input.published !== false,
+      sortOrder: Number.isFinite(Number(input.sortOrder)) ? Number(input.sortOrder) : 999
+    };
   }
 
   #validateGuideInput(input) {
@@ -1536,7 +1628,7 @@ export class MemoryStore {
         sortOrder: Number.isInteger(image.sortOrder) ? image.sortOrder : index + 1
       };
     });
-    return { name: input.name.trim(), aliases, photoUrl: input.photoUrl?.trim() ?? "", descriptionHtml: input.descriptionHtml ?? "", images };
+    return { name: input.name.trim(), aliases, paused: input.paused === true, photoUrl: input.photoUrl?.trim() ?? "", descriptionHtml: input.descriptionHtml ?? "", images };
   }
 
   #validateTopicPageInput(input, editingId = null) {
@@ -1550,6 +1642,15 @@ export class MemoryStore {
     if (input.externalUrl?.trim()) assert(/^https?:\/\//.test(input.externalUrl.trim()), 400, "外部链接需要以 http:// 或 https:// 开头");
     assert(Array.isArray(input.tagIds ?? []), 400, "专题页标签格式无效");
     for (const tagId of input.tagIds ?? []) assert(this.tags.some((tag) => tag.id === tagId), 400, `标签不存在: ${tagId}`);
+    assert(Array.isArray(input.modules ?? []), 400, "专题页模块格式无效");
+    const modules = (input.modules ?? []).map((module, index) => ({
+      id: typeof module.id === "string" && module.id.trim() ? module.id.trim() : randomUUID(),
+      ...this.#validateHomeModuleInput({
+        ...module,
+        sortOrder: Number.isInteger(module.sortOrder) ? module.sortOrder : index + 1,
+        limit: Number.isInteger(module.limit) ? module.limit : 4
+      })
+    }));
     return {
       title: input.title.trim(),
       slug: input.slug.trim(),
@@ -1558,6 +1659,7 @@ export class MemoryStore {
       externalUrl: input.externalUrl?.trim() ?? "",
       introductionHtml: input.introductionHtml ?? "",
       tagIds: [...new Set(input.tagIds ?? [])],
+      modules,
       published: input.published !== false
     };
   }
@@ -1626,10 +1728,11 @@ export class MemoryStore {
   }
 
   #validateHomeModuleInput(input) {
-    assert(["CUBE", "NAV", "ACTIVITIES", "TOPICS", "GUIDES", "REVIEWS", "UPCOMING", "BANNER", "TEXT", "DIVIDER", "COLLAPSE"].includes(input.type), 400, "首页模块类型无效");
+    assert(["CUBE", "NAV", "ACTIVITIES", "TOPICS", "BLOG", "GUIDES", "REVIEWS", "UPCOMING", "BANNER", "TEXT", "DIVIDER", "COLLAPSE"].includes(input.type), 400, "首页模块类型无效");
     assert(input.title?.trim(), 400, "首页模块标题不能为空");
     assert(Number.isInteger(input.sortOrder) && input.sortOrder >= 0, 400, "首页模块排序必须为非负整数");
-    assert(Number.isInteger(input.limit) && input.limit >= 1 && input.limit <= 20, 400, "首页模块展示数量需要在 1 到 20 之间");
+    const maxLimit = input.type === "COLLAPSE" ? 5 : 20;
+    assert(Number.isInteger(input.limit) && input.limit >= 1 && input.limit <= maxLimit, 400, input.type === "COLLAPSE" ? "折叠文本展示数量需要在 1 到 5 之间" : "首页模块展示数量需要在 1 到 20 之间");
     const tagIds = [...new Set(input.tagIds ?? [])];
     tagIds.forEach((id) => assert(this.tags.some((tag) => tag.id === id), 400, "首页模块标签不存在"));
     const imageUrls = Array.isArray(input.imageUrls) ? input.imageUrls : [];
@@ -1647,11 +1750,11 @@ export class MemoryStore {
       return { title: item.title.trim(), subtitle: item.subtitle?.trim() ?? "", targetType: item.targetType, targetValue };
     });
     const collapseItems = Array.isArray(input.items) ? input.items : [];
-    assert(collapseItems.length <= 12, 400, "折叠文本最多设置 12 条");
+    assert(collapseItems.length <= 5, 400, "折叠文本最多设置 5 条");
     const normalizedCollapseItems = collapseItems.map((item) => {
       assert(item.title?.trim(), 400, "折叠文本标题不能为空");
       assert(typeof (item.content ?? "") === "string", 400, "折叠文本正文格式无效");
-      return { title: item.title.trim(), content: item.content.trim() };
+      return { title: item.title.trim(), content: String(item.content ?? "").trim() };
     });
     const style = input.style ?? {};
     const numberSetting = (value, fallback, max = 40) => Number.isInteger(value) && value >= 0 && value <= max ? value : fallback;
@@ -1664,6 +1767,7 @@ export class MemoryStore {
       navItems: normalizedNavItems,
       items: normalizedCollapseItems,
       linkUrl: input.linkUrl?.trim() ?? "",
+      blogTag: input.blogTag?.trim() ?? "",
       sortOrder: input.sortOrder,
       limit: input.limit,
       tagIds,
@@ -1676,7 +1780,8 @@ export class MemoryStore {
         textAlign: ["LEFT", "CENTER"].includes(style.textAlign) ? style.textAlign : "LEFT",
         dividerStyle: ["SPACE", "LINE"].includes(style.dividerStyle) ? style.dividerStyle : "SPACE",
         height: numberSetting(style.height, 24, 80),
-        backgroundColor: /^#[0-9a-f]{6}$/i.test(style.backgroundColor ?? "") ? style.backgroundColor : "#ffffff"
+        backgroundColor: /^#[0-9a-f]{6}$/i.test(style.backgroundColor ?? "") ? style.backgroundColor : "#ffffff",
+        collapseTitleStyle: ["SOFT_BLOCK", "SIDE_LINE", "PLAIN"].includes(style.collapseTitleStyle) ? style.collapseTitleStyle : "SOFT_BLOCK"
       },
       published: input.published !== false
     };

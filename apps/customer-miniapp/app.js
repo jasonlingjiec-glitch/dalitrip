@@ -1,7 +1,7 @@
 const API = "http://localhost:3000/api";
 const CUSTOMER_ID = "customer-demo";
 const cover = "https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=700&q=85";
-const state = { activities: [], tags: [], guides: [], guidePage: { introductionHtml: "" }, topicPages: [], topicPage: null, blogPosts: [], blogPost: null, homeEntries: [], homeModules: [], homeReviews: [], upcomingSlots: [], selectedTags: [], bookingDate: "", bookingTags: [], bookingSearch: "", bookingActivities: [], aiGuide: null, activity: null, activityDate: "", activityDateAvailability: [], slots: [], reviews: [], relatedActivities: [], reviewImages: [], reviewVideo: "", bookingSlot: null, orders: [], cancellingOrderId: null, replyingReviewId: null };
+const state = { activities: [], tags: [], guides: [], guidePage: { introductionHtml: "" }, topicPages: [], topicPage: null, blogPosts: [], blogPost: null, localInfos: [], localInfo: null, localInfoTag: "", homeEntries: [], homeModules: [], homeReviews: [], upcomingSlots: [], selectedTags: [], expandedTagGroups: [], bookingDate: "", bookingTags: [], bookingExpandedTagGroups: [], bookingSearch: "", bookingActivities: [], aiGuide: null, activity: null, activityDate: "", activityDateAvailability: [], slots: [], reviews: [], relatedActivities: [], reviewImages: [], reviewVideo: "", bookingSlot: null, orders: [], cancellingOrderId: null, replyingReviewId: null };
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (character) => ({
   "&": "&amp;",
@@ -18,6 +18,10 @@ const shortDateTime = (startsAt, endsAt) => {
   const date = new Date(startsAt);
   return `${date.getMonth() + 1} 月 ${date.getDate()} 日 ${timeOnly(startsAt)}-${timeOnly(endsAt)}`;
 };
+const shortDateOnly = (value) => {
+  const date = new Date(value);
+  return `${date.getMonth() + 1} 月 ${date.getDate()} 日`;
+};
 const plainText = (html) => {
   const node = document.createElement("div");
   node.innerHTML = html ?? "";
@@ -31,12 +35,51 @@ const formatBlogDate = (value) => {
 };
 const activityTags = (activity) => Array.isArray(activity?.tags) ? activity.tags : [];
 const nonActivityGuideNames = new Set(["深夜食堂旧时光", "大家在一起的时间", "在一起的日子"]);
-const isActivitySelectableGuide = (guide) => !nonActivityGuideNames.has(guide?.name);
+const isActivitySelectableGuide = (guide) => guide?.paused !== true && !nonActivityGuideNames.has(guide?.name);
 const sortGuidesForDisplay = (guides = []) => [...guides].sort((left, right) => {
+  const pausedDiff = (left.paused ? 1 : 0) - (right.paused ? 1 : 0);
+  if (pausedDiff) return pausedDiff;
   const leftArchived = isActivitySelectableGuide(left) ? 0 : 1;
   const rightArchived = isActivitySelectableGuide(right) ? 0 : 1;
   return leftArchived - rightArchived || (left.sortOrder ?? 9999) - (right.sortOrder ?? 9999);
 });
+const tagParts = (tag) => {
+  const parts = String(tag.name ?? "").split("·").map((part) => part.trim()).filter(Boolean);
+  return parts.length > 1 ? { group: parts[0], child: parts.slice(1).join(" · ") } : { group: "", child: tag.name };
+};
+const groupedTags = (tags = []) => {
+  const groups = new Map();
+  const standalone = [];
+  tags.forEach((tag) => {
+    const parts = tagParts(tag);
+    if (!parts.group) return standalone.push({ ...tag, displayName: parts.child });
+    if (!groups.has(parts.group)) groups.set(parts.group, []);
+    groups.get(parts.group).push({ ...tag, displayName: parts.child });
+  });
+  return { standalone, groups: [...groups.entries()].map(([name, children]) => ({ name, children })) };
+};
+const toggleInList = (list, value) => list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
+const singleSelectedTag = (list, value) => list.includes(value) ? [] : [value];
+const renderGroupedTagFilter = ({ selectedIds, expandedGroups, tagAttr = "tag", groupAttr = "tag-group" }) => {
+  const { standalone, groups } = groupedTags(state.tags);
+  return [
+    `<div class="tag-filter-plain">`,
+    ...standalone.map((tag) => `<button class="${selectedIds.includes(tag.id) ? "active" : ""}" data-${tagAttr}="${tag.id}">${escapeHtml(tag.displayName)}</button>`),
+    `</div>`,
+    groups.length ? `<div class="tag-filter-main">` : "",
+    ...groups.map((group) => {
+      const hasSelected = group.children.some((tag) => selectedIds.includes(tag.id));
+      const expanded = expandedGroups.includes(group.name) || hasSelected;
+      return `<button class="${expanded ? "active" : ""}" data-${groupAttr}="${escapeHtml(group.name)}">${escapeHtml(group.name)}</button>`;
+    }),
+    groups.length ? `</div>` : "",
+    ...groups.map((group) => {
+      const hasSelected = group.children.some((tag) => selectedIds.includes(tag.id));
+      const expanded = expandedGroups.includes(group.name) || hasSelected;
+      return expanded ? `<div class="tag-filter-sub">${group.children.map((tag) => `<button class="${selectedIds.includes(tag.id) ? "active" : ""}" data-${tagAttr}="${tag.id}">${escapeHtml(tag.displayName)}</button>`).join("")}</div>` : "";
+    })
+  ].join("");
+};
 let staticDataPromise;
 const normalizeAssetUrl = (value) => {
   if (typeof value !== "string") return value;
@@ -74,7 +117,7 @@ const withActivityContent = (activity, data) => {
     .filter(Boolean);
   const guides = (activity.guideIds ?? [])
     .map((id) => data.guides.find((guide) => guide.id === id))
-    .filter(Boolean);
+    .filter((guide) => guide?.paused !== true);
   return {
     ...activity,
     content,
@@ -256,7 +299,7 @@ async function staticRequest(path, options = {}) {
   if (method === "POST" && route === "/ai/ask") return staticAiAsk(data, parseBody(options));
 
   if (route === "/tags") return data.tags;
-  if (route === "/guides") return sortGuidesForDisplay(data.guides).map(guideWithActivityCovers);
+  if (route === "/guides") return sortGuidesForDisplay(data.guides.filter((guide) => guide.paused !== true)).map(guideWithActivityCovers);
   if (route === "/ai/questions") return data.aiQuestions ?? [];
   if (route === "/faqs") return staticLimit(publishedOnly(data.faqs ?? [], params), params);
   if (route === "/guide-page") return data.guidePage;
@@ -280,6 +323,18 @@ async function staticRequest(path, options = {}) {
     const comments = data.blogComments.filter((comment) => comment.postId === post.id);
     return { ...post, comments };
   }
+  if (route === "/local-infos") {
+    const tag = params.get("tag") ?? "";
+    return staticLimit(publishedOnly(data.localInfos ?? [], params)
+      .filter((item) => !tag || (item.tags ?? []).includes(tag))
+      .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999)), params);
+  }
+  if (/^\/local-infos\/[^/]+$/.test(route)) {
+    const key = decodeURIComponent(route.split("/")[2]);
+    const item = (data.localInfos ?? []).find((candidate) => candidate.id === key);
+    if (!item) throw new Error("在地信息不存在");
+    return item;
+  }
   if (route === "/activities") {
     const tagIds = (params.get("tagIds") || "").split(",").filter(Boolean);
     return data.activities.map((activity) => withActivityContent(activity, data))
@@ -297,7 +352,10 @@ async function staticRequest(path, options = {}) {
       .filter((activity) => activity.slots.length);
   }
   if (route === "/upcoming-departures") {
-    return staticLimit(data.slots.filter((slot) => slot.enabled !== false && slotIsFuture(slot)).sort((a, b) => a.startsAt.localeCompare(b.startsAt)).map((slot) => {
+    return staticLimit(data.slots.filter((slot) => {
+      const activity = slotActivity(slot, data);
+      return slot.enabled !== false && slotIsFuture(slot) && activity?.schedulePaused !== true;
+    }).sort((a, b) => a.startsAt.localeCompare(b.startsAt)).map((slot) => {
       const activity = slotActivity(slot, data);
       return {
         ...slot,
@@ -400,6 +458,9 @@ function paragraphs(value) {
 function renderParagraphs(value) {
   return paragraphs(value).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("");
 }
+function compactReviewText(value) {
+  return String(value ?? "").replace(/\s+/g, " ").trim();
+}
 function detailDateValues(selectedDate) {
   const today = isoDate();
   const selectedTimestamp = Date.parse(`${selectedDate}T00:00:00`);
@@ -410,6 +471,7 @@ function detailDateValues(selectedDate) {
 function renderDetailReview(review, compact = false) {
   if (!review) return `<div class="empty">还没有评价，欢迎写下第一条体验。</div>`;
   const images = compact ? review.imageUrls.slice(0, 6) : review.imageUrls;
+  const content = compact ? compactReviewText(review.content) : review.content;
   return `
     <article class="review-card ${compact ? "detail-latest-review" : ""}">
       <div class="detail-review-head">
@@ -417,20 +479,11 @@ function renderDetailReview(review, compact = false) {
         <div><strong>${escapeHtml(review.displayName)}</strong><em>${"★".repeat(review.rating)}</em></div>
         <time>${review.createdAt.slice(0, 10)}</time>
       </div>
-      <section class="review-body">${renderParagraphs(review.content)}</section>
-      ${compact && review.content.length > 180 ? `<button type="button" class="detail-review-expand" data-expand-detail-review>展开</button>` : ""}
+      <section class="review-body">${compact ? `<p>${escapeHtml(content)}</p>` : renderParagraphs(content)}</section>
+      ${compact && content.length > 80 ? `<button type="button" class="detail-review-expand" data-expand-detail-review>展开</button>` : ""}
       ${images.length ? `<div class="review-images">${images.map((url, index) => `<button type="button" data-preview-review="${review.id}" data-preview-index="${index}"><img src="${escapeHtml(url)}" alt="评价照片" /></button>`).join("")}</div>` : ""}
       ${review.imageUrls.length > images.length ? `<button type="button" class="review-more-images" data-preview-review="${review.id}" data-preview-index="${images.length}">更多照片</button>` : ""}
       ${review.videoUrl ? `<video class="review-video" src="${escapeHtml(review.videoUrl)}" controls preload="metadata"></video>` : ""}
-      <section class="review-replies">
-        ${(review.replies ?? []).map((reply) => `
-          <p><strong class="reply-role reply-${reply.authorRole.toLocaleLowerCase()}">${escapeHtml(reply.displayName)}</strong>${escapeHtml(reply.content)}</p>
-        `).join("")}
-      </section>
-      <div class="review-card-actions">
-        <button data-reply-review="${review.id}">回复</button>
-        ${review.customerId === CUSTOMER_ID ? `<button class="review-delete" data-delete-review="${review.id}">删除我的评价</button>` : ""}
-      </div>
     </article>
   `;
 }
@@ -440,18 +493,9 @@ function bindReviewActions() {
     const expanded = card.classList.toggle("expanded");
     button.textContent = expanded ? "收起" : "展开";
   }));
-  document.querySelectorAll("[data-reply-review]").forEach((button) => button.addEventListener("click", () => openReply(button.dataset.replyReview)));
   document.querySelectorAll("[data-preview-review]").forEach((button) => button.addEventListener("click", () => {
     const review = state.reviews.find((item) => item.id === button.dataset.previewReview);
     openImagePreview(review?.imageUrls ?? [], Number(button.dataset.previewIndex));
-  }));
-  document.querySelectorAll("[data-delete-review]").forEach((button) => button.addEventListener("click", async () => {
-    if (!window.confirm("确定删除这条评价吗？")) return;
-    const wasReviewsPage = !$("#activity-reviews-view").hidden;
-    await request(`/reviews/${button.dataset.deleteReview}?customerId=${CUSTOMER_ID}`, { method: "DELETE" });
-    toast("评价已删除");
-    await openActivity(state.activity.id, state.activityDate);
-    if (wasReviewsPage) openActivityReviews();
   }));
   syncReviewGalleryRatios();
 }
@@ -540,9 +584,7 @@ function renderTags() {
     <button class="${state.selectedTags.includes(tag.id) ? "active" : ""}" data-tag="${tag.id}">${tag.name}</button>
   `).join("");
   document.querySelectorAll("[data-tag]").forEach((button) => button.addEventListener("click", async () => {
-    state.selectedTags = state.selectedTags.includes(button.dataset.tag)
-      ? state.selectedTags.filter((id) => id !== button.dataset.tag)
-      : [...state.selectedTags, button.dataset.tag];
+    state.selectedTags = singleSelectedTag(state.selectedTags, button.dataset.tag);
     await loadActivities();
   }));
 }
@@ -563,6 +605,98 @@ function renderActivities() {
     `;
   }).join("") || `<div class="empty">暂时没有符合这些标签的活动。</div>`;
   document.querySelectorAll("[data-activity]").forEach((card) => card.addEventListener("click", () => openActivity(card.dataset.activity)));
+}
+
+const localInfoTags = () => [...new Set(state.localInfos.flatMap((item) => item.tags ?? []))].sort((a, b) => a.localeCompare(b, "zh-CN"));
+const filteredLocalInfos = () => state.localInfos.filter((item) => !state.localInfoTag || (item.tags ?? []).includes(state.localInfoTag));
+const localInfoTagParts = (name) => {
+  const parts = String(name ?? "").split("·").map((part) => part.trim()).filter(Boolean);
+  return parts.length > 1 ? { group: parts[0], child: parts.slice(1).join(" · ") } : { group: parts[0] ?? "", child: "" };
+};
+const groupedLocalInfoTags = () => {
+  const groups = new Map();
+  localInfoTags().forEach((name) => {
+    const parts = localInfoTagParts(name);
+    if (!parts.group) return;
+    if (!groups.has(parts.group)) groups.set(parts.group, new Set());
+    if (parts.child) groups.get(parts.group).add(name);
+  });
+  return [...groups.entries()].map(([name, children]) => ({ name, children: [...children].sort((a, b) => a.localeCompare(b, "zh-CN")) }));
+};
+
+function renderLocalInfos() {
+  const tags = localInfoTags();
+  const groups = groupedLocalInfoTags();
+  if (state.localInfoTag && !tags.includes(state.localInfoTag)) state.localInfoTag = "";
+  $("#local-tag-filter").innerHTML = [
+    `<button class="${state.localInfoTag ? "" : "active"}" data-local-tag="">全部</button>`,
+    ...groups.map((group) => {
+      const active = state.localInfoTag === group.name || localInfoTagParts(state.localInfoTag).group === group.name;
+      return `
+        <div class="local-tag-group">
+          <div class="local-tag-main">
+            <button class="${active ? "active" : ""}" data-local-main-tag="${escapeHtml(group.name)}">${escapeHtml(group.name)}</button>
+          </div>
+          ${active && group.children.length ? `<div class="local-tag-sub">${group.children.map((tag) => `<button class="${state.localInfoTag === tag ? "active" : ""}" data-local-tag="${escapeHtml(tag)}">${escapeHtml(localInfoTagParts(tag).child)}</button>`).join("")}</div>` : ""}
+        </div>
+      `;
+    })
+  ].join("");
+  $("#local-tag-filter").querySelectorAll("[data-local-main-tag]").forEach((button) => button.addEventListener("click", () => {
+    state.localInfoTag = state.localInfoTag === button.dataset.localMainTag ? "" : button.dataset.localMainTag;
+    renderLocalInfos();
+  }));
+  $("#local-tag-filter").querySelectorAll("[data-local-tag]").forEach((button) => button.addEventListener("click", () => {
+    state.localInfoTag = button.dataset.localTag;
+    renderLocalInfos();
+  }));
+  const items = filteredLocalInfos();
+  $("#local-info-list").innerHTML = items.map((item) => `
+    <article class="local-info-card">
+      <button type="button" class="local-info-card-main ${item.mapUrl ? "has-nav" : ""}" data-local-info="${escapeHtml(item.id)}">
+        ${item.coverUrl ? `<img src="${escapeHtml(item.coverUrl)}" alt="${escapeHtml(item.title)}" />` : `<span class="local-info-placeholder">在地</span>`}
+        <div>
+          <strong>${escapeHtml(item.title)}</strong>
+          <p>${escapeHtml(item.summary || item.address || "查看详细信息")}</p>
+          <small>${escapeHtml((item.tags ?? []).join(" · "))}</small>
+        </div>
+      </button>
+      ${item.mapUrl ? `<a class="local-info-card-nav" href="${escapeHtml(item.mapUrl)}" target="_blank" rel="noopener noreferrer">导航</a>` : ""}
+    </article>
+  `).join("") || `<div class="empty">暂时没有这个标签下的在地信息。</div>`;
+  $("#local-info-list").querySelectorAll("[data-local-info]").forEach((button) => button.addEventListener("click", () => openLocalInfo(button.dataset.localInfo)));
+}
+
+async function loadLocalInfos() {
+  state.localInfos = await request("/local-infos?published=true");
+  renderLocalInfos();
+}
+
+async function openLocalInfo(id) {
+  state.localInfo = await request(`/local-infos/${id}`);
+  renderLocalInfoDetail();
+  showView("local-detail");
+  scrollToPageTop();
+}
+
+function renderLocalInfoDetail() {
+  const item = state.localInfo;
+  $("#local-info-detail").innerHTML = `
+    ${item.coverUrl ? `<img class="local-info-detail-cover" src="${escapeHtml(item.coverUrl)}" alt="${escapeHtml(item.title)}" />` : ""}
+    <section class="local-info-detail-copy">
+      <p>LOCAL DIRECTORY</p>
+      <h1>${escapeHtml(item.title)}</h1>
+      ${(item.tags ?? []).length ? `<div class="local-info-tags">${item.tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
+      ${item.summary ? `<strong>${escapeHtml(item.summary)}</strong>` : ""}
+      <div class="local-info-facts">
+        ${item.openingHours ? `<span><em>时间</em>${escapeHtml(item.openingHours)}</span>` : ""}
+        ${item.address ? `<span><em>地址</em>${escapeHtml(item.address)}</span>` : ""}
+        ${item.contact ? `<span><em>联系</em>${escapeHtml(item.contact)}</span>` : ""}
+      </div>
+      <div class="local-info-content">${item.contentHtml || ""}</div>
+      ${item.mapUrl ? `<a class="local-info-map" href="${escapeHtml(item.mapUrl)}" target="_blank" rel="noopener noreferrer">导航</a>` : ""}
+    </section>
+  `;
 }
 
 function renderTopicPages() {
@@ -627,6 +761,12 @@ function guideReviewsForGuide(guide) {
       return guideKeywords.some((keyword) => content.includes(keyword) || displayName.includes(keyword));
     })
     .sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)));
+}
+
+function latestHomeReviews(limit = 20) {
+  return [...state.homeReviews]
+    .sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)))
+    .slice(0, limit);
 }
 
 function bindBlogCards() {
@@ -772,34 +912,17 @@ function renderHomeEntries() {
 
 async function openTopicPage(slug) {
   state.topicPage = await request(`/topic-pages/${slug}`);
+  const modules = (state.topicPage.modules ?? [])
+    .slice()
+    .filter((module) => module.published !== false)
+    .sort((left, right) => (left.sortOrder ?? 0) - (right.sortOrder ?? 0));
+  $("#topic-view .detail-header strong").textContent = state.topicPage.title || "专题";
   $("#topic-detail").innerHTML = `
-    ${state.topicPage.imageUrl ? `<img class="topic-cover" src="${escapeHtml(state.topicPage.imageUrl)}" alt="${escapeHtml(state.topicPage.title)}" />` : ""}
-    <section class="topic-copy">
-      <p>DALITRIP TOPIC</p>
-      <h1>${escapeHtml(state.topicPage.title)}</h1>
-      <span>${escapeHtml(state.topicPage.summary)}</span>
-      <div class="topic-introduction">${state.topicPage.introductionHtml || "<p>专题介绍正在整理中。</p>"}</div>
-    </section>
-    <section class="section-heading topic-activity-heading">
-      <div>
-        <p>RELATED ACTIVITIES</p>
-        <h2>相关活动</h2>
-      </div>
-      <span>${state.topicPage.activities.length} 个活动</span>
-    </section>
-    <section class="activity-list">
-      ${state.topicPage.activities.map((activity) => `
-        <article class="activity-card" data-topic-activity="${activity.id}">
-          <img src="${activityCover(activity)}" alt="${escapeHtml(activity.name)}" />
-          <div>
-            <h3>${escapeHtml(activity.name)}</h3>
-            <p>${escapeHtml(activity.summary) || "查看活动详情与可预约时间。"}</p>
-          </div>
-        </article>
-      `).join("") || `<div class="empty">这个专题暂时没有可展示的活动。</div>`}
+    <section class="topic-module-page">
+      ${modules.map(renderPageModule).join("") || `<div class="empty">这个专页还没有内容。</div>`}
     </section>
   `;
-  document.querySelectorAll("[data-topic-activity]").forEach((card) => card.addEventListener("click", () => openActivity(card.dataset.topicActivity)));
+  bindHomepageModules();
   showView("topic");
 }
 
@@ -811,7 +934,7 @@ async function loadActivities() {
 }
 
 async function loadUpcomingSlots() {
-  state.upcomingSlots = await request("/upcoming-departures?limit=30");
+  state.upcomingSlots = await request("/upcoming-departures?limit=20");
 }
 
 function renderBookingDateStrip() {
@@ -841,15 +964,14 @@ function renderBookingDateStrip() {
 function renderBookingTags() {
   $("#booking-tag-filter").innerHTML = `
     <button class="${state.bookingTags.length ? "" : "active"}" data-booking-tag="">全部</button>
-    ${state.tags.map((tag) => `<button class="${state.bookingTags.includes(tag.id) ? "active" : ""}" data-booking-tag="${tag.id}">${escapeHtml(tag.name)}</button>`).join("")}
+    ${renderGroupedTagFilter({ selectedIds: state.bookingTags, expandedGroups: state.bookingExpandedTagGroups, tagAttr: "booking-tag", groupAttr: "booking-tag-group" })}
   `;
   document.querySelectorAll("[data-booking-tag]").forEach((button) => button.addEventListener("click", async () => {
     if (!button.dataset.bookingTag) {
       state.bookingTags = [];
+      state.bookingExpandedTagGroups = [];
     } else {
-      state.bookingTags = state.bookingTags.includes(button.dataset.bookingTag)
-        ? state.bookingTags.filter((id) => id !== button.dataset.bookingTag)
-        : [...state.bookingTags, button.dataset.bookingTag];
+      state.bookingTags = singleSelectedTag(state.bookingTags, button.dataset.bookingTag);
     }
     await loadBookingActivities();
   }));
@@ -909,7 +1031,8 @@ function homeModuleStyle(module) {
     textAlign: module.style?.textAlign || "LEFT",
     dividerStyle: module.style?.dividerStyle || "SPACE",
     height: module.style?.height ?? 24,
-    backgroundColor: module.style?.backgroundColor || "#ffffff"
+    backgroundColor: module.style?.backgroundColor || "#ffffff",
+    collapseTitleStyle: module.style?.collapseTitleStyle || "SOFT_BLOCK"
   };
 }
 
@@ -919,27 +1042,42 @@ function homeModuleVars(module) {
 }
 
 function renderRichTextParagraphs(text = "") {
-  return text.split(/\n+/).map((line) => line.trim()).filter(Boolean).map((line) => `<p>${escapeHtml(line)}</p>`).join("");
+  return String(text ?? "")
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`)
+    .join("");
 }
 
-function renderHomepageModules() {
-  $("#home-module-container").innerHTML = state.homeModules.map((module) => {
-    const style = homeModuleStyle(module);
+function renderPageModule(module) {
+  const style = homeModuleStyle(module);
     if (module.type === "CUBE") return `<section class="home-entry-list layout-${style.layout || "TWO"} card-${style.cardStyle}" ${homeModuleVars(module)}>${state.homeEntries.slice(0, module.limit).map((entry) => `
       <button class="home-entry-card" data-home-entry="${entry.id}">${entry.imageUrl ? `<img src="${escapeHtml(entry.imageUrl)}" alt="${escapeHtml(entry.title)}" />` : ""}<strong>${escapeHtml(entry.title)}</strong></button>`).join("")}</section>`;
     if (module.type === "NAV") return `<nav class="home-text-nav layout-${style.layout || "FOUR"}" ${homeModuleVars(module)}>${(module.navItems ?? []).slice(0, module.limit).map((entry) => `
       <button data-nav-type="${entry.targetType}" data-nav-value="${escapeHtml(entry.targetValue)}"><strong>${escapeHtml(entry.title)}</strong><small>${escapeHtml(entry.subtitle || "DISCOVER")}</small></button>`).join("")}</nav>`;
     if (module.type === "TOPICS") return `${moduleHeading(module, "DISCOVER MORE")}<section class="topic-page-list">${state.topicPages.slice(0, module.limit).map((page) => `
       <button class="topic-page-card" data-topic-page="${page.slug}" data-external-url="${escapeHtml(page.externalUrl)}">${page.imageUrl ? `<img src="${escapeHtml(page.imageUrl)}" alt="${escapeHtml(page.title)}" />` : ""}<span><strong>${escapeHtml(page.title)}</strong><small>${escapeHtml(page.summary) || "打开专题查看更多活动"}</small></span></button>`).join("")}</section>`;
+    if (module.type === "BLOG") {
+      const blogTag = module.blogTag ?? "";
+      const posts = state.blogPosts
+        .filter((post) => !blogTag || (post.tags ?? []).includes(blogTag))
+        .slice(0, module.limit);
+      return `<section class="home-blog-module">${moduleHeading(module, "DALI LIFE")}<section class="blog-preview-list layout-${style.layout || "GRID"}">${posts.map(renderBlogCard).join("") || `<div class="empty">生活记录正在整理中。</div>`}</section></section>`;
+    }
     if (module.type === "ACTIVITIES") {
       const moduleTagIds = Array.isArray(module.tagIds) ? module.tagIds : [];
-      const items = state.activities.filter((activity) => moduleTagIds.every((tagId) => activityTags(activity).some((tag) => tag.id === tagId))).slice(0, module.limit);
-      return `<section class="home-activity-module">${moduleHeading(module, "EXPLORE")}<section class="tag-filter">${state.tags.map((tag) => `<button class="${state.selectedTags.includes(tag.id) ? "active" : ""}" data-tag="${tag.id}">${tag.name}</button>`).join("")}</section><section class="activity-list layout-${style.layout || "LIST"} card-${style.cardStyle}" ${homeModuleVars(module)}>${items.map((activity) => `
+      const items = state.activities.filter((activity) =>
+        activity.hasSchedule &&
+        activity.schedulePaused !== true &&
+        moduleTagIds.every((tagId) => activityTags(activity).some((tag) => tag.id === tagId))
+      );
+      return `<section class="home-activity-module">${moduleHeading(module, "EXPLORE")}<section class="tag-filter">${renderGroupedTagFilter({ selectedIds: state.selectedTags, expandedGroups: state.expandedTagGroups })}</section><section class="activity-list layout-${style.layout || "LIST"} card-${style.cardStyle}" ${homeModuleVars(module)}>${items.map((activity) => `
         <article class="activity-card" data-activity="${activity.id}"><img src="${activityCover(activity)}" alt="${escapeHtml(activity.content.name)}" /><div><h3>${escapeHtml(activity.content.name)}</h3><p>${escapeHtml(activity.content.summary) || "查看活动详情与可预约时间。"}</p>${activityTags(activity).map((tag) => `<span>${escapeHtml(tag.name)}</span>`).join("")}</div></article>`).join("") || `<div class="empty">暂时没有符合这些标签的活动。</div>`}</section></section>`;
     }
     if (module.type === "GUIDES") return `${moduleHeading(module, "MEET THE GUIDES")}<section class="home-guide-list">${state.guides.slice(0, module.limit).map((guide) => `
       <button data-guide="${guide.id}">${guide.photoUrl ? `<img src="${escapeHtml(guide.photoUrl)}" alt="${escapeHtml(guide.name)}" />` : ""}<strong>${escapeHtml(guide.name)}</strong></button>`).join("")}</section>`;
-    if (module.type === "REVIEWS") return `${moduleHeading(module, "LATEST STORIES")}<section class="home-review-strip">${state.homeReviews.slice(0, module.limit).map((review) => `
+    if (module.type === "REVIEWS") return `${moduleHeading(module, "LATEST STORIES")}<section class="home-review-strip">${latestHomeReviews(20).map((review) => `
       <article class="home-review-card" ${review.activityId ? `data-review-activity="${escapeHtml(review.activityId)}"` : ""}>
         <div class="home-review-head">
           <span class="review-avatar">${escapeHtml(review.displayName.slice(0, 1))}</span>
@@ -951,20 +1089,20 @@ function renderHomepageModules() {
         </div>
         <div class="home-review-copy">
             <div class="home-review-text">
-              <p>${escapeHtml(review.content)}</p>
-              ${review.content.length > 80 ? `<button type="button" class="review-expand" data-expand-review>展开</button>` : ""}
+              <p>${escapeHtml(compactReviewText(review.content))}</p>
+              ${compactReviewText(review.content).length > 80 ? `<button type="button" class="review-expand" data-expand-review>展开</button>` : ""}
             </div>
             <small>#${escapeHtml(review.activityName)}</small>
-            ${(review.imageUrls ?? []).length ? `<div class="home-review-images">${review.imageUrls.slice(0, 3).map((url, index) => `<button type="button" data-home-preview-review="${review.id}" data-preview-index="${index}"><img src="${escapeHtml(url)}" alt="评价照片" /></button>`).join("")}${review.imageUrls.length > 3 ? `<button type="button" class="more" data-home-preview-review="${review.id}" data-preview-index="3">更多</button>` : ""}</div>` : ""}
+            ${(review.imageUrls ?? []).length ? `<div class="home-review-images">${review.imageUrls.slice(0, 5).map((url, index) => `<button type="button" data-home-preview-review="${review.id}" data-preview-index="${index}"><img src="${escapeHtml(url)}" alt="评价照片" /></button>`).join("")}</div>${review.imageUrls.length > 5 ? `<button type="button" class="review-more-images" data-home-preview-review="${review.id}" data-preview-index="5">更多照片</button>` : ""}` : ""}
         </div>
       </article>`).join("") || `<div class="empty">最新评价正在整理中。</div>`}</section>`;
     if (module.type === "UPCOMING") return `${moduleHeading(module, "NEXT DEPARTURES")}<section class="upcoming-strip">${state.upcomingSlots.slice(0, 20).map((slot) => `
       <button data-upcoming-activity="${slot.activityId}">
         <img src="${slot.coverUrl || cover}" alt="${escapeHtml(slot.activityName)}" />
         <span class="upcoming-copy">
-          <small><b>${escapeHtml(slot.customerDisplayName)}</b> 预约了 · ${slot.bookedCount} 人报名</small>
+          <small>${shortDateOnly(slot.startsAt)}</small>
+          <time>${timeOnly(slot.startsAt)}-${timeOnly(slot.endsAt)} · ${slot.bookedCount} 人预订</time>
           <strong>${escapeHtml(slot.activityName)}</strong>
-          <time>${shortDateTime(slot.startsAt, slot.endsAt)}</time>
         </span>
       </button>`).join("") || `<div class="empty">近期活动正在准备中。</div>`}</section>`;
     if (module.type === "BANNER") {
@@ -972,7 +1110,7 @@ function renderHomepageModules() {
       return `<section class="home-banners layout-${style.layout || "SINGLE"} card-${style.cardStyle}" ${homeModuleVars(module)}>${(images.length ? images : [""]).map((imageUrl) => `<a class="home-banner" href="${escapeHtml(module.linkUrl || "#")}" ${module.linkUrl ? `target="_blank" rel="noopener noreferrer"` : ""}>${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(module.title)}" />` : ""}<strong>${escapeHtml(module.title)}</strong></a>`).join("")}</section>`;
     }
     if (module.type === "COLLAPSE") return `<section class="home-collapse-module" style="padding:${style.padding}px;background:${escapeHtml(style.backgroundColor)}">
-      <h2>${escapeHtml(module.title)}</h2>
+      <h2 class="collapse-title-${style.collapseTitleStyle}">${escapeHtml(module.title)}</h2>
       <div class="home-collapse-list">${(module.items ?? []).slice(0, module.limit).map((item, index) => `
         <article class="home-collapse-item">
           <button type="button" data-collapse-item="${module.id}-${index}" aria-expanded="false"><span>☏</span><strong>${escapeHtml(item.title)}</strong><em>⌄</em></button>
@@ -981,7 +1119,10 @@ function renderHomepageModules() {
     </section>`;
     if (module.type === "DIVIDER") return `<div class="home-divider ${style.dividerStyle === "LINE" ? "is-line" : "is-space"}" style="height:${style.height}px"><span></span></div>`;
     return `<section class="home-text-module" style="padding:${style.padding}px;text-align:${style.textAlign === "CENTER" ? "center" : "left"};background:${escapeHtml(style.backgroundColor)}"><h2>${escapeHtml(module.title)}</h2><p>${escapeHtml(module.subtitle)}</p></section>`;
-  }).join("");
+}
+
+function renderHomepageModules() {
+  $("#home-module-container").innerHTML = state.homeModules.map(renderPageModule).join("");
   bindHomepageModules();
 }
 
@@ -1000,6 +1141,7 @@ function bindHomepageModules() {
     window.open(entry.targetValue, "_blank", "noopener,noreferrer");
   }));
   document.querySelectorAll("[data-topic-page]").forEach((button) => button.addEventListener("click", async () => button.dataset.externalUrl ? window.open(button.dataset.externalUrl, "_blank", "noopener,noreferrer") : openTopicPage(button.dataset.topicPage)));
+  bindBlogCards();
   document.querySelectorAll("[data-activity]").forEach((card) => card.addEventListener("click", () => openActivity(card.dataset.activity)));
   document.querySelectorAll("[data-guide]").forEach((button) => button.addEventListener("click", () => openGuide(button.dataset.guide)));
   document.querySelectorAll("[data-review-activity]").forEach((card) => card.addEventListener("click", () => {
@@ -1025,7 +1167,7 @@ function bindHomepageModules() {
   syncReviewGalleryRatios();
   document.querySelectorAll("[data-upcoming-activity]").forEach((button) => button.addEventListener("click", () => openActivity(button.dataset.upcomingActivity)));
   document.querySelectorAll("[data-tag]").forEach((button) => button.addEventListener("click", async () => {
-    state.selectedTags = state.selectedTags.includes(button.dataset.tag) ? state.selectedTags.filter((id) => id !== button.dataset.tag) : [...state.selectedTags, button.dataset.tag];
+    state.selectedTags = singleSelectedTag(state.selectedTags, button.dataset.tag);
     await loadActivities();
   }));
 }
@@ -1110,7 +1252,7 @@ async function openActivity(id, date = "", options = {}) {
         </div>
       </div>
       <div class="review-list detail-latest-list">
-        ${renderDetailReview(latestReview, true)}
+        ${state.reviews.map((review) => renderDetailReview(review, true)).join("") || `<div class="empty">还没有评价，欢迎写下第一条体验。</div>`}
       </div>
     </section>
     <section id="detail-info-section" class="detail-copy detail-info-section">
@@ -1340,13 +1482,6 @@ async function loadGuideHome() {
   document.querySelectorAll("[data-guide-card]").forEach((button) => button.addEventListener("click", () => openGuide(button.dataset.guideCard)));
 }
 
-function openReply(reviewId) {
-  state.replyingReviewId = reviewId;
-  $("#reply-form").reset();
-  $("#reply-form").elements.displayName.value = "Mia";
-  $("#reply-dialog").showModal();
-}
-
 function openReview() {
   state.reviewImages = [];
   state.reviewVideo = "";
@@ -1494,6 +1629,7 @@ async function boot() {
 document.querySelectorAll(".bottom-nav button").forEach((button) => button.addEventListener("click", async () => {
   if (button.dataset.view === "orders") await loadOrders();
   if (button.dataset.view === "booking") await loadBookingActivities();
+  if (button.dataset.view === "local") await loadLocalInfos();
   if (button.dataset.view === "guides") await loadGuideHome();
   showView(button.dataset.view);
 }));
@@ -1508,6 +1644,7 @@ $("#booking-search").addEventListener("input", (event) => {
 $("#back-to-home").addEventListener("click", () => showView("home"));
 $("#open-blog-list").addEventListener("click", openBlogList);
 $("#back-from-blog").addEventListener("click", () => showView("home"));
+$("#back-from-local-detail").addEventListener("click", () => showView("local"));
 $("#back-from-blog-detail").addEventListener("click", openBlogList);
 $("#back-from-topic").addEventListener("click", () => showView("home"));
 $("#back-to-detail-from-reviews").addEventListener("click", () => showView("detail"));
@@ -1542,7 +1679,6 @@ $("#show-orders").addEventListener("click", async () => {
 });
 document.querySelectorAll("[data-close-cancel-booking]").forEach((button) => button.addEventListener("click", () => $("#cancel-booking-dialog").close()));
 document.querySelectorAll("[data-close-review]").forEach((button) => button.addEventListener("click", () => $("#review-dialog").close()));
-document.querySelectorAll("[data-close-reply]").forEach((button) => button.addEventListener("click", () => $("#reply-dialog").close()));
 $("#review-images").addEventListener("change", async (event) => {
   const urls = await readImageFiles(event.currentTarget.files);
   if (state.reviewImages.length + urls.length > 9) toast("评价图片最多上传 9 张");
@@ -1571,21 +1707,6 @@ $("#review-form").addEventListener("submit", async (event) => {
     toast(error.message);
   }
 });
-$("#reply-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  try {
-    const values = new FormData(event.currentTarget);
-    await request(`/reviews/${state.replyingReviewId}/replies`, {
-      method: "POST",
-      body: JSON.stringify({ customerId: CUSTOMER_ID, displayName: values.get("displayName"), content: values.get("content") })
-    });
-    $("#reply-dialog").close();
-    toast("回复已发送");
-    await openActivity(state.activity.id);
-  } catch (error) {
-    toast(error.message);
-  }
-});
 $("#ai-guide-form")?.addEventListener("submit", askAiGuide);
 $("#cancel-booking-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -1601,5 +1722,23 @@ $("#cancel-booking-form").addEventListener("submit", async (event) => {
     toast(error.message);
   }
 });
+
+document.addEventListener("click", (event) => {
+  const homeGroupButton = event.target.closest("[data-tag-group]");
+  if (homeGroupButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    state.expandedTagGroups = toggleInList(state.expandedTagGroups, homeGroupButton.dataset.tagGroup);
+    renderHomepageModules();
+    return;
+  }
+  const bookingGroupButton = event.target.closest("[data-booking-tag-group]");
+  if (bookingGroupButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    state.bookingExpandedTagGroups = toggleInList(state.bookingExpandedTagGroups, bookingGroupButton.dataset.bookingTagGroup);
+    renderBookingTags();
+  }
+}, true);
 
 boot();

@@ -83,7 +83,7 @@ export function createApp(store = new MemoryStore()) {
         return json(response, 200, { data: store.deleteTag(parts[2]) });
       }
       if (request.method === "GET" && parts[1] === "guides" && parts.length === 2) {
-        return json(response, 200, { data: store.listGuides() });
+        return json(response, 200, { data: store.listGuides({ includePaused: url.searchParams.get("includePaused") === "true" }) });
       }
       if (request.method === "GET" && parts[1] === "guide-page" && parts.length === 2) {
         return json(response, 200, { data: store.getGuidePage() });
@@ -232,6 +232,23 @@ export function createApp(store = new MemoryStore()) {
       }
       if (request.method === "DELETE" && parts[1] === "activities" && parts.length === 3) {
         return json(response, 200, { data: store.deleteActivity(parts[2], url.searchParams.get("adminAccountId")) });
+      }
+      if (request.method === "GET" && parts[1] === "local-infos" && parts.length === 2) {
+        return json(response, 200, {
+          data: store.listLocalInfos({ publishedOnly: url.searchParams.get("published") === "true", tag: url.searchParams.get("tag") ?? "" })
+        });
+      }
+      if (request.method === "POST" && parts[1] === "local-infos" && parts.length === 2) {
+        return json(response, 201, { data: store.createLocalInfo(await readJson(request)) });
+      }
+      if (request.method === "GET" && parts[1] === "local-infos" && parts.length === 3) {
+        return json(response, 200, { data: store.getLocalInfo(parts[2]) });
+      }
+      if (request.method === "PATCH" && parts[1] === "local-infos" && parts.length === 3) {
+        return json(response, 200, { data: store.updateLocalInfo(parts[2], await readJson(request)) });
+      }
+      if (request.method === "DELETE" && parts[1] === "local-infos" && parts.length === 3) {
+        return json(response, 200, { data: store.deleteLocalInfo(parts[2]) });
       }
       if (request.method === "PATCH" && parts[1] === "activities" && parts[3] === "schedule-pause") {
         const { input, adminAccountId } = withAdminAccount(await readJson(request));

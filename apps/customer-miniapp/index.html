@@ -4,16 +4,27 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dali Trip 活动预约</title>
-    <link rel="stylesheet" href="./styles.css?v=94" />
+    <link rel="stylesheet" href="./styles.css?v=116" />
   </head>
   <body>
     <main>
       <section id="home-view" class="view">
         <header class="home-header">
           <p>苍山徒步之家</p>
-          <h1>在大理，找到今天想做的事</h1>
+          <h1>在大理，找到想做的事</h1>
           <span>徒步、手作与自然体验</span>
         </header>
+        <section id="home-module-container"></section>
+        <section class="blog-preview">
+          <div class="blog-preview-heading">
+            <div>
+              <p>DALI LIFE</p>
+              <h2>我们的大理生活</h2>
+            </div>
+            <button id="open-blog-list" type="button">查看全部</button>
+          </div>
+          <section id="blog-preview-list" class="blog-preview-list"></section>
+        </section>
         <section class="ai-guide-card">
           <div class="ai-guide-heading">
             <p>AI ACTIVITY GUIDE</p>
@@ -25,17 +36,6 @@
             <button type="submit">帮我找活动</button>
           </form>
           <div id="ai-guide-result" class="ai-guide-result" hidden></div>
-        </section>
-        <section id="home-module-container"></section>
-        <section class="blog-preview">
-          <div class="blog-preview-heading">
-            <div>
-              <p>DALI LIFE</p>
-              <h2>我们的大理生活</h2>
-            </div>
-            <button id="open-blog-list" type="button">查看全部</button>
-          </div>
-          <section id="blog-preview-list" class="blog-preview-list"></section>
         </section>
       </section>
 
@@ -127,6 +127,25 @@
         <section id="booking-discovery-list" class="booking-discovery-list"></section>
       </section>
 
+      <section id="local-view" class="view" hidden>
+        <header class="booking-discovery-header">
+          <p>LOCAL DIRECTORY</p>
+          <h1>在地信息</h1>
+          <span>餐馆、咖啡馆、工作室和本地小店。</span>
+        </header>
+        <section id="local-tag-filter" class="local-tag-filter"></section>
+        <section id="local-info-list" class="local-info-list"></section>
+      </section>
+
+      <section id="local-detail-view" class="view" hidden>
+        <header class="detail-header">
+          <button id="back-from-local-detail" aria-label="返回">‹</button>
+          <strong>在地信息</strong>
+          <span></span>
+        </header>
+        <article id="local-info-detail" class="local-info-detail"></article>
+      </section>
+
       <section id="guides-view" class="view" hidden>
         <header class="guide-home-header">
           <p>MEET THE GUIDES</p>
@@ -145,8 +164,9 @@
     </main>
 
     <nav class="bottom-nav">
-      <button class="active" data-view="home"><span>⌂</span>发现</button>
-      <button data-view="booking"><span>✓</span>预约</button>
+      <button class="active" data-view="home"><span>⌂</span>首页</button>
+      <button data-view="booking"><span>✓</span>日期预约</button>
+      <button data-view="local"><span>⌘</span>在地</button>
       <button data-view="orders"><span>☆</span>我的</button>
     </nav>
 
@@ -239,21 +259,6 @@
       </form>
     </dialog>
 
-    <dialog id="reply-dialog">
-      <form id="reply-form" method="dialog">
-        <header>
-          <h2>回复评价</h2>
-          <button type="button" data-close-reply aria-label="关闭">×</button>
-        </header>
-        <label>显示名称<input name="displayName" maxlength="60" value="Mia" required /></label>
-        <label>回复内容<textarea name="content" rows="4" maxlength="500" required placeholder="写下回复"></textarea></label>
-        <footer>
-          <button type="button" class="secondary" data-close-reply>取消</button>
-          <button class="primary">发送回复</button>
-        </footer>
-      </form>
-    </dialog>
-
     <dialog id="guide-dialog">
       <section id="guide-profile" class="guide-profile"></section>
     </dialog>
@@ -263,6 +268,6 @@
     </dialog>
 
     <div id="toast" class="toast" hidden></div>
-    <script type="module" src="./app.js?v=87"></script>
+    <script type="module" src="./app.js?v=113"></script>
   </body>
 </html>

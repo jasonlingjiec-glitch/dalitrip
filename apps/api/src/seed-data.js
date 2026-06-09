@@ -35,7 +35,14 @@ export const seedData = {
     { id: "tag-craft", code: "craft", translations: { "zh-CN": "手作", en: "Craft" } },
     { id: "tag-nature", code: "nature", translations: { "zh-CN": "自然观察", en: "Nature observation" } },
     { id: "tag-half-day", code: "half-day", translations: { "zh-CN": "半日体验", en: "Half-day" } },
-    { id: "tag-dog", code: "dog-friendly", translations: { "zh-CN": "领队有小狗", en: "Guide with a dog" } }
+    { id: "tag-dog", code: "dog-friendly", translations: { "zh-CN": "领队有小狗", en: "Guide with a dog" } },
+    { id: "tag-age-1-2", code: "age-1-2", translations: { "zh-CN": "年龄 · 1-2 岁", en: "Age · 1-2" } },
+    { id: "tag-age-3", code: "age-3", translations: { "zh-CN": "年龄 · 3 岁", en: "Age · 3" } },
+    { id: "tag-age-4", code: "age-4", translations: { "zh-CN": "年龄 · 4 岁", en: "Age · 4" } },
+    { id: "tag-age-5", code: "age-5", translations: { "zh-CN": "年龄 · 5 岁", en: "Age · 5" } },
+    { id: "tag-age-6-plus", code: "age-6-plus", translations: { "zh-CN": "年龄 · 6 岁及以上", en: "Age · 6+" } },
+    { id: "tag-age-healthy-senior", code: "age-healthy-senior", translations: { "zh-CN": "年龄 · 健康老人", en: "Age · Healthy senior" } },
+    { id: "tag-age-frail-senior", code: "age-frail-senior", translations: { "zh-CN": "年龄 · 体弱老人", en: "Age · Frail senior" } }
   ],
   guides: [
     {
@@ -112,6 +119,50 @@ export const seedData = {
       content: "很喜欢这种有一点日常切面的记录，看完会更想知道你们平时怎么生活。",
       createdAt: "2026-05-28T11:20:00+08:00",
       hidden: false
+    }
+  ],
+  localInfos: [
+    {
+      id: "local-cafe-mountain",
+      title: "山边小咖啡",
+      summary: "靠近古城边的小咖啡馆，适合活动前后坐一会儿。",
+      coverUrl: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=900&q=85",
+      address: "大理古城附近",
+      openingHours: "10:00-19:00",
+      contact: "",
+      mapUrl: "",
+      contentHtml: "<p>这类在地信息可以用来整理客人常问的餐馆、咖啡馆、工作室和小店。每条信息都可以添加多个标签，方便前台筛选。</p>",
+      tags: ["咖啡馆", "古城附近"],
+      published: true,
+      sortOrder: 1
+    },
+    {
+      id: "local-studio-craft",
+      title: "植物手作工作室",
+      summary: "适合亲子或雨天安排的手作空间。",
+      coverUrl: "https://images.unsplash.com/photo-1452860606245-08befc0ff44b?auto=format&fit=crop&w=900&q=85",
+      address: "苍山门片区",
+      openingHours: "需提前预约",
+      contact: "微信咨询",
+      mapUrl: "",
+      contentHtml: "<p>可以记录工作室的内容、适合人群、预约方式和注意事项。后续也可以和活动、专题页做联动。</p>",
+      tags: ["工作室", "亲子"],
+      published: true,
+      sortOrder: 2
+    },
+    {
+      id: "local-restaurant-rice",
+      title: "本地家常饭",
+      summary: "徒步结束后适合顺路吃饭的小馆。",
+      coverUrl: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=900&q=85",
+      address: "下关与古城之间",
+      openingHours: "11:30-21:00",
+      contact: "",
+      mapUrl: "",
+      contentHtml: "<p>这里可以放菜单风格、是否适合带孩子、停车是否方便、以及推荐菜等信息。</p>",
+      tags: ["餐馆", "晚餐"],
+      published: true,
+      sortOrder: 3
     }
   ],
   homeEntries: [
