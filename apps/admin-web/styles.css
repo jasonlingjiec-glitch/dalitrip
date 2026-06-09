@@ -524,8 +524,10 @@ legend { padding: 0 4px; color: #5e6d68; font-size: 13px; }
 .builder-preview-collapse > strong.collapse-title-SIDE_LINE { padding-left: 8px; border-left: 3px solid #74b4c8; color: #2d504f; font-family: inherit; font-size: 14px; font-weight: 700; }
 .builder-preview-collapse > strong.collapse-title-PLAIN { color: #34433f; }
 .builder-preview-collapse-row { display: grid; grid-template-columns: 17px 1fr 14px; align-items: center; gap: 6px; padding: 8px 0; border-bottom: 1px solid #e4e9e6; color: #53625d; }
-.builder-preview-collapse-row span { color: #73827d; font-size: 11px; }
-.builder-preview-collapse-row p { margin: 0; overflow: hidden; color: #3b4844; font-size: 12px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.builder-preview-collapse-row .dialog-icon { position: relative; width: 15px; height: 15px; display: block; border: 1.4px solid #4b5551; border-radius: 50%; }
+.builder-preview-collapse-row .dialog-icon::before { content: "?"; position: absolute; inset: 0; display: grid; place-items: center; color: #4b5551; font-size: 10px; font-weight: 400; line-height: 1; }
+.builder-preview-collapse-row .dialog-icon::after { content: none; }
+.builder-preview-collapse-row p { margin: 0; overflow: hidden; color: #46504c; font-size: 12px; font-weight: 300; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
 .builder-preview-collapse-row em { color: #8d9995; font-style: normal; font-size: 11px; }
 .builder-preview-divider { position: relative; background: #fff; }
 .builder-preview-divider.is-line span { position: absolute; right: 9px; bottom: 50%; left: 9px; border-top: 1px solid #dfe5e2; }

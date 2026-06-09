@@ -1113,7 +1113,7 @@ function renderPageModule(module) {
       <h2 class="collapse-title-${style.collapseTitleStyle}">${escapeHtml(module.title)}</h2>
       <div class="home-collapse-list">${(module.items ?? []).slice(0, module.limit).map((item, index) => `
         <article class="home-collapse-item">
-          <button type="button" data-collapse-item="${module.id}-${index}" aria-expanded="false"><span>☏</span><strong>${escapeHtml(item.title)}</strong><em>⌄</em></button>
+          <button type="button" data-collapse-item="${module.id}-${index}" aria-expanded="false"><span class="dialog-icon" aria-hidden="true"></span><strong>${escapeHtml(item.title)}</strong><em>⌄</em></button>
           <div class="home-collapse-body">${renderRichTextParagraphs(item.content)}</div>
         </article>`).join("") || `<p class="empty">暂时没有内容。</p>`}</div>
     </section>`;

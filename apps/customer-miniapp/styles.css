@@ -147,9 +147,12 @@ main { min-height: calc(100vh - 62px); overflow-x: hidden; padding-bottom: 12px;
 .home-collapse-item { border-bottom: 1px solid #e4e8e5; }
 .home-collapse-item button { width: 100%; padding: 13px 0; display: grid; grid-template-columns: 24px 1fr 18px; align-items: center; gap: 8px; border: 0; color: #34433f; background: transparent; text-align: left; }
 .home-collapse-item button span { width: 22px; height: 22px; display: grid; place-items: center; color: #56645f; font-size: 16px; }
-.home-collapse-item button strong { overflow: hidden; font-size: 16px; font-weight: 500; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.home-collapse-item button .dialog-icon { position: relative; width: 22px; height: 22px; border: 1.6px solid #3a423f; border-radius: 50%; }
+.home-collapse-item button .dialog-icon::before { content: "?"; position: absolute; inset: 0; display: grid; place-items: center; color: #3a423f; font-size: 15px; font-weight: 400; line-height: 1; }
+.home-collapse-item button .dialog-icon::after { content: none; }
+.home-collapse-item button strong { overflow: hidden; color: #454c49; font-size: 16px; font-weight: 300; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
 .home-collapse-item button em { color: #87938f; font-style: normal; font-size: 17px; transition: transform .18s ease; }
-.home-collapse-body { display: none; padding: 0 0 15px 32px; color: #5d6965; font-size: 14px; line-height: 1.85; }
+.home-collapse-body { display: none; padding: 0 0 15px 32px; color: #626a67; font-size: 14px; font-weight: 300; line-height: 1.9; }
 .home-collapse-body p { margin: 0; }
 .home-collapse-body p + p { margin-top: 14px; }
 .home-collapse-item.open button em { transform: rotate(180deg); }

@@ -254,6 +254,45 @@ const parseRequestBody = (options) => {
 };
 const staticLocalized = (translations) => translations?.["zh-CN"] ?? translations?.en ?? {};
 const staticTag = (tag) => ({ ...tag, name: tag.translations?.["zh-CN"] ?? tag.code ?? tag.id });
+const staticTopicPage = (page, data) => ({
+  ...cloneStatic(page),
+  tags: (page.tagIds ?? []).map((tagId) => data.tags.find((tag) => tag.id === tagId)).filter(Boolean).map(staticTag),
+  activities: data.activities
+    .filter((activity) => (page.tagIds ?? []).every((tagId) => (activity.tagIds ?? []).includes(tagId)))
+    .map((activity) => ({ id: activity.id, name: staticLocalized(activity.translations).name, summary: staticLocalized(activity.translations).summary }))
+});
+const staticTopicFields = (input, existing = {}) => {
+  const title = String(input.title ?? existing.title ?? "").trim();
+  if (!title) throw new Error("专题页标题不能为空");
+  return {
+    title,
+    slug: String(input.slug ?? existing.slug ?? slugFromTitle(title)).trim(),
+    summary: String(input.summary ?? existing.summary ?? "").trim(),
+    imageUrl: String(input.imageUrl ?? existing.imageUrl ?? "").trim(),
+    externalUrl: String(input.externalUrl ?? existing.externalUrl ?? "").trim(),
+    introductionHtml: input.introductionHtml ?? existing.introductionHtml ?? "",
+    tagIds: Array.isArray(input.tagIds) ? input.tagIds : (existing.tagIds ?? []),
+    modules: Array.isArray(input.modules) ? input.modules : (existing.modules ?? []),
+    published: input.published ?? existing.published ?? true
+  };
+};
+const staticReplaceTopicReferences = (data, previousSlug, nextSlug) => {
+  if (previousSlug === nextSlug) return;
+  data.homeEntries
+    .filter((entry) => entry.targetType === "TOPIC" && entry.targetValue === previousSlug)
+    .forEach((entry) => { entry.targetValue = nextSlug; });
+  [...data.homeModules, ...data.topicPages.flatMap((page) => page.modules ?? [])].forEach((module) => {
+    module.navItems = (module.navItems ?? []).map((item) => item.targetType === "TOPIC" && item.targetValue === previousSlug
+      ? { ...item, targetValue: nextSlug }
+      : item);
+  });
+};
+const staticRemoveTopicReferences = (data, slug) => {
+  data.homeEntries = data.homeEntries.filter((entry) => !(entry.targetType === "TOPIC" && entry.targetValue === slug));
+  [...data.homeModules, ...data.topicPages.flatMap((page) => page.modules ?? [])].forEach((module) => {
+    module.navItems = (module.navItems ?? []).filter((item) => !(item.targetType === "TOPIC" && item.targetValue === slug));
+  });
+};
 const staticActivity = (activity, data) => ({
   ...activity,
   content: staticLocalized(activity.translations),
@@ -348,7 +387,35 @@ async function staticRequest(path, options = {}) {
   if (route === "/tags") return data.tags.map(staticTag);
   if (route === "/guides") return sortGuidesForDisplay(data.guides).map((guide) => staticGuide(guide, data));
   if (route === "/guide-page") return cloneStatic(data.guidePage);
-  if (route === "/topic-pages") return cloneStatic(data.topicPages);
+  if (method === "GET" && route === "/topic-pages") return data.topicPages.map((page) => staticTopicPage(page, data));
+  if (method === "GET" && /^\/topic-pages\/[^/]+$/.test(route)) {
+    const idOrSlug = route.split("/")[2];
+    const page = data.topicPages.find((item) => item.id === idOrSlug || item.slug === idOrSlug);
+    if (!page) throw new Error("专题页不存在");
+    return staticTopicPage(page, data);
+  }
+  if (method === "POST" && route === "/topic-pages") {
+    const page = { id: `demo-topic-${Date.now()}`, ...staticTopicFields(body) };
+    data.topicPages.push(page);
+    return staticTopicPage(page, data);
+  }
+  if (method === "PATCH" && /^\/topic-pages\/[^/]+$/.test(route)) {
+    const id = route.split("/")[2];
+    const page = data.topicPages.find((item) => item.id === id);
+    if (!page) throw new Error("专题页不存在");
+    const previousSlug = page.slug;
+    Object.assign(page, staticTopicFields(body, page));
+    staticReplaceTopicReferences(data, previousSlug, page.slug);
+    return staticTopicPage(page, data);
+  }
+  if (method === "DELETE" && /^\/topic-pages\/[^/]+$/.test(route)) {
+    const id = route.split("/")[2];
+    const page = data.topicPages.find((item) => item.id === id);
+    if (!page) throw new Error("专题页不存在");
+    staticRemoveTopicReferences(data, page.slug);
+    data.topicPages = data.topicPages.filter((item) => item.id !== id);
+    return staticTopicPage(page, data);
+  }
   if (route === "/blog-posts") return cloneStatic(data.blogPosts);
   if (route === "/home-entries") return staticLimit(staticPublished(data.homeEntries, params).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)), params);
   if (route === "/home-modules") return staticLimit(staticPublished(data.homeModules, params).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)), params);
@@ -1628,7 +1695,7 @@ function homeModulePreview(module) {
     return `<div class="builder-preview-banners layout-${style.layout || "SINGLE"} card-${style.cardStyle}" ${vars}>${images.map((imageUrl) => `<div class="builder-preview-banner"><img src="${escapeHtml(imageUrl)}" alt="" /><strong>${escapeHtml(module.title)}</strong></div>`).join("") || `<div class="builder-preview-banner"><strong>${escapeHtml(module.title)}</strong></div>`}</div>`;
   }
   if (module.type === "COLLAPSE") return `<div class="builder-preview-collapse" style="padding:${style.padding}px;background:${escapeHtml(style.backgroundColor)}"><strong class="collapse-title-${style.collapseTitleStyle}">${escapeHtml(module.title)}</strong>${(module.items ?? []).slice(0, module.limit).map((item) => `
-    <div class="builder-preview-collapse-row"><span>☏</span><p>${escapeHtml(item.title)}</p><em>⌄</em></div>`).join("") || `<small>暂无折叠内容</small>`}</div>`;
+    <div class="builder-preview-collapse-row"><span class="dialog-icon" aria-hidden="true"></span><p>${escapeHtml(item.title)}</p><em>⌄</em></div>`).join("") || `<small>暂无折叠内容</small>`}</div>`;
   if (module.type === "DIVIDER") return `<div class="builder-preview-divider ${style.dividerStyle === "LINE" ? "is-line" : "is-space"}" style="height:${style.height}px"><span></span></div>`;
   return `<div class="builder-preview-text" style="padding:${style.padding}px;text-align:${style.textAlign === "CENTER" ? "center" : "left"};background:${escapeHtml(style.backgroundColor)}"><strong>${escapeHtml(module.title)}</strong><p>${escapeHtml(module.subtitle ?? "")}</p></div>`;
 }
@@ -3437,8 +3504,6 @@ $("#activity-form").addEventListener("submit", async (event) => {
 $("#guide-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const values = new FormData(event.currentTarget);
-  const existingPage = state.topicPages.find((page) => page.id === state.editingTopicPageId);
-  const title = String(values.get("title") ?? "").trim();
   try {
     await request(state.editingGuideId ? `/api/guides/${state.editingGuideId}` : "/api/guides", {
       method: state.editingGuideId ? "PATCH" : "POST",
@@ -3464,6 +3529,7 @@ $("#topic-page-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const values = new FormData(event.currentTarget);
   const existingPage = state.topicPages.find((page) => page.id === state.editingTopicPageId);
+  const title = String(values.get("title") ?? "").trim();
   try {
     const savedPage = await request(state.editingTopicPageId ? `/api/topic-pages/${state.editingTopicPageId}` : "/api/topic-pages", {
       method: state.editingTopicPageId ? "PATCH" : "POST",
