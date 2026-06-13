@@ -494,7 +494,8 @@ main { min-height: calc(100vh - 62px); overflow-x: hidden; overflow-y: visible; 
 .local-tag-filter { width: 100%; max-width: 100%; display: grid; gap: 0; overflow: hidden; padding: 0; background: #edf3ef; }
 #local-view { max-width: 100%; overflow-x: hidden; background: #edf3ef; }
 #local-view .booking-discovery-header { display: none; }
-.local-home-hero { width: min(100vw, 478px); max-width: 100%; justify-self: start; padding: 22px 20px 12px; background: #edf3ef; }
+.local-home-hero { position: relative; width: min(100vw, 478px); max-width: 100%; justify-self: start; padding: 22px 20px 12px 58px; background: #edf3ef; }
+.local-home-back { position: absolute; top: 22px; left: 14px; width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid rgba(47,104,114,.22); border-radius: 50%; color: #526a64; background: rgba(255,253,246,.72); font-family: inherit; font-size: 30px; line-height: 1; box-shadow: 0 4px 14px rgba(38,57,50,.08); }
 .local-home-hero p,
 .local-section-title p { margin: 0 0 7px; color: #2f6872; font-size: 10px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; }
 .local-home-hero h2,

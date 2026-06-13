@@ -922,6 +922,7 @@ function renderLocalInfos() {
   const scenes = localSceneCards();
   $("#local-tag-filter").innerHTML = `
     <section class="local-home-hero">
+      <button type="button" class="local-home-back" data-local-back-home aria-label="返回首页">‹</button>
       <p>LOCAL GUIDE</p>
       <h2>吃饭，住下，散步，遇见生活</h2>
       <span>我们把大理的在地信息按场景整理，也留意最近会发生的集市、节日和社区活动。</span>
@@ -982,6 +983,10 @@ function renderLocalInfos() {
     state.localInfoTag = button.dataset.localTag;
     renderLocalInfos();
   }));
+  $("#local-tag-filter").querySelector("[data-local-back-home]")?.addEventListener("click", () => {
+    scrollToPageTop();
+    showView("home");
+  });
   $("#local-tag-filter").querySelectorAll("[data-local-info]").forEach((button) => button.addEventListener("click", () => openLocalInfo(button.dataset.localInfo)));
   $("#local-tag-filter").querySelectorAll("[data-local-event-activity]").forEach((button) => button.addEventListener("click", () => openActivity(button.dataset.localEventActivity)));
   const items = filteredLocalInfos();

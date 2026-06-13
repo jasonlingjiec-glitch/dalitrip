@@ -194,6 +194,7 @@
 
       <view wx:if="{{activeTab === 'local'}}" class="screen local-screen">
         <view class="local-hero">
+          <button class="local-back" data-tab="home" bindtap="switchTab" aria-label="返回首页">‹</button>
           <text class="eyebrow">LOCAL GUIDE</text>
           <text class="local-hero-title">吃饭，住下，散步，遇见生活</text>
           <text class="local-hero-copy">我们把大理的在地信息按场景整理，也留意最近会发生的集市、节日和社区活动。</text>
