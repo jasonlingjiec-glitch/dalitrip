@@ -3,6 +3,7 @@ const API = (() => {
   if (host === "localhost" || host === "127.0.0.1") return "http://localhost:3000/api";
   return "https://api.dalitripapp.cn/api";
 })();
+const USE_STATIC_DEMO = window.location.hostname.endsWith("github.io");
 const DEMO_CUSTOMER_ID = "customer-demo";
 let customerId = localStorage.getItem("dalitripCustomerId") || DEMO_CUSTOMER_ID;
 const cover = "https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=700&q=85";
@@ -613,6 +614,7 @@ function syncReviewGalleryRatios() {
 }
 
 async function request(path, options = {}) {
+  if (USE_STATIC_DEMO) return staticRequest(path, options);
   try {
     const response = await fetch(`${API}${path}`, { headers: { "content-type": "application/json" }, ...options });
     const payload = await response.json();
