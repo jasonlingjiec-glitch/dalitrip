@@ -1,4 +1,8 @@
-const API = "http://localhost:3000/api";
+const API = (() => {
+  const host = window.location.hostname;
+  if (host === "localhost" || host === "127.0.0.1") return "http://localhost:3000/api";
+  return "https://api.dalitripapp.cn/api";
+})();
 const accountId = new URLSearchParams(location.search).get("accountId") || "account-guide-demo";
 const state = { account: null, groups: [], tags: [], guides: [], activities: [], orders: [], reviews: [], notifications: [], guideCalendar: { dates: [], guides: [], availability: [] }, guideCalendarMode: "mark", guideCalendarFilter: "all", activeTab: "active", activeView: "workbench", cancellingOrderId: null, editingActivityId: null, editingMeetingPoint: null, editingGuideId: null, guidePhotoDraft: "", guideDescriptionHtmlDraft: "", guideDescriptionTextOriginal: "", scheduleActivity: null, scheduleRules: [], restDays: [], specialSlots: [], activeScheduleTab: "regular", editingRuleId: null, replyingReviewId: null, specialDraftRows: [], specialExistingSlots: [], savingSpecialDay: false };
 const $ = (selector) => document.querySelector(selector);

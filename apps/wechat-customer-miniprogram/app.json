@@ -1,0 +1,13 @@
+{
+  "pages": [
+    "pages/index/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "苍山徒步之家",
+    "navigationBarBackgroundColor": "#fffaf0",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#fffaf0"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

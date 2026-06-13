@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DaliTrip Bold Visual References</title>
+  <style>
+    :root {
+      --song: "Songti SC", "STSong", "Noto Serif SC", serif;
+      --hei: "PingFang SC", "Noto Sans SC", system-ui, -apple-system, sans-serif;
+      --kai: "Kaiti SC", "STKaiti", "KaiTi", serif;
+      --ming: "Hiragino Mincho ProN", "Yu Mincho", "Songti SC", serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #171b18;
+      color: #f4f1e9;
+      font-family: var(--hei);
+      letter-spacing: 0;
+    }
+    img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .wrap {
+      width: min(1500px, calc(100vw - 44px));
+      margin: 0 auto;
+      padding: 38px 0 72px;
+    }
+    .intro {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 28px;
+      align-items: end;
+      padding-bottom: 28px;
+      border-bottom: 1px solid rgba(244,241,233,.18);
+      margin-bottom: 34px;
+    }
+    h1 {
+      margin: 0;
+      font: 400 40px/1.15 var(--song);
+    }
+    .intro p {
+      margin: 10px 0 0;
+      max-width: 780px;
+      color: rgba(244,241,233,.72);
+      line-height: 1.8;
+      font-size: 15px;
+    }
+    .pill {
+      border: 1px solid currentColor;
+      border-radius: 999px;
+      padding: 9px 14px;
+      font-size: 13px;
+      opacity: .8;
+      white-space: nowrap;
+    }
+    .option {
+      margin-bottom: 42px;
+      padding: 22px;
+      border: 1px solid rgba(244,241,233,.14);
+      background: rgba(255,255,255,.025);
+    }
+    .option-head {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 20px;
+      align-items: start;
+      margin-bottom: 18px;
+    }
+    .kicker {
+      font-size: 12px;
+      letter-spacing: .18em;
+      opacity: .66;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+    h2 {
+      margin: 0;
+      font-weight: 400;
+      font-size: 29px;
+      line-height: 1.22;
+    }
+    .option-head p {
+      margin: 8px 0 0;
+      max-width: 780px;
+      color: rgba(244,241,233,.66);
+      line-height: 1.75;
+      font-size: 14px;
+    }
+    .palette {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .swatch {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,.28);
+    }
+    .screens {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(220px, 1fr));
+      gap: 16px;
+      align-items: start;
+    }
+    .screen-title {
+      margin: 0 0 8px;
+      font-size: 13px;
+      opacity: .72;
+    }
+    .phone {
+      position: relative;
+      height: 690px;
+      max-width: 320px;
+      margin: 0 auto;
+      overflow: hidden;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,.18);
+      box-shadow: 0 22px 64px rgba(0,0,0,.28);
+    }
+    .bar {
+      height: 42px;
+      display: grid;
+      grid-template-columns: 36px 1fr 62px;
+      align-items: center;
+      padding: 0 14px;
+      font-size: 13px;
+      border-bottom: 1px solid var(--line);
+      background: var(--bar);
+      color: var(--muted);
+    }
+    .bar strong { text-align: center; font-weight: 400; color: var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .share { text-align: right; font-size: 12px; }
+    .scroll {
+      height: calc(100% - 42px);
+      overflow: hidden;
+      padding-bottom: 74px;
+      background: var(--bg);
+      color: var(--ink);
+    }
+    .nav {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      height: 68px;
+      display: grid;
+      grid-template-columns: repeat(4,1fr);
+      align-items: center;
+      text-align: center;
+      font-size: 12px;
+      background: var(--nav);
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      backdrop-filter: blur(12px);
+    }
+    .nav b { color: var(--accent); font-weight: 500; }
+    .section { padding: 20px 18px 0; }
+    .eyebrow {
+      font-size: 11px;
+      letter-spacing: .18em;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .title {
+      margin: 0;
+      font-family: var(--title-font);
+      font-weight: var(--title-weight);
+      line-height: 1.2;
+      letter-spacing: var(--title-spacing);
+    }
+    .copy {
+      margin: 9px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.72;
+    }
+    .image { overflow: hidden; background-size: cover; background-position: center; }
+
+    .o1 {
+      --bg:#101914; --ink:#f5f1e6; --muted:#b8c2b1; --accent:#d4af62; --line:rgba(236,230,213,.14);
+      --bar:rgba(16,25,20,.92); --nav:rgba(16,25,20,.9); --title-font:var(--ming); --title-weight:400; --title-spacing:0;
+    }
+    .o1 .hero {
+      height: 365px;
+      position: relative;
+      background-size: cover;
+      background-position: center;
+    }
+    .o1 .hero:after {
+      content:""; position:absolute; inset:0;
+      background: linear-gradient(to bottom, rgba(0,0,0,.05), rgba(0,0,0,.7));
+    }
+    .o1 .hero-text {
+      position:absolute; z-index:1; left:22px; right:22px; bottom:26px;
+    }
+    .o1 .hero h3 { font-size:34px; color:#fff7dd; }
+    .o1 .dark-row {
+      display:grid; grid-template-columns:78px 1fr; gap:12px;
+      padding:14px 0; border-bottom:1px solid var(--line);
+    }
+    .o1 .dark-row .image { height:78px; border-radius:50%; }
+    .o1 .dark-row strong { font-family:var(--ming); font-weight:400; font-size:18px; }
+
+    .o2 {
+      --bg:#eff6f3; --ink:#233a3d; --muted:#627779; --accent:#e36c4e; --line:rgba(35,58,61,.13);
+      --bar:rgba(239,246,243,.9); --nav:rgba(239,246,243,.92); --title-font:var(--hei); --title-weight:500; --title-spacing:0;
+    }
+    .o2 .hero { padding:26px 18px 0; }
+    .o2 .hero h3 { font-size:30px; max-width:250px; }
+    .o2 .feature {
+      height: 248px; margin-top:20px; border-radius:32px 32px 6px 6px; position:relative;
+      background-size:cover; background-position:center;
+    }
+    .o2 .tile-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:14px 18px 0; }
+    .o2 .tile { min-height:120px; border-radius:20px; padding:14px; background:#fff; border:1px solid var(--line); }
+    .o2 .tile strong { font-size:19px; }
+    .o2 .chipline { display:flex; gap:8px; overflow:hidden; padding:18px 18px 0; }
+    .o2 .chip { flex:none; padding:8px 12px; border-radius:999px; background:#fff; color:var(--accent); border:1px solid rgba(227,108,78,.22); font-size:12px; }
+
+    .o3 {
+      --bg:#f8f7f2; --ink:#151515; --muted:#606060; --accent:#a21818; --line:rgba(0,0,0,.16);
+      --bar:#f8f7f2; --nav:rgba(248,247,242,.92); --title-font:var(--song); --title-weight:400; --title-spacing:0;
+    }
+    .o3 .masthead { padding:24px 18px 10px; border-bottom:2px solid var(--ink); }
+    .o3 .masthead h3 { font-size:34px; }
+    .o3 .cover { height:260px; margin:16px 18px 0; background-size:cover; background-position:center; filter:grayscale(.15); }
+    .o3 .news-row { display:grid; grid-template-columns:1fr 86px; gap:12px; padding:14px 0; border-bottom:1px solid var(--line); }
+    .o3 .news-row .image { height:86px; }
+    .o3 .news-row strong { font-family:var(--song); font-weight:400; font-size:20px; }
+    .o3 .date { color:var(--accent); font-size:12px; margin-top:6px; }
+
+    .o4 {
+      --bg:#f6ede0; --ink:#35271f; --muted:#836f60; --accent:#b64f33; --line:rgba(83,58,42,.16);
+      --bar:rgba(246,237,224,.92); --nav:rgba(246,237,224,.9); --title-font:var(--kai); --title-weight:400; --title-spacing:0;
+    }
+    .o4 .paper-hero { padding:28px 22px 0; }
+    .o4 .paper-hero h3 { font-size:32px; }
+    .o4 .postcard {
+      height:250px; margin:20px 18px 0; padding:10px; background:#fff9ef; border:1px solid var(--line);
+      transform:rotate(-1.5deg);
+      box-shadow:0 14px 26px rgba(89,65,46,.16);
+    }
+    .o4 .postcard .image { height:100%; }
+    .o4 .note-card {
+      margin:16px 18px 0; padding:14px; border:1px dashed rgba(86,58,42,.34); background:rgba(255,249,239,.52);
+    }
+    .o4 .note-card strong { font-family:var(--kai); font-size:21px; font-weight:400; }
+    .o4 .tagrow { display:flex; flex-wrap:wrap; gap:8px; padding:16px 18px 0; }
+    .o4 .tag { padding:6px 10px; border:1px solid var(--line); background:#fff7e8; font-size:12px; }
+
+    .o5 {
+      --bg:#e9eef1; --ink:#172d38; --muted:#60717a; --accent:#1b7f8f; --line:rgba(23,45,56,.14);
+      --bar:rgba(233,238,241,.92); --nav:rgba(233,238,241,.9); --title-font:var(--hei); --title-weight:300; --title-spacing:0;
+    }
+    .o5 .map-hero { padding:24px 18px 0; }
+    .o5 .map-hero h3 { font-size:30px; max-width:260px; }
+    .o5 .route {
+      position:relative; height:270px; margin:20px 18px 0; border-radius:4px; overflow:hidden;
+      background-size:cover; background-position:center;
+    }
+    .o5 .route:after { content:""; position:absolute; inset:0; background:rgba(7,35,46,.28); }
+    .o5 .route span {
+      position:absolute; z-index:1; width:16px; height:16px; border-radius:50%; background:#fff; border:4px solid var(--accent);
+    }
+    .o5 .route span:nth-child(1){left:50px;top:186px}.o5 .route span:nth-child(2){left:150px;top:120px}.o5 .route span:nth-child(3){left:230px;top:70px}
+    .o5 .route svg { position:absolute; inset:0; z-index:1; width:100%; height:100%; }
+    .o5 .list-row { display:grid; grid-template-columns:42px 1fr 58px; gap:10px; align-items:center; padding:13px 0; border-bottom:1px solid var(--line); }
+    .o5 .num { width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#d6e6e8;color:var(--accent); }
+    .o5 .list-row .image { width:58px;height:58px;border-radius:4px; }
+    .o5 .list-row strong { font-weight:400; font-size:16px; }
+
+    @media (max-width: 1320px) { .screens { grid-template-columns: repeat(3, minmax(220px, 1fr)); } }
+    @media (max-width: 860px) {
+      .wrap { width: calc(100vw - 20px); }
+      .intro, .option-head { display:block; }
+      .screens { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="intro">
+      <div>
+        <h1>更多方向，不从米色开始</h1>
+        <p>这张不是最终设计，而是“审美坐标”。5 组颜色、字体和布局都故意拉开，用来判断苍山徒步之家可以更像哪一种品牌：山野夜色、清爽湖泊、黑白杂志、手作纸感、路线地图。</p>
+      </div>
+      <span class="pill">5 套视觉参考 / 每套 3 个屏幕</span>
+    </header>
+
+    <section class="option o1">
+      <div class="option-head">
+        <div><div class="kicker">01 Mountain Nocturne</div><h2 style="font-family:var(--ming)">深山夜色</h2><p>墨绿、金色、暗影。适合把苍山徒步之家做得更“隐秘”和高级，像小型山野俱乐部。活动和领队会显得有分量，但整体会更成熟。</p></div>
+        <div class="palette"><span class="swatch" style="background:#101914"></span><span class="swatch" style="background:#d4af62"></span><span class="swatch" style="background:#b8c2b1"></span></div>
+      </div>
+      <div class="screens">
+        <article><p class="screen-title">首页</p><div class="phone"><div class="bar"><span></span><strong>苍山徒步之家</strong><span class="share">菜单</span></div><div class="scroll"><section class="hero" data-img="activity:哀牢"><div class="hero-text"><div class="eyebrow">NATURE CLUB</div><h3 class="title">进入山里，和真正带路的人同行</h3><p class="copy">森林、湖泊、村庄和晚餐，都是大理生活的一部分。</p></div></section><section class="section"><div class="eyebrow">TONIGHT</div><div class="dark-row"><span class="image" data-img="guide:寒寒"></span><span><strong>寒寒的哀牢山森林徒步</strong><p class="copy">2 天旅行 · 森林深处</p></span></div><div class="dark-row"><span class="image" data-img="activity:白茶"></span><span><strong>苍山采野生茶</strong><p class="copy">采集、萎凋、做一份自己的白茶</p></span></div></section></div><nav class="nav"><b>首页</b><span>预约</span><span>在地</span><span>我的</span></nav></div></article>
+        <article><p class="screen-title">活动详情</p><div class="phone"><div class="bar"><span>‹</span><strong>哀牢山森林徒步</strong><span class="share">分享</span></div><div class="scroll"><section class="section"><div class="eyebrow">2 DAYS</div><h3 class="title" style="font-size:28px">寒寒的哀牢山森林徒步</h3><p class="copy">更深的森林、更慢的时间和一夜山中住宿。</p></section><div class="hero" data-img="activity:哀牢" style="height:260px;margin:16px 18px;border-radius:4px"></div><section class="section"><div class="dark-row"><span class="image" data-img="guide:寒寒"></span><span><strong>领队 寒寒</strong><p class="copy">主带森林、露营和长线旅行。</p></span></div></section></div><nav class="nav"><span>首页</span><b>预约</b><span>在地</span><span>我的</span></nav></div></article>
+        <article><p class="screen-title">关于页</p><div class="phone"><div class="bar"><span>‹</span><strong>关于我们</strong><span class="share">分享</span></div><div class="scroll"><section class="hero" data-img="about"><div class="hero-text"><div class="eyebrow">ABOUT</div><h3 class="title">我们不是一家公司</h3><p class="copy">我们是来自社区的朋友，逐渐聚集在一起但独立工作。</p></div></section><section class="section"><div class="dark-row"><span class="image" data-img="guide:石头"></span><span><strong>我们的向导是谁?</strong><p class="copy">各自有生活，也愿意分享山里的经验。</p></span></div></section></div><nav class="nav"><b>首页</b><span>预约</span><span>在地</span><span>我的</span></nav></div></article>
+      </div>
+    </section>
+
+    <section class="option o2">
+      <div class="option-head">
+        <div><div class="kicker">02 Lake Air</div><h2>湖泊清晨</h2><p>雾蓝绿、白底、珊瑚色点缀。更年轻、更明亮，适合小程序作为轻松入口。亲子、水上、手作类内容会更舒服。</p></div>
+        <div class="palette"><span class="swatch" style="background:#eff6f3"></span><span class="swatch" style="background:#1b7f8f"></span><span class="swatch" style="background:#e36c4e"></span></div>
+      </div>
+      <div class="screens">
+        <article><p class="screen-title">首页</p><div class="phone"><div class="bar"><span></span><strong>Dali Trip</strong><span class="share">分享</span></div><div class="scroll"><section class="hero"><div class="eyebrow">GOOD MORNING</div><h3 class="title">在大理，轻轻打开一天</h3><p class="copy">去湖泊、森林、山里人家，做手工。</p><div class="feature image" data-img="activity:宝石"></div></section><div class="chipline"><span class="chip">亲子</span><span class="chip">水上活动</span><span class="chip">手作</span><span class="chip">适合新手</span></div><div class="tile-grid"><div class="tile"><strong>活动</strong><p class="copy">找一件今天就能做的事。</p></div><div class="tile"><strong>在地</strong><p class="copy">吃喝、村庄、溪流。</p></div></div></div><nav class="nav"><b>首页</b><span>预约</span><span>在地</span><span>我的</span></nav></div></article>
+        <article><p class="screen-title">在地信息</p><div class="phone"><div class="bar"><span>‹</span><strong>在地信息</strong><span class="share">筛选</span></div><div class="scroll"><section class="hero"><div class="eyebrow">LOCAL</div><h3 class="title">明亮一点的本地清单</h3><p class="copy">横向标签，下面直接进入地点。</p></section><div class="chipline"><span class="chip">全部</span><span class="chip">咖啡馆</span><span class="chip">民宿</span><span class="chip">自己探索</span></div><div class="tile-grid"><div class="tile"><strong>沙溪</strong><p class="copy">古镇、田野、河边散步。</p></div><div class="tile"><strong>苍山溪流</strong><p class="copy">安全、好到达、适合玩水。</p></div></div></div><nav class="nav"><span>首页</span><span>预约</span><b>在地</b><span>我的</span></nav></div></article>
+        <article><p class="screen-title">评论</p><div class="phone"><div class="bar"><span>‹</span><strong>旅行者的体验</strong><span class="share">分享</span></div><div class="scroll"><section class="hero"><div class="eyebrow">STORIES</div><h3 class="title">别人留下来的感觉</h3></section><section class="section"><div class="tile" style="border-radius:20px"><strong>Yu ★★★★★</strong><p class="copy" style="font-size:15px">想体验一次不一样的大理，没有洱海没有日出，一头扎在森林深处的那种。</p></div></section></div><nav class="nav"><span>首页</span><span>预约</span><span>在地</span><b>我的</b></nav></div></article>
+      </div>
+    </section>
+
+    <section class="option o3">
+      <div class="option-head">
+        <div><div class="kicker">03 Field Journal</div><h2 style="font-family:var(--song)">黑白田野杂志</h2><p>接近独立杂志和旅行报纸：黑白、红色小标、规整网格。它会让内容显得更有编辑判断，适合博客、关于、评论较多的版本。</p></div>
+        <div class="palette"><span class="swatch" style="background:#f8f7f2"></span><span class="swatch" style="background:#151515"></span><span class="swatch" style="background:#a21818"></span></div>
+      </div>
+      <div class="screens">
+        <article><p class="screen-title">首页</p><div class="phone"><div class="bar"><span></span><strong>FIELD JOURNAL</strong><span class="share">目录</span></div><div class="scroll"><section class="masthead"><div class="kicker">DALI TRIP</div><h3 class="title">今天在大理发生什么</h3><p class="copy">活动、生活和本地信息像一份每日小报。</p></section><div class="cover image" data-img="about"></div><section class="section"><div class="news-row"><span><strong>加入吧，即将出发的旅行</strong><div class="date">NEXT DEPARTURES</div></span><span class="image" data-img="activity:蕨类"></span></div><div class="news-row"><span><strong>我们的向导 & 要做的两件事</strong><div class="date">BLOG</div></span><span class="image" data-img="blog:向导"></span></div></section></div><nav class="nav"><b>首页</b><span>预约</span><span>在地</span><span>我的</span></nav></div></article>
+        <article><p class="screen-title">博客主页</p><div class="phone"><div class="bar"><span>‹</span><strong>我们的生活</strong><span class="share"></span></div><div class="scroll"><section class="masthead"><div class="kicker">DALI LIFE</div><h3 class="title">文章</h3></section><section class="section"><div class="news-row"><span><strong>春雨 | 遇见</strong><div class="date">2026.06.08</div></span><span class="image" data-img="blog:春雨"></span></div><div class="news-row"><span><strong>杂草景 | handpoke</strong><div class="date">2026.05.27</div></span><span class="image" data-img="blog:杂草"></span></div><div class="news-row"><span><strong>一个点 | 五个活动·六样领队</strong><div class="date">2026.03.13</div></span><span class="image" data-img="blog:五个活动"></span></div></section></div><nav class="nav"><span>首页</span><span>预约</span><span>在地</span><b>我的</b></nav></div></article>
+        <article><p class="screen-title">活动列表</p><div class="phone"><div class="bar"><span>‹</span><strong>活动</strong><span class="share">筛选</span></div><div class="scroll"><section class="masthead"><div class="kicker">ACTIVITY INDEX</div><h3 class="title">活动推荐</h3></section><section class="section"><div class="news-row"><span><strong>徒步蕨类森林</strong><div class="date">FOREST / HIKING</div></span><span class="image" data-img="activity:蕨类"></span></div><div class="news-row"><span><strong>巍山庙街赶集</strong><div class="date">LOCAL MARKET</div></span><span class="image" data-img="activity:赶集"></span></div></section></div><nav class="nav"><span>首页</span><b>预约</b><span>在地</span><span>我的</span></nav></div></article>
+      </div>
+    </section>
+
+    <section class="option o4">
+      <div class="option-head">
+        <div><div class="kicker">04 Handmade Notes</div><h2 style="font-family:var(--kai)">手作纸感</h2><p>更像手账和旅行笔记：暖纸色、朱砂色、虚线、明信片照片。会显得亲近、有手作温度，适合植物采集、野餐、手工、在地生活。</p></div>
+        <div class="palette"><span class="swatch" style="background:#f6ede0"></span><span class="swatch" style="background:#b64f33"></span><span class="swatch" style="background:#836f60"></span></div>
+      </div>
+      <div class="screens">
+        <article><p class="screen-title">首页</p><div class="phone"><div class="bar"><span></span><strong>苍山手记</strong><span class="share">分享</span></div><div class="scroll"><section class="paper-hero"><div class="eyebrow">HAND NOTES</div><h3 class="title">把一天做成一页手记</h3><p class="copy">采茶、拓染、野餐、赶集，都是可以带回去的记忆。</p></section><div class="postcard"><div class="image" data-img="activity:白茶"></div></div><section class="note-card"><strong>今日推荐</strong><p class="copy">苍山采野生茶 制作自己的白茶</p></section><div class="tagrow"><span class="tag">手作</span><span class="tag">植物</span><span class="tag">亲子</span><span class="tag">适合新手</span></div></div><nav class="nav"><b>首页</b><span>预约</span><span>在地</span><span>我的</span></nav></div></article>
+        <article><p class="screen-title">活动详情</p><div class="phone"><div class="bar"><span>‹</span><strong>白茶</strong><span class="share">分享</span></div><div class="scroll"><section class="paper-hero"><div class="eyebrow">PLANT JOURNAL</div><h3 class="title">苍山采野生茶 制作自己的白茶</h3><p class="copy">走进山里，采集植物，把味道留下。</p></section><div class="postcard"><div class="image" data-img="activity:白茶"></div></div><section class="note-card"><strong>当季特色</strong><p class="copy">春夏交替时，野茶和山里的湿润空气刚刚好。</p></section></div><nav class="nav"><span>首页</span><b>预约</b><span>在地</span><span>我的</span></nav></div></article>
+        <article><p class="screen-title">在地信息</p><div class="phone"><div class="bar"><span>‹</span><strong>在地小店</strong><span class="share">分享</span></div><div class="scroll"><section class="paper-hero"><div class="eyebrow">LOCAL NOTE</div><h3 class="title">值得写进手账的小店</h3></section><section class="note-card"><strong>与山面包</strong><p class="copy">社区老店，自己拿面包，根据价格结账。</p></section><div class="postcard"><div class="image" data-img="local:与山面包"></div></div></div><nav class="nav"><span>首页</span><span>预约</span><b>在地</b><span>我的</span></nav></div></article>
+      </div>
+    </section>
+
+    <section class="option o5">
+      <div class="option-head">
+        <div><div class="kicker">05 Route System</div><h2>路线系统</h2><p>更现代、更功能化：雾蓝灰、细线、路线节点。适合未来活动数量很多、排班很多、用户需要快速筛选时使用。高级感来自秩序。</p></div>
+        <div class="palette"><span class="swatch" style="background:#e9eef1"></span><span class="swatch" style="background:#1b7f8f"></span><span class="swatch" style="background:#172d38"></span></div>
+      </div>
+      <div class="screens">
+        <article><p class="screen-title">首页</p><div class="phone"><div class="bar"><span></span><strong>Dali Routes</strong><span class="share">筛选</span></div><div class="scroll"><section class="map-hero"><div class="eyebrow">ROUTE FINDER</div><h3 class="title">从一条路线开始认识大理</h3><p class="copy">按时间、强度、年龄和季节找到合适的活动。</p></section><div class="route image" data-img="activity:阔松坪"><span></span><span></span><span></span><svg><path d="M58 194 C 105 170, 118 128, 158 126 S 196 84, 238 78" fill="none" stroke="white" stroke-width="2" stroke-dasharray="5 7"/></svg></div><section class="section"><div class="list-row"><span class="num">1</span><span><strong>近山徒步</strong><p class="copy">3-4 小时</p></span><span class="image" data-img="activity:蕨类"></span></div><div class="list-row"><span class="num">2</span><span><strong>湖泊水上</strong><p class="copy">亲子友好</p></span><span class="image" data-img="activity:宝石"></span></div></section></div><nav class="nav"><b>首页</b><span>预约</span><span>在地</span><span>我的</span></nav></div></article>
+        <article><p class="screen-title">预约页</p><div class="phone"><div class="bar"><span>‹</span><strong>日期预约</strong><span class="share"></span></div><div class="scroll"><section class="map-hero"><div class="eyebrow">JUNE</div><h3 class="title">未来 30 条有人预订的旅行</h3></section><section class="section"><div class="list-row"><span class="num">M</span><span><strong>阔松坪轻徒步</strong><p class="copy">6月15日 14:00</p></span><span class="image" data-img="activity:阔松坪"></span></div><div class="list-row"><span class="num">2</span><span><strong>苍山采野生茶</strong><p class="copy">6月16日 14:00</p></span><span class="image" data-img="activity:白茶"></span></div><div class="list-row"><span class="num">Y</span><span><strong>徒步蕨类森林</strong><p class="copy">6月17日 14:00</p></span><span class="image" data-img="activity:蕨类"></span></div></section></div><nav class="nav"><span>首页</span><b>预约</b><span>在地</span><span>我的</span></nav></div></article>
+        <article><p class="screen-title">活动详情</p><div class="phone"><div class="bar"><span>‹</span><strong>阔松坪轻徒步</strong><span class="share">分享</span></div><div class="scroll"><section class="map-hero"><div class="eyebrow">FOREST EDGE</div><h3 class="title">阔松坪轻徒步 | 田野 · 溪流 · 森林</h3><p class="copy">村庄、溪流、森林边缘的轻徒步。</p></section><div class="route image" data-img="activity:阔松坪"><span></span><span></span><span></span><svg><path d="M58 194 C 105 170, 118 128, 158 126 S 196 84, 238 78" fill="none" stroke="white" stroke-width="2" stroke-dasharray="5 7"/></svg></div></div><nav class="nav"><span>首页</span><b>预约</b><span>在地</span><span>我的</span></nav></div></article>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const BASE = "/dalitrip-mvp/";
+    const localize = (url) => {
+      if (!url) return "";
+      if (url.startsWith("data:")) return url;
+      return url.replace("http://localhost:8890/dalitrip-mvp/", BASE).replace("https://localhost:8890/dalitrip-mvp/", BASE);
+    };
+    const titleOf = (a) => a?.translations?.zh?.name || a?.translations?.["zh-CN"]?.name || a?.title || a?.name || "";
+    const imageOf = (x) => localize(x?.coverUrl || x?.imageUrl || x?.photoUrl || x?.images?.[0]?.url || x?.images?.[0]?.cosKey || "");
+    const findText = (arr, text) => arr.find((x) => titleOf(x).includes(text));
+    const fallback = BASE + "imported-assets/shopify-products/hiking-in-the-fern-forest/003-rn-image_picker_lib_temp_08b4f20e-9a79-41f2-8e48-9fa1952f47cd.jpg";
+    fetch(BASE + "data/runtime-data.json?v=" + Date.now(), { cache: "no-store" }).then(r => r.json()).then(data => {
+      const acts = data.activities || [];
+      const locals = data.localInfos || [];
+      const blogs = data.blogPosts || [];
+      const guides = data.guides || [];
+      const topics = data.topicPages || [];
+      const localBy = (t) => imageOf(locals.find(x => (x.title || "").includes(t)));
+      const blogBy = (t) => imageOf(blogs.find(x => (x.title || "").includes(t)));
+      const guideBy = (t) => imageOf(guides.find(x => (x.name || "").includes(t)));
+      const map = {
+        about: localize(topics.find(x => (x.title || "").includes("苍山徒步之家"))?.imageUrl) || BASE + "outputs/cangshan-topic-square-v2.png",
+        "activity:蕨类": imageOf(findText(acts, "蕨类")) || fallback,
+        "activity:哀牢": imageOf(findText(acts, "哀牢")) || fallback,
+        "activity:白茶": imageOf(findText(acts, "白茶")) || fallback,
+        "activity:宝石": imageOf(findText(acts, "宝石")) || fallback,
+        "activity:赶集": imageOf(findText(acts, "赶集")) || fallback,
+        "activity:阔松坪": imageOf(findText(acts, "阔松坪")) || imageOf(findText(acts, "田野")) || fallback,
+        "local:沙溪": localBy("沙溪"),
+        "local:与山面包": localBy("与山面包"),
+        "blog:春雨": blogBy("春雨"),
+        "blog:杂草": blogBy("杂草"),
+        "blog:五个活动": blogBy("五个活动"),
+        "blog:向导": blogBy("向导"),
+        "guide:寒寒": guideBy("寒寒"),
+        "guide:石头": guideBy("石头"),
+      };
+      document.querySelectorAll("[data-img]").forEach(el => {
+        const src = map[el.dataset.img] || fallback;
+        el.style.backgroundImage = `url("${src}")`;
+      });
+    });
+  </script>
+</body>
+</html>

@@ -106,7 +106,7 @@ export class MemoryStore {
 
   createAdminAccount(input) {
     const fields = this.#validateAdminAccountInput(input);
-    const account = { id: randomUUID(), role: "SUBACCOUNT", enabled: true, ...fields };
+    const account = { id: randomUUID(), role: "SUBACCOUNT", enabled: true, wechatBinding: this.#createWechatBinding(), ...fields };
     this.adminAccounts.push(account);
     return this.#presentAdminAccount(account);
   }
@@ -127,13 +127,57 @@ export class MemoryStore {
     return this.#presentAdminAccount(account);
   }
 
+  refreshAdminAccountWechatBinding(id) {
+    const account = this.#requireEditableSubaccount(id);
+    account.wechatBinding = this.#createWechatBinding();
+    return this.#presentAdminAccount(account);
+  }
+
+  simulateAdminAccountWechatBinding(id, input = {}) {
+    const account = this.#requireEditableSubaccount(id);
+    account.wechatBinding = {
+      status: "BOUND",
+      token: account.wechatBinding?.token ?? randomUUID(),
+      openid: input.openid ?? `demo-openid-${id}`,
+      nickname: input.nickname?.trim() || account.displayName,
+      avatarUrl: input.avatarUrl ?? "",
+      boundAt: new Date().toISOString()
+    };
+    return this.#presentAdminAccount(account);
+  }
+
+  unbindAdminAccountWechat(id) {
+    const account = this.#requireEditableSubaccount(id);
+    account.wechatBinding = this.#createWechatBinding();
+    return this.#presentAdminAccount(account);
+  }
+
   #validateAdminAccountInput(input) {
     assert(input.displayName?.trim(), 400, "子账户姓名不能为空");
-    assert(input.mobile?.trim(), 400, "子账户手机号不能为空");
     assert(Array.isArray(input.groupIds) && input.groupIds.length > 0, 400, "请至少授权一个组");
     const groupIds = [...new Set(input.groupIds)];
     for (const groupId of groupIds) assert(this.groups.some((group) => group.id === groupId), 400, "授权组不存在");
-    return { displayName: input.displayName.trim(), mobile: input.mobile.trim(), groupIds };
+    return {
+      displayName: input.displayName.trim(),
+      mobile: input.mobile?.trim() ?? "",
+      groupIds,
+      notificationSettings: this.#normalizeAdminNotificationSettings(input.notificationSettings)
+    };
+  }
+
+  #normalizeAdminNotificationSettings(input = {}) {
+    return {
+      orders: input.orders !== false,
+      reviews: input.reviews !== false
+    };
+  }
+
+  #createWechatBinding() {
+    return {
+      status: "UNBOUND",
+      token: randomUUID(),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    };
   }
 
   listTags(locale) {
@@ -157,9 +201,16 @@ export class MemoryStore {
   deleteTag(id) {
     const index = this.tags.findIndex((tag) => tag.id === id);
     assert(index >= 0, 404, "标签不存在");
-    assert(!this.activities.some((activity) => activity.tagIds.includes(id)), 409, "标签正在被活动使用，请先从活动中移除");
-    assert(!this.topicPages.some((page) => page.tagIds.includes(id)), 409, "标签正在被专题页使用，请先从专题中移除");
     const [removed] = this.tags.splice(index, 1);
+    this.activities.forEach((activity) => {
+      activity.tagIds = (activity.tagIds ?? []).filter((tagId) => tagId !== id);
+    });
+    this.topicPages.forEach((page) => {
+      page.tagIds = (page.tagIds ?? []).filter((tagId) => tagId !== id);
+    });
+    this.#navigationModules().forEach((module) => {
+      module.tagIds = (module.tagIds ?? []).filter((tagId) => tagId !== id);
+    });
     return clone(removed);
   }
 
@@ -175,6 +226,10 @@ export class MemoryStore {
         return leftArchived - rightArchived || left.sortOrder - right.sortOrder;
       })
       .map((guide) => this.#presentGuide(guide));
+  }
+
+  getGuide(id) {
+    return this.#presentGuide(this.#requireGuide(id));
   }
 
   getGuidePage() {
@@ -755,6 +810,13 @@ export class MemoryStore {
     if (date) {
       assert(/^\d{4}-\d{2}-\d{2}$/.test(date), 400, "请选择有效日期");
       this.#ensureGeneratedSlots(activityId, date);
+    } else if (includeGenerated) {
+      const start = new Date();
+      for (let offset = 0; offset < 30; offset += 1) {
+        const current = new Date(start);
+        current.setDate(start.getDate() + offset);
+        this.#ensureGeneratedSlots(activityId, current.toISOString().slice(0, 10));
+      }
     }
     return clone(
       this.slots.filter((slot) => {
@@ -959,7 +1021,7 @@ export class MemoryStore {
     this.releaseExpiredCapacityLocks();
     const nowTimestamp = now.getTime();
     return this.slots
-      .filter((slot) => slot.enabled && Date.parse(slot.startsAt) >= nowTimestamp)
+      .filter((slot) => slot.enabled && slot.bookedCount > 0 && Date.parse(slot.startsAt) >= nowTimestamp)
       .sort((left, right) => left.startsAt.localeCompare(right.startsAt))
       .slice(0, Math.min(Math.max(Number(limit) || 30, 1), 30))
       .map((slot) => {
@@ -971,12 +1033,13 @@ export class MemoryStore {
         const nickname = customer?.nickname?.trim() || "匿名用户";
         return clone({
           slotId: slot.id,
-        activityId: activity.id,
-        activityName: localized(activity.translations, locale).name,
-        coverUrl: activity.coverUrl ?? "",
-        startsAt: slot.startsAt,
+          activityId: activity.id,
+          activityName: localized(activity.translations, locale).name,
+          coverUrl: activity.coverUrl ?? "",
+          startsAt: slot.startsAt,
           endsAt: slot.endsAt,
           bookedCount: slot.bookedCount,
+          participantCount: slot.bookedCount,
           customerDisplayName: `${Array.from(nickname)[0]}**`
         });
       });
@@ -988,6 +1051,31 @@ export class MemoryStore {
     const order = this.#requireOrder(id);
     if (adminAccountId) this.#assertAdminAccountCanAccessGroup(adminAccountId, order.groupId);
     return this.#presentOrder(order);
+  }
+
+  upsertCustomerFromWechat(input = {}) {
+    assert(input.openid, 400, "缺少微信 openid");
+    let customer = this.customers.find((item) => item.wechatOpenid === input.openid);
+    const now = new Date().toISOString();
+    if (!customer) {
+      customer = {
+        id: `customer-wx-${randomUUID()}`,
+        nickname: input.nickname?.trim() || "微信用户",
+        mobile: input.mobile?.trim() || "",
+        frozen: false,
+        walletBalanceCents: 0,
+        wechatOpenid: input.openid,
+        wechatUnionid: input.unionid,
+        createdAt: now
+      };
+      this.customers.push(customer);
+    } else {
+      if (input.nickname?.trim()) customer.nickname = input.nickname.trim();
+      if (input.mobile?.trim()) customer.mobile = input.mobile.trim();
+      if (input.unionid) customer.wechatUnionid = input.unionid;
+    }
+    customer.lastLoginAt = now;
+    return clone(customer);
   }
 
   createOrder(input, now = new Date()) {
@@ -1023,6 +1111,7 @@ export class MemoryStore {
       status: "PENDING_PAYMENT",
       capacityLockExpiresAt: new Date(now.getTime() + 15 * 60 * 1000).toISOString(),
       profile: clone(input.profile ?? {}),
+      paymentMethod: "WECHAT",
       createdAt: now.toISOString()
     };
     this.orders.push(order);
@@ -1051,12 +1140,50 @@ export class MemoryStore {
     this.releaseExpiredCapacityLocks();
     const order = this.#requireOrder(id);
     assert(order.status === "PENDING_PAYMENT", 409, "订单状态不允许付款确认");
+    if (input.amountCents != null) assert(Number(input.amountCents) === order.amountCents, 400, "支付金额与订单不一致");
     order.status = "BOOKED";
     order.paymentMethod = input.paymentMethod ?? "WECHAT";
     order.wechatTransactionId = input.wechatTransactionId;
+    order.wechatTradeState = input.tradeState ?? order.wechatTradeState;
+    order.wechatPayerOpenid = input.payerOpenid ?? order.wechatPayerOpenid;
     order.paidAt = new Date().toISOString();
     order.capacityLockExpiresAt = null;
+    this.#notifyActivitySubaccounts(order.activityId, {
+      type: "NEW_ORDER",
+      title: "收到新的活动订单",
+      message: `${order.profile?.contactName ?? "客人"} 预约了「${localized(this.#requireActivity(order.activityId).translations).name}」`
+    });
     return clone(order);
+  }
+
+  confirmWechatPaymentByOutTradeNo(outTradeNo, input = {}) {
+    const order = this.orders.find((item) => item.orderNo === outTradeNo);
+    assert(order, 404, "订单不存在");
+    if (order.status === "BOOKED") return this.#presentOrder(order);
+    return this.confirmOrderPayment(order.id, {
+      paymentMethod: "WECHAT",
+      wechatTransactionId: input.transactionId,
+      tradeState: input.tradeState,
+      payerOpenid: input.payerOpenid,
+      amountCents: input.amountCents
+    });
+  }
+
+  getWechatPaymentTarget(orderId, input = {}) {
+    this.releaseExpiredCapacityLocks();
+    const order = this.#requireOrder(orderId);
+    if (input.customerId) assert(order.customerId === input.customerId, 403, "不能支付其他顾客的订单");
+    assert(order.status === "PENDING_PAYMENT", 409, "订单状态不允许发起支付");
+    const customer = this.#requireCustomer(order.customerId);
+    assert(customer.wechatOpenid, 400, "当前顾客尚未完成微信登录");
+    const activity = this.#requireActivity(order.activityId);
+    return {
+      orderId: order.id,
+      orderNo: order.orderNo,
+      amountCents: order.amountCents,
+      openid: customer.wechatOpenid,
+      description: localized(activity.translations).name
+    };
   }
 
   getCancellationPreview(id, input = {}, now = new Date()) {
@@ -1135,6 +1262,10 @@ export class MemoryStore {
       .filter((review) => includeHidden || !review.hidden)
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
       .map((review) => this.#presentReview(review));
+  }
+
+  getReview(id) {
+    return this.#presentReview(this.#requireReview(id));
   }
 
   createReview(activityId, input) {
@@ -1299,11 +1430,15 @@ export class MemoryStore {
 
   #managedGuideIds(adminAccountId) {
     const account = adminAccountId ? this.#requireEnabledAdminAccount(adminAccountId) : null;
+    if (!account || account.role === "OWNER") return new Set(this.guides.map((guide) => guide.id));
     const groupIds = account ? new Set(account.groupIds) : null;
-    return new Set(this.activities
+    const guideIds = new Set(this.activities
       .filter((activity) => !groupIds || groupIds.has(activity.groupId))
       .flatMap((activity) => activity.guideIds ?? [])
       .filter((guideId) => this.guides.some((guide) => guide.id === guideId)));
+    const ownGuide = this.guides.find((guide) => guide.name === account.displayName);
+    if (ownGuide) guideIds.add(ownGuide.id);
+    return guideIds;
   }
 
   #presentCustomer(customer) {
@@ -1434,6 +1569,7 @@ export class MemoryStore {
     this.adminAccounts
       .filter((account) => account.role === "SUBACCOUNT" && account.enabled && account.groupIds.includes(activity.groupId))
       .filter((account) => account.id !== input.excludedAdminAccountId)
+      .filter((account) => input.type?.includes("REVIEW") ? account.notificationSettings?.reviews !== false : account.notificationSettings?.orders !== false)
       .forEach((account) => {
         this.notifications.push({
           id: randomUUID(),
@@ -1552,9 +1688,17 @@ export class MemoryStore {
     return account;
   }
 
+  #requireEditableSubaccount(id) {
+    const account = this.#requireAdminAccount(id);
+    assert(account.role === "SUBACCOUNT", 400, "主账号不能在这里修改");
+    return account;
+  }
+
   #presentAdminAccount(account) {
     return clone({
       ...account,
+      notificationSettings: this.#normalizeAdminNotificationSettings(account.notificationSettings),
+      wechatBinding: account.wechatBinding ?? this.#createWechatBinding(),
       groups: account.groupIds.map((groupId) => this.#requireGroup(groupId))
     });
   }

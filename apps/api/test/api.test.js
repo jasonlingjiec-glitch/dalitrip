@@ -40,6 +40,20 @@ test("lists localized activities and filters tags with AND semantics", async () 
   assert.deepEqual(emptyResponse.json().data, []);
 });
 
+test("paginates admin activity and review lists", async () => {
+  const app = createApp();
+
+  const activities = await request(app, "/api/activities?compact=true&page=1&pageSize=1");
+  assert.equal(activities.status, 200);
+  assert.equal(activities.json().data.items.length, 1);
+  assert.equal(activities.json().data.pageSize, 1);
+
+  const reviews = await request(app, "/api/reviews?includeHidden=true&compact=true&page=1&pageSize=1");
+  assert.equal(reviews.status, 200);
+  assert.equal(reviews.json().data.items.length, 1);
+  assert.equal(reviews.json().data.pageSize, 1);
+});
+
 test("lists public upcoming departures with masked customer names", () => {
   const store = new MemoryStore();
   const departures = store.listUpcomingDepartures({ now: new Date("2026-06-02T00:00:00.000Z") });
@@ -135,9 +149,20 @@ test("creates tags and rejects duplicate Chinese tag names", async () => {
   assert.equal(removed.status, 200);
   assert.equal(removed.json().data.id, createdTagId);
 
+  const filteredModule = await request(app, "/api/home-modules/home-module-activities", {
+    method: "PATCH",
+    body: JSON.stringify({ tagIds: ["tag-hiking", "tag-beginner"] })
+  });
+  assert.equal(filteredModule.status, 200);
+  assert.deepEqual(filteredModule.json().data.tagIds, ["tag-hiking", "tag-beginner"]);
+
   const used = await request(app, "/api/tags/tag-hiking", { method: "DELETE" });
-  assert.equal(used.status, 409);
-  assert.equal(used.json().error.message, "标签正在被活动使用，请先从活动中移除");
+  assert.equal(used.status, 200);
+  assert.equal(used.json().data.id, "tag-hiking");
+  const activity = await request(app, "/api/activities/activity-forest-hike");
+  assert.equal(activity.json().data.tags.some((tag) => tag.id === "tag-hiking"), false);
+  const homeModule = (await request(app, "/api/home-modules")).json().data.find((module) => module.id === "home-module-activities");
+  assert.equal(homeModule.tagIds.some((tagId) => tagId === "tag-hiking"), false);
 });
 
 test("edits an activity while preserving untranslated locale content", async () => {
@@ -563,11 +588,12 @@ test("creates edits and disables a group-scoped subaccount", async () => {
   const app = createApp();
   const created = await request(app, "/api/admin-accounts", {
     method: "POST",
-    body: JSON.stringify({ displayName: "阿青", mobile: "13800009999", groupIds: ["group-hiking"] })
+    body: JSON.stringify({ displayName: "阿青", groupIds: ["group-hiking"] })
   });
   assert.equal(created.status, 201);
   const account = created.json().data;
   assert.equal(account.groups[0].name, "徒步组");
+  assert.equal(account.mobile, "");
 
   const edited = await request(app, `/api/admin-accounts/${account.id}`, {
     method: "PATCH",
@@ -582,6 +608,33 @@ test("creates edits and disables a group-scoped subaccount", async () => {
   });
   assert.equal(disabled.status, 200);
   assert.equal(disabled.json().data.enabled, false);
+});
+
+test("binds a subaccount to a wechat identity and refreshes the binding code", async () => {
+  const app = createApp();
+  const created = await request(app, "/api/admin-accounts", {
+    method: "POST",
+    body: JSON.stringify({ displayName: "阿青", mobile: "13800009999", groupIds: ["group-hiking"] })
+  });
+  const account = created.json().data;
+  assert.equal(account.wechatBinding.status, "UNBOUND");
+  assert.ok(account.wechatBinding.token);
+
+  const bound = await request(app, `/api/admin-accounts/${account.id}/wechat-binding`, {
+    method: "PATCH",
+    body: JSON.stringify({ action: "simulate-bind", nickname: "阿青微信" })
+  });
+  assert.equal(bound.status, 200);
+  assert.equal(bound.json().data.wechatBinding.status, "BOUND");
+  assert.equal(bound.json().data.wechatBinding.nickname, "阿青微信");
+
+  const refreshed = await request(app, `/api/admin-accounts/${account.id}/wechat-binding`, {
+    method: "PATCH",
+    body: JSON.stringify({ action: "refresh" })
+  });
+  assert.equal(refreshed.status, 200);
+  assert.equal(refreshed.json().data.wechatBinding.status, "UNBOUND");
+  assert.notEqual(refreshed.json().data.wechatBinding.token, account.wechatBinding.token);
 });
 
 test("requires at least one subaccount group and protects the owner account", async () => {
@@ -1042,6 +1095,34 @@ test("notifies only related enabled subaccounts about reviews and customer repli
   });
   assert.equal(marked.status, 200);
   assert.equal(marked.json().data.read, true);
+});
+
+test("respects subaccount notification switches for reviews", async () => {
+  const app = createApp();
+  const account = await request(app, "/api/admin-accounts", {
+    method: "POST",
+    body: JSON.stringify({
+      displayName: "静默领队",
+      mobile: "13800004444",
+      groupIds: ["group-hiking"],
+      notificationSettings: { orders: true, reviews: false }
+    })
+  });
+
+  await request(app, "/api/activities/activity-forest-hike/reviews", {
+    method: "POST",
+    body: JSON.stringify({
+      customerId: "customer-demo",
+      displayName: "M**",
+      rating: 5,
+      content: "新的森林评价",
+      imageUrls: []
+    })
+  });
+
+  const notifications = await request(app, `/api/notifications?adminAccountId=${account.json().data.id}`);
+  assert.equal(notifications.status, 200);
+  assert.deepEqual(notifications.json().data, []);
 });
 
 test("does not notify a subaccount about its own review reply", async () => {

@@ -1,0 +1,312 @@
+<view class="page">
+  <block wx:if="{{localDetailOpen}}">
+    <view class="detail local-info-detail">
+      <view class="detail-header">
+        <button class="back" bindtap="closeLocalInfo">‹</button>
+        <text>{{localInfoDetail.title || "在地信息"}}</text>
+      </view>
+      <scroll-view class="detail-body" scroll-y>
+        <image wx:if="{{localInfoDetail.coverUrl}}" class="local-info-detail-cover" src="{{localInfoDetail.coverUrl}}" mode="aspectFill" />
+        <view wx:else class="local-info-detail-cover image-placeholder"></view>
+        <view class="local-info-detail-copy">
+          <text class="eyebrow">LOCAL GUIDE</text>
+          <text class="section-title">{{localInfoDetail.title}}</text>
+          <text class="summary">{{localInfoDetail.summary}}</text>
+          <view class="tag-row">
+            <text wx:for="{{localInfoDetail.tags}}" wx:key="*this">{{item}}</text>
+          </view>
+          <view wx:if="{{localInfoDetail.address}}" class="local-fact">
+            <text class="muted">地址</text>
+            <text>{{localInfoDetail.address}}</text>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+  </block>
+
+  <block wx:elif="{{blogDetailOpen}}">
+    <view class="detail article-detail">
+      <view class="detail-header">
+        <button class="back" bindtap="closeBlog">‹</button>
+        <text>{{blogDetail.title || "文章"}}</text>
+      </view>
+      <scroll-view class="detail-body" scroll-y>
+        <view wx:if="{{blogDetail}}" class="article-detail-copy">
+          <text class="eyebrow">DALI LIFE</text>
+          <text class="article-title">{{blogDetail.title}}</text>
+          <text class="muted">{{blogDetail.publishedAtText}}</text>
+          <button class="share-button" open-type="share">发给朋友</button>
+          <text class="article-body-text">{{blogDetail.contentText}}</text>
+        </view>
+        <view wx:else class="empty">正在读取文章...</view>
+      </scroll-view>
+    </view>
+  </block>
+
+  <block wx:elif="{{guideDetailOpen}}">
+    <view class="detail guide-detail">
+      <view class="detail-header">
+        <button class="back" bindtap="closeGuide">‹</button>
+        <text>{{guideDetail.name || "领队"}}</text>
+      </view>
+      <scroll-view class="detail-body" scroll-y>
+        <view wx:if="{{guideDetail}}" class="guide-detail-copy">
+          <text class="eyebrow">GUIDE PROFILE</text>
+          <text class="article-title">{{guideDetail.name}}</text>
+          <button class="share-button" open-type="share">发给朋友</button>
+          <image wx:if="{{guideDetail.photoUrl}}" class="guide-detail-photo" src="{{guideDetail.photoUrl}}" mode="aspectFill" />
+          <view wx:if="{{guideDetail.images.length}}" class="guide-detail-thumbs">
+            <image wx:for="{{guideDetail.images}}" wx:key="*this" src="{{item}}" mode="aspectFill" />
+          </view>
+          <text class="article-body-text">{{guideDetail.contentText}}</text>
+        </view>
+        <view wx:else class="empty">正在读取领队...</view>
+      </scroll-view>
+    </view>
+  </block>
+
+  <block wx:elif="{{!detailOpen}}">
+    <scroll-view class="content" scroll-y>
+      <view wx:if="{{activeTab === 'home'}}" class="screen">
+        <view class="home-hero">
+          <text class="brand">苍山徒步之家</text>
+          <text class="hero-title">在大理，有美好自由的旅行</text>
+          <text class="hero-subtitle">去湖泊，森林，山里人家，采集植物，做手工</text>
+        </view>
+
+        <view class="section" wx:if="{{topics.length}}">
+          <text class="eyebrow">DISCOVER MORE</text>
+          <text class="section-title">专题探索</text>
+          <view class="topic-grid">
+            <view wx:for="{{topics}}" wx:key="id" class="topic-card">
+              <image wx:if="{{item.imageUrl}}" src="{{item.imageUrl}}" mode="aspectFill" />
+              <view wx:else class="image-placeholder"></view>
+              <text>{{item.title}}</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="section" wx:if="{{upcoming.length}}">
+          <text class="eyebrow">NEXT DEPARTURES</text>
+          <text class="section-title">加入吧！即将出发的旅行</text>
+          <scroll-view scroll-x class="upcoming-scroll">
+            <view wx:for="{{upcoming}}" wx:key="slotId" class="upcoming-card" data-id="{{item.activityId}}" bindtap="openActivity">
+              <view class="avatar">{{item.participantCount}}</view>
+              <view class="upcoming-copy">
+                <text class="muted">已有{{item.participantCount}}人预约了</text>
+                <text class="item-title">{{item.activityName}}</text>
+                <text class="muted">{{item.timeText}}</text>
+              </view>
+            </view>
+          </scroll-view>
+        </view>
+
+        <view class="section" wx:if="{{homeReviews.length}}">
+          <view class="section-row">
+            <view>
+              <text class="eyebrow">LATEST STORIES</text>
+              <text class="section-title">旅行者的体验</text>
+            </view>
+            <button class="inline-button" bindtap="toggleReviews">{{reviewsExpanded ? "收起" : "展开"}}</button>
+          </view>
+          <scroll-view scroll-x class="home-review-scroll">
+            <view wx:for="{{homeReviews}}" wx:key="id" class="home-review-card {{reviewsExpanded ? 'expanded' : ''}}">
+              <view class="home-review-head">
+                <view class="review-avatar">{{item.avatar}}</view>
+                <view>
+                  <text class="review-name">{{item.displayName}}</text>
+                  <text class="review-stars">{{item.ratingStars}}</text>
+                </view>
+                <text class="review-date">{{item.createdAtText}}</text>
+              </view>
+              <text class="home-review-text">{{item.content}}</text>
+              <text class="review-activity">#{{item.activityName}}</text>
+              <view wx:if="{{item.imageUrls.length}}" class="home-review-images">
+                <button wx:for="{{item.imageUrls}}" wx:for-item="image" wx:for-index="imageIndex" wx:key="*this" data-id="{{item.id}}" data-index="{{imageIndex}}" catchtap="previewReviewImage">
+                  <image src="{{image}}" mode="aspectFill" />
+                </button>
+              </view>
+            </view>
+          </scroll-view>
+        </view>
+
+        <view class="section" wx:if="{{guides.length}}">
+          <view class="section-row">
+            <view>
+              <text class="eyebrow">MEET THE GUIDES</text>
+              <text class="section-title">领队</text>
+            </view>
+          </view>
+          <scroll-view scroll-x class="guide-scroll">
+            <button wx:for="{{guides}}" wx:key="id" class="guide-card" data-id="{{item.id}}" bindtap="openGuide">
+              <image wx:if="{{item.photoUrl}}" src="{{item.photoUrl}}" mode="aspectFill" />
+              <view wx:else class="guide-placeholder">{{item.name}}</view>
+              <text class="item-title">{{item.name}}</text>
+              <text class="summary">{{item.summary}}</text>
+            </button>
+          </scroll-view>
+        </view>
+
+        <view class="section" wx:if="{{blogPosts.length}}">
+          <text class="eyebrow">DALI LIFE</text>
+          <text class="section-title">博客</text>
+          <view class="card-grid">
+            <button wx:for="{{blogPosts}}" wx:key="id" class="blog-card" data-slug="{{item.slug}}" bindtap="openBlog">
+              <image wx:if="{{item.coverUrl}}" src="{{item.coverUrl}}" mode="aspectFill" />
+              <view wx:else class="image-placeholder"></view>
+              <view class="card-copy">
+                <text class="item-title">{{item.title}}</text>
+                <text class="muted">{{item.publishedAtText}}</text>
+                <text class="summary">{{item.summary}}</text>
+              </view>
+            </button>
+          </view>
+        </view>
+
+        <view class="section">
+          <text class="eyebrow">EXPLORE</text>
+          <text class="section-title">活动推荐</text>
+          <view class="card-grid">
+            <button wx:for="{{activities}}" wx:key="id" class="activity-card" data-id="{{item.id}}" bindtap="openActivity">
+              <image wx:if="{{item.coverUrl}}" src="{{item.coverUrl}}" mode="aspectFill" />
+              <view wx:else class="image-placeholder"></view>
+              <view class="card-copy">
+                <text class="item-title">{{item.name}}</text>
+                <text class="summary">{{item.summary}}</text>
+              </view>
+            </button>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{activeTab === 'booking'}}" class="screen">
+        <view class="section first">
+          <text class="eyebrow">BOOKING</text>
+          <text class="section-title">日期预约</text>
+          <button wx:for="{{activities}}" wx:key="id" class="list-row" data-id="{{item.id}}" bindtap="openActivity">
+            <view>
+              <text class="item-title">{{item.name}}</text>
+              <text class="summary">{{item.summary}}</text>
+            </view>
+          </button>
+        </view>
+      </view>
+
+      <view wx:if="{{activeTab === 'local'}}" class="screen local-screen">
+        <view class="local-hero">
+          <text class="eyebrow">LOCAL GUIDE</text>
+          <text class="local-hero-title">吃饭，住下，散步，遇见生活</text>
+          <text class="local-hero-copy">我们把大理的在地信息按场景整理，也留意最近会发生的集市、节日和社区活动。</text>
+        </view>
+
+        <view class="local-scene-grid">
+          <button wx:for="{{localScenes}}" wx:key="tag" class="local-scene-card scene-{{index}}" data-tag="{{item.tag}}" bindtap="openLocalScene">
+            <image wx:if="{{item.imageUrl}}" src="{{item.imageUrl}}" mode="aspectFill" />
+            <view wx:else class="image-placeholder"></view>
+            <view class="local-scene-mask"></view>
+            <view class="local-scene-copy">
+              <text>{{item.title}}</text>
+              <text>{{item.subtitle}}</text>
+            </view>
+          </button>
+        </view>
+
+        <view class="section local-upcoming-section" wx:if="{{localEvents.length}}">
+          <text class="eyebrow">COMING SOON</text>
+          <text class="section-title">最近发生</text>
+          <button wx:for="{{localEvents}}" wx:key="id" class="local-event-card" data-id="{{item.id}}" data-kind="{{item.kind}}" bindtap="openLocalEvent">
+            <view class="local-event-day">{{item.day}}</view>
+            <view class="local-event-copy">
+              <text class="item-title">{{item.title}}</text>
+              <text class="muted">{{item.meta}}</text>
+            </view>
+            <image wx:if="{{item.imageUrl}}" src="{{item.imageUrl}}" mode="aspectFill" />
+          </button>
+        </view>
+
+        <view class="section local-directory">
+          <view class="local-directory-title">
+            <view>
+              <text class="eyebrow">DIRECTORY</text>
+              <text class="section-title">{{localFilter ? localFilter : "全部在地信息"}}</text>
+            </view>
+            <button wx:if="{{localFilter}}" class="small-button" bindtap="clearLocalFilter">全部</button>
+          </view>
+          <button wx:for="{{visibleLocalInfos}}" wx:key="id" class="local-card" data-id="{{item.id}}" bindtap="openLocalInfo">
+            <image wx:if="{{item.coverUrl}}" src="{{item.coverUrl}}" mode="aspectFill" />
+            <view wx:else class="local-card-placeholder">在地</view>
+            <view>
+              <text class="item-title">{{item.title}}</text>
+              <text class="summary">{{item.summary}}</text>
+              <text class="muted">{{item.tagText}}</text>
+            </view>
+          </button>
+          <view wx:if="{{!visibleLocalInfos.length}}" class="empty">这个分类暂时没有内容。</view>
+        </view>
+      </view>
+
+      <view wx:if="{{activeTab === 'mine'}}" class="screen">
+        <view class="section first">
+          <text class="eyebrow">ACCOUNT</text>
+          <text class="section-title">我的</text>
+          <view class="login-panel">
+            <text class="summary">{{customerId ? "微信身份已连接" : "登录后查看订单"}}</text>
+            <button class="small-button" bindtap="login">{{customerId ? "刷新订单" : "微信登录"}}</button>
+          </view>
+        </view>
+        <view class="section">
+          <text class="section-title">我的订单</text>
+          <view wx:if="{{orders.length}}">
+            <view wx:for="{{orders}}" wx:key="id" class="order-card">
+              <text class="item-title">{{item.activityName}}</text>
+              <text class="summary">{{item.timeText}}</text>
+              <text class="muted">{{item.amountText}} · {{item.statusText}}</text>
+            </view>
+          </view>
+          <view wx:else class="empty">还没有订单。</view>
+        </view>
+      </view>
+    </scroll-view>
+  </block>
+
+  <view wx:else class="detail">
+    <view class="detail-header">
+      <button class="back" bindtap="closeDetail">‹</button>
+      <text>{{activity.name || "活动详情"}}</text>
+    </view>
+    <scroll-view class="detail-body" scroll-y>
+      <view wx:if="{{activity}}">
+        <image wx:if="{{activity.coverUrl}}" class="detail-cover" src="{{activity.coverUrl}}" mode="aspectFill" />
+        <view wx:else class="detail-cover image-placeholder"></view>
+        <view class="section">
+          <text class="section-title">{{activity.name}}</text>
+          <text class="summary">{{activity.summary}}</text>
+          <view class="tag-row">
+            <text wx:for="{{activity.tags}}" wx:key="*this">{{item}}</text>
+          </view>
+        </view>
+        <view class="section">
+          <text class="section-title">选择时间</text>
+          <button wx:for="{{slots}}" wx:key="id" class="slot {{selectedSlotId === item.id ? 'selected' : ''}}" data-id="{{item.id}}" bindtap="selectSlot">
+            <text>{{item.timeText}}</text>
+            <text class="muted">{{item.priceText}} · 已订 {{item.bookedCount}} / {{item.capacity}}</text>
+          </button>
+          <view wx:if="{{!slots.length}}" class="empty">未来 30 天暂时没有可约时间。</view>
+        </view>
+      </view>
+      <view wx:else class="empty">正在读取活动...</view>
+    </scroll-view>
+    <view class="pay-bar">
+      <button class="primary" loading="{{payLoading}}" bindtap="createOrderAndPay">预约并微信支付</button>
+    </view>
+  </view>
+
+  <view wx:if="{{status}}" class="toast-line">{{status}}</view>
+
+  <view wx:if="{{!detailOpen && !localDetailOpen && !blogDetailOpen && !guideDetailOpen}}" class="tabbar">
+    <button class="{{activeTab === 'home' ? 'active' : ''}}" data-tab="home" bindtap="switchTab">首页</button>
+    <button class="{{activeTab === 'booking' ? 'active' : ''}}" data-tab="booking" bindtap="switchTab">日期预约</button>
+    <button class="{{activeTab === 'local' ? 'active' : ''}}" data-tab="local" bindtap="switchTab">在地</button>
+    <button class="{{activeTab === 'mine' ? 'active' : ''}}" data-tab="mine" bindtap="switchTab">我的</button>
+  </view>
+</view>

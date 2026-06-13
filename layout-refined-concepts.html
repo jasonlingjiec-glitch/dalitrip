@@ -1,0 +1,991 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dali Trip Refined Layout Concepts</title>
+  <style>
+    :root {
+      --ink: #24332f;
+      --muted: #6f7d74;
+      --soft: #8c978f;
+      --paper: #fbf6ec;
+      --paper-2: #f4ecdf;
+      --card: #fffaf2;
+      --line: rgba(38, 51, 47, .14);
+      --moss: #4e665a;
+      --olive: #788165;
+      --tea: #9b865f;
+      --bluegreen: #1e6670;
+      --shadow: 0 18px 42px rgba(33, 39, 35, .12);
+      --serif: "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", serif;
+      --sans: "PingFang SC", "Noto Sans SC", system-ui, -apple-system, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #eee7dc;
+      color: var(--ink);
+      font-family: var(--sans);
+      letter-spacing: 0;
+    }
+    img { display: block; width: 100%; height: 100%; object-fit: cover; }
+    button { font: inherit; color: inherit; }
+
+    .page {
+      width: min(1480px, calc(100vw - 48px));
+      margin: 0 auto;
+      padding: 36px 0 64px;
+    }
+    .topnote {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 28px;
+      padding: 0 4px 24px;
+      border-bottom: 1px solid rgba(36, 51, 47, .12);
+      margin-bottom: 32px;
+    }
+    .topnote h1 {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: 34px;
+      font-weight: 400;
+      line-height: 1.2;
+    }
+    .topnote p {
+      margin: 8px 0 0;
+      max-width: 720px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.8;
+    }
+    .badge {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 9px 14px;
+      color: var(--moss);
+      white-space: nowrap;
+      background: rgba(255, 250, 242, .52);
+      font-size: 13px;
+    }
+
+    .concept {
+      margin: 0 0 44px;
+      padding: 22px;
+      border: 1px solid rgba(36, 51, 47, .12);
+      background: rgba(251, 246, 236, .52);
+    }
+    .concept-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: start;
+      margin-bottom: 18px;
+    }
+    .concept-kicker {
+      color: var(--tea);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .16em;
+      margin-bottom: 8px;
+    }
+    .concept h2 {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: 26px;
+      font-weight: 400;
+    }
+    .concept-head p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 680px;
+      font-size: 14px;
+    }
+    .screens {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(280px, 1fr));
+      gap: 18px;
+      align-items: start;
+    }
+    .screen-label {
+      margin: 0 0 8px;
+      color: var(--moss);
+      font-size: 13px;
+    }
+    .phone {
+      position: relative;
+      width: 100%;
+      max-width: 360px;
+      height: 760px;
+      margin: 0 auto;
+      overflow: hidden;
+      border: 1px solid rgba(34, 48, 44, .18);
+      border-radius: 8px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+    .status {
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      color: var(--muted);
+      background: rgba(255, 250, 242, .72);
+      border-bottom: 1px solid var(--line);
+    }
+    .bottom-nav {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 72px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      align-items: center;
+      background: rgba(255, 250, 242, .92);
+      border-top: 1px solid var(--line);
+      backdrop-filter: blur(10px);
+      color: #7b887f;
+      font-size: 12px;
+      text-align: center;
+    }
+    .bottom-nav b { color: var(--tea); font-weight: 500; }
+    .scroll {
+      height: calc(100% - 42px);
+      overflow: hidden;
+      padding-bottom: 86px;
+    }
+    .section {
+      padding: 22px 18px 0;
+    }
+    .eyebrow {
+      color: var(--moss);
+      font-size: 11px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      margin-bottom: 7px;
+    }
+    .title {
+      margin: 0;
+      font-family: var(--serif);
+      font-weight: 400;
+      line-height: 1.25;
+    }
+    .copy {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .a-hero {
+      padding: 30px 24px 24px;
+      background: var(--paper);
+    }
+    .a-hero .brand {
+      color: var(--moss);
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+    .a-hero h3 {
+      font-size: 28px;
+      max-width: 280px;
+    }
+    .a-hero p { margin: 12px 0 0; }
+    .big-photo {
+      height: 230px;
+      margin: 22px 18px 0;
+      position: relative;
+      overflow: hidden;
+      border-radius: 6px;
+    }
+    .big-photo::after,
+    .overlay-card::after,
+    .pillar::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, rgba(23, 32, 29, .04), rgba(23, 32, 29, .52));
+    }
+    .big-photo .caption {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 16px;
+      z-index: 1;
+      color: #fffaf2;
+    }
+    .big-photo .caption strong {
+      display: block;
+      font-family: var(--serif);
+      font-size: 24px;
+      font-weight: 400;
+    }
+    .big-photo .caption span {
+      display: block;
+      margin-top: 6px;
+      opacity: .84;
+      font-size: 12px;
+    }
+    .quiet-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 14px 18px 0;
+    }
+    .quiet-card {
+      min-height: 150px;
+      border: 1px solid var(--line);
+      background: rgba(255, 250, 242, .62);
+      padding: 12px;
+      border-radius: 5px;
+    }
+    .quiet-card strong {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: 18px;
+    }
+    .quiet-card p { margin: 8px 0 0; }
+    .upcoming-line {
+      display: grid;
+      grid-template-columns: 38px 1fr 58px;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: #d7d5c8;
+      display: grid;
+      place-items: center;
+      color: var(--moss);
+      flex: none;
+    }
+    .thumb { width: 58px; height: 58px; border-radius: 4px; overflow: hidden; }
+    .upcoming-line strong {
+      display: block;
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 1.35;
+    }
+    .upcoming-line span {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .detail-top {
+      position: sticky;
+      top: 0;
+      z-index: 4;
+      display: grid;
+      grid-template-columns: 36px 1fr 76px;
+      align-items: center;
+      height: 48px;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(251, 246, 236, .94);
+      backdrop-filter: blur(10px);
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .share {
+      border: 1px solid var(--line);
+      background: transparent;
+      border-radius: 999px;
+      padding: 6px 9px;
+      font-size: 12px;
+    }
+    .detail-title {
+      padding: 22px 18px 12px;
+    }
+    .detail-title h3 {
+      font-size: 25px;
+    }
+    .soft-panel {
+      margin: 12px 18px 0;
+      padding: 14px;
+      border: 1px solid var(--line);
+      background: rgba(255, 250, 242, .58);
+      border-radius: 5px;
+    }
+    .guide-strip {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .guide-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 104px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255,255,255,.32);
+      font-size: 13px;
+    }
+    .guide-chip img {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+    }
+    .gallery {
+      display: flex;
+      gap: 10px;
+      overflow: hidden;
+      padding: 16px 0 2px 18px;
+    }
+    .gallery .frame {
+      width: 246px;
+      height: 246px;
+      border-radius: 6px;
+      overflow: hidden;
+      flex: none;
+    }
+    .book-box {
+      margin: 16px 18px 0;
+      padding: 14px;
+      border: 1px solid rgba(155,134,95,.36);
+      background: #fff4d6;
+      border-radius: 5px;
+    }
+    .book-box button {
+      width: 100%;
+      margin-top: 12px;
+      border: 0;
+      border-radius: 4px;
+      background: var(--bluegreen);
+      color: white;
+      padding: 12px;
+      font-size: 14px;
+    }
+
+    .b-hero {
+      height: 314px;
+      position: relative;
+      overflow: hidden;
+    }
+    .b-hero::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, rgba(25,31,29,.08), rgba(25,31,29,.65));
+    }
+    .b-hero .text {
+      position: absolute;
+      z-index: 1;
+      left: 22px;
+      right: 22px;
+      bottom: 24px;
+      color: #fffaf2;
+    }
+    .b-hero h3 {
+      font-size: 31px;
+      text-shadow: 0 1px 18px rgba(0,0,0,.16);
+    }
+    .three-pillars {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      padding: 14px 14px 0;
+    }
+    .pillar {
+      height: 146px;
+      position: relative;
+      overflow: hidden;
+      border-radius: 5px;
+      color: white;
+    }
+    .pillar span {
+      position: absolute;
+      z-index: 1;
+      left: 10px;
+      right: 8px;
+      bottom: 10px;
+      font-family: var(--serif);
+      line-height: 1.2;
+      font-size: 17px;
+    }
+    .story-list {
+      padding: 10px 18px 0;
+    }
+    .story-row {
+      display: grid;
+      grid-template-columns: 86px 1fr;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .story-row .story-img { width: 86px; height: 86px; border-radius: 4px; overflow: hidden; }
+    .story-row strong {
+      display: block;
+      font-family: var(--serif);
+      font-size: 18px;
+      font-weight: 400;
+      line-height: 1.35;
+    }
+    .about-card {
+      height: 322px;
+      margin: 16px 18px 0;
+      position: relative;
+      overflow: hidden;
+      border-radius: 6px;
+      color: #fffaf2;
+    }
+    .about-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, rgba(15,24,21,.04), rgba(15,24,21,.64));
+    }
+    .about-list {
+      position: absolute;
+      z-index: 1;
+      left: 25px;
+      right: 25px;
+      bottom: 28px;
+    }
+    .about-list h3 {
+      margin: 0 0 16px;
+      font-size: 22px;
+      font-family: var(--serif);
+      font-weight: 400;
+    }
+    .about-list div {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 0;
+      border-top: 1px solid rgba(255,255,255,.32);
+      font-size: 15px;
+    }
+    .circle-q {
+      width: 24px;
+      height: 24px;
+      border: 1px solid rgba(255,255,255,.76);
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+    }
+    .guide-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 12px 18px 0;
+    }
+    .guide-card {
+      border: 1px solid var(--line);
+      background: rgba(255,250,242,.54);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    .guide-card img { height: 128px; }
+    .guide-card div { padding: 10px; }
+    .guide-card strong {
+      font-family: var(--serif);
+      font-size: 17px;
+      font-weight: 400;
+    }
+
+    .c-hero {
+      padding: 24px 18px 0;
+      background: linear-gradient(to bottom, #fbf6ec, #f4ecdf);
+    }
+    .c-hero h3 {
+      font-size: 26px;
+      max-width: 280px;
+    }
+    .c-search {
+      margin-top: 16px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.46);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .horizontal-tags {
+      display: flex;
+      gap: 8px;
+      overflow: hidden;
+      padding: 16px 18px 0;
+    }
+    .tag {
+      flex: none;
+      border: 1px solid var(--line);
+      background: rgba(255,250,242,.52);
+      border-radius: 999px;
+      padding: 7px 11px;
+      color: var(--moss);
+      font-size: 12px;
+    }
+    .local-row {
+      display: grid;
+      grid-template-columns: 100px 1fr;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .local-row .local-img { height: 100px; border-radius: 4px; overflow: hidden; }
+    .local-row strong {
+      display: block;
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: 17px;
+      line-height: 1.35;
+    }
+    .map-pill {
+      display: inline-flex;
+      margin-top: 9px;
+      border: 1px solid rgba(30,102,112,.28);
+      color: var(--bluegreen);
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 12px;
+    }
+    .blog-article {
+      padding: 18px;
+    }
+    .blog-article h3 {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+    .blog-article p {
+      font-size: 15px;
+      color: #52605a;
+      line-height: 2;
+    }
+    .article-photo {
+      height: 260px;
+      overflow: hidden;
+      border-radius: 5px;
+      margin: 16px 0;
+    }
+
+    @media (max-width: 1240px) {
+      .screens { grid-template-columns: repeat(2, minmax(280px, 1fr)); }
+    }
+    @media (max-width: 720px) {
+      .page { width: calc(100vw - 20px); padding-top: 20px; }
+      .topnote, .concept-head { display: block; }
+      .screens { grid-template-columns: 1fr; }
+      .phone { max-width: 390px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="topnote">
+      <div>
+        <h1>DaliTrip 小程序视觉方向</h1>
+        <p>第二轮草稿：用现有的活动、关于苍山徒步之家、在地信息和博客内容，重新组织首页和内页。重点是减少杂乱感，让页面更像一个温润的本地旅行手册。</p>
+      </div>
+      <span class="badge">3 套首页 + 9 个内页片段</span>
+    </header>
+
+    <section class="concept">
+      <div class="concept-head">
+        <div>
+          <div class="concept-kicker">Option A</div>
+          <h2>静谧旅行手册</h2>
+          <p>首页从一句主张和一张大图进入，后面按“马上可加入的旅行 / 近期体验 / 本地信息”往下走。适合想要稳、清楚、不像商业货架的版本。</p>
+        </div>
+        <span class="badge">更克制 / 更像预约入口</span>
+      </div>
+      <div class="screens">
+        <article>
+          <p class="screen-label">首页</p>
+          <div class="phone">
+            <div class="status">苍山徒步之家</div>
+            <div class="scroll">
+              <section class="a-hero">
+                <div class="brand">苍山徒步之家</div>
+                <h3 class="title">在大理，有美好自由的旅行</h3>
+                <p class="copy">去湖泊、森林、山里人家，采集植物，做手工。</p>
+              </section>
+              <div class="big-photo" data-img="activity-image:activity-forest-hike:3">
+                <div class="caption"><strong>近山徒步</strong><span>蕨类森林 · 4 小时 · 适合体力好的朋友</span></div>
+              </div>
+              <section class="section">
+                <div class="eyebrow">NEXT DEPARTURES</div>
+                <h3 class="title" style="font-size:22px;">加入吧，即将出发的旅行</h3>
+                <div class="upcoming-line"><span class="avatar">M</span><span><strong>阔松坪轻徒步 | 田野 · 溪流 · 森林</strong><span>6月15日 14:00-18:00</span></span><span class="thumb" data-img="activity:阔松坪"></span></div>
+                <div class="upcoming-line"><span class="avatar">2</span><span><strong>苍山采野生茶 制作自己的白茶</strong><span>6月16日 14:00-18:00</span></span><span class="thumb" data-img="activity:白茶"></span></div>
+                <div class="upcoming-line"><span class="avatar">Y</span><span><strong>徒步蕨类森林</strong><span>6月17日 14:00-18:00</span></span><span class="thumb" data-img="activity:蕨类"></span></div>
+              </section>
+              <section class="quiet-grid">
+                <div class="quiet-card"><div class="eyebrow">ABOUT</div><strong>关于我们</strong><p class="copy">不是公司，更像一群在地朋友一起做旅行。</p></div>
+                <div class="quiet-card"><div class="eyebrow">LOCAL</div><strong>在地信息</strong><p class="copy">餐馆、咖啡、村庄、节日，慢慢补齐。</p></div>
+              </section>
+            </div>
+            <nav class="bottom-nav"><b>首页</b><span>日期预约</span><span>在地</span><span>我的</span></nav>
+          </div>
+        </article>
+        <article>
+          <p class="screen-label">活动详情</p>
+          <div class="phone">
+            <div class="detail-top"><span>‹</span><strong>徒步蕨类森林</strong><button class="share">发给朋友</button></div>
+            <div class="scroll">
+              <section class="detail-title">
+                <div class="eyebrow">FOREST WALK</div>
+                <h3 class="title">徒步蕨类森林</h3>
+                <p class="copy">溪流、森林、不同种类的蕨类植物，雨季还能遇见蘑菇和野生茶园。</p>
+              </section>
+              <section class="soft-panel">
+                <div class="eyebrow">GUIDES</div>
+                <h3 class="title" style="font-size:18px;">可能带队的领队</h3>
+                <div class="guide-strip">
+                  <span class="guide-chip"><img data-img="guide:旺旺" alt="">旺旺</span>
+                  <span class="guide-chip"><img data-img="guide:红红" alt="">红红</span>
+                </div>
+              </section>
+              <div class="gallery">
+                <span class="frame" data-img="activity:徒步蕨类森林"></span>
+                <span class="frame" data-img="activity-image:activity-forest-hike:2"></span>
+              </div>
+              <section class="book-box">
+                <strong>6月17日 周三 · 14:00-18:00</strong>
+                <p class="copy">已有 2 人预订，最多 12 人</p>
+                <button>预约</button>
+              </section>
+              <section class="section">
+                <div class="eyebrow">SEASONAL NOTE</div>
+                <h3 class="title" style="font-size:20px;">当季特色</h3>
+                <p class="copy">雨季之前的森林湿润但不沉闷，蕨类颜色最深，路上也容易遇到野茶和香茅。</p>
+              </section>
+            </div>
+            <nav class="bottom-nav"><span>首页</span><b>日期预约</b><span>在地</span><span>我的</span></nav>
+          </div>
+        </article>
+        <article>
+          <p class="screen-label">在地信息</p>
+          <div class="phone">
+            <div class="detail-top"><span>‹</span><strong>在地信息</strong><button class="share">分享</button></div>
+            <div class="scroll">
+              <section class="c-hero">
+                <div class="eyebrow">LOCAL DIRECTORY</div>
+                <h3 class="title">大理的日常去处</h3>
+                <p class="copy">不是攻略大全，只放我们确实愿意推荐给朋友的地方。</p>
+                <div class="c-search">搜索：咖啡、民宿、溪流、村庄</div>
+              </section>
+              <div class="horizontal-tags"><span class="tag">全部</span><span class="tag">餐馆</span><span class="tag">咖啡馆</span><span class="tag">民宿</span><span class="tag">自己探索</span></div>
+              <section class="story-list">
+                <div class="local-row"><span class="local-img" data-img="local:沙溪"></span><span><strong>沙溪</strong><p class="copy">茶马古道小镇，镇外有河和田野，适合慢慢走。</p><i class="map-pill">导航</i></span></div>
+                <div class="local-row"><span class="local-img" data-img="local:苍山溪流"></span><span><strong>适合自己去的苍山溪流</strong><p class="copy">容易到达，安全，适合小朋友和大人玩水。</p><i class="map-pill">导航</i></span></div>
+                <div class="local-row"><span class="local-img" data-img="local:与山面包"></span><span><strong>与山面包</strong><p class="copy">社区老店，价格实惠，味道好。</p><i class="map-pill">导航</i></span></div>
+              </section>
+            </div>
+            <nav class="bottom-nav"><span>首页</span><span>日期预约</span><b>在地</b><span>我的</span></nav>
+          </div>
+        </article>
+        <article>
+          <p class="screen-label">博客正文</p>
+          <div class="phone">
+            <div class="detail-top"><span>‹</span><strong>春雨 | 遇见</strong><button class="share">发给朋友</button></div>
+            <div class="scroll">
+              <article class="blog-article">
+                <div class="eyebrow">DALI LIFE</div>
+                <h3 class="title">春雨 | 遇见</h3>
+                <p class="copy">2026年6月8日</p>
+                <div class="article-photo" data-img="blog:春雨"></div>
+                <p>伊宁月结。时间过得好快，到伊宁一个月了。喀什和朋友分开后，我途经阿克苏、库车、库尔勒、新源、伊宁。</p>
+                <p>一路上的变化很慢，但人会在路上重新认识自己的节奏。</p>
+              </article>
+            </div>
+            <nav class="bottom-nav"><span>首页</span><span>日期预约</span><span>在地</span><b>我的</b></nav>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="concept">
+      <div class="concept-head">
+        <div>
+          <div class="concept-kicker">Option B</div>
+          <h2>社区杂志封面</h2>
+          <p>更强调“苍山徒步之家是谁”。首页先给一个有情绪的封面，再把活动、关于、在地作为三个入口。适合品牌感更强、让人先理解气质。</p>
+        </div>
+        <span class="badge">更有品牌感 / 更温润</span>
+      </div>
+      <div class="screens">
+        <article>
+          <p class="screen-label">首页</p>
+          <div class="phone">
+            <div class="status">苍山徒步之家</div>
+            <div class="scroll">
+              <section class="b-hero" data-img="about">
+                <div class="text"><div class="eyebrow" style="color:#fff;">DALI EXPERIENCE COMMUNITY</div><h3 class="title">在大理，遇见自然和真实的人</h3><p class="copy" style="color:rgba(255,250,242,.82)">活动、社区、在地生活，一起慢慢长出来。</p></div>
+              </section>
+              <div class="three-pillars">
+                <div class="pillar" data-img="activity-image:activity-forest-hike:4"><span>活动</span></div>
+                <div class="pillar" data-img="about"><span>关于我们</span></div>
+                <div class="pillar" data-img="local:火把节"><span>在地信息</span></div>
+              </div>
+              <section class="section">
+                <div class="eyebrow">RECOMMENDED</div>
+                <h3 class="title" style="font-size:21px;">这个季节可以这样玩</h3>
+              </section>
+              <div class="story-list">
+                <div class="story-row"><span class="story-img" data-img="activity:采蘑菇"></span><span><strong>上山采蘑菇 | 在农家吃菌子餐</strong><p class="copy">雨季开始以后，森林里有更丰富的植物和味道。</p></span></div>
+                <div class="story-row"><span class="story-img" data-img="activity:白茶"></span><span><strong>苍山采野生茶 制作自己的白茶</strong><p class="copy">轻轻走进山里，把一天留在手上。</p></span></div>
+              </div>
+            </div>
+            <nav class="bottom-nav"><b>首页</b><span>预约</span><span>在地</span><span>我的</span></nav>
+          </div>
+        </article>
+        <article>
+          <p class="screen-label">关于我们</p>
+          <div class="phone">
+            <div class="detail-top"><span>‹</span><strong>关于苍山徒步之家</strong><button class="share">发给朋友</button></div>
+            <div class="scroll">
+              <div class="about-card" data-img="about">
+                <div class="about-list">
+                  <h3>关于苍山徒步之家</h3>
+                  <div><span class="circle-q">?</span><span>我们从哪里来?</span></div>
+                  <div><span class="circle-q">?</span><span>我们在做什么?</span></div>
+                  <div><span class="circle-q">?</span><span>我们的向导是谁?</span></div>
+                  <div><span class="circle-q">?</span><span>怎么联系咨询?</span></div>
+                </div>
+              </div>
+              <section class="section">
+                <div class="eyebrow">MEET THE GUIDES</div>
+                <h3 class="title" style="font-size:22px;">领队</h3>
+              </section>
+              <div class="guide-grid">
+                <div class="guide-card"><img data-img="guide:寒寒" alt=""><div><strong>寒寒</strong><p class="copy">森林、露营和长线旅行。</p></div></div>
+                <div class="guide-card"><img data-img="guide:石头" alt=""><div><strong>石头</strong><p class="copy">山野路线和植物观察。</p></div></div>
+                <div class="guide-card"><img data-img="guide:李真好" alt=""><div><strong>李真好</strong><p class="copy">手作、采摘和社区生活。</p></div></div>
+                <div class="guide-card"><img data-img="guide:小羊" alt=""><div><strong>小羊</strong><p class="copy">大理生活和自然工作室。</p></div></div>
+              </div>
+            </div>
+            <nav class="bottom-nav"><b>首页</b><span>预约</span><span>在地</span><span>我的</span></nav>
+          </div>
+        </article>
+        <article>
+          <p class="screen-label">活动列表</p>
+          <div class="phone">
+            <div class="detail-top"><span>‹</span><strong>活动</strong><button class="share">筛选</button></div>
+            <div class="scroll">
+              <section class="section">
+                <div class="eyebrow">ACTIVITIES</div>
+                <h3 class="title" style="font-size:26px;">按心情选择今天</h3>
+              </section>
+              <div class="horizontal-tags"><span class="tag">徒步</span><span class="tag">亲子</span><span class="tag">手作</span><span class="tag">自然观察</span></div>
+              <div class="story-list">
+                <div class="story-row"><span class="story-img" data-img="activity:蕨类"></span><span><strong>徒步蕨类森林</strong><p class="copy">近山徒步，溪流和大片蕨类。</p><i class="map-pill">¥398 起</i></span></div>
+                <div class="story-row"><span class="story-img" data-img="activity:赶集"></span><span><strong>巍山庙街赶集</strong><p class="copy">当地集市、卤味、小吃和一整天的生活。</p><i class="map-pill">每月逢三、八</i></span></div>
+                <div class="story-row"><span class="story-img" data-img="activity:宝石"></span><span><strong>和舒沙一起捡“宝石”</strong><p class="copy">玩水、画画、找石头。</p><i class="map-pill">亲子友好</i></span></div>
+              </div>
+            </div>
+            <nav class="bottom-nav"><span>首页</span><b>预约</b><span>在地</span><span>我的</span></nav>
+          </div>
+        </article>
+        <article>
+          <p class="screen-label">评论分享</p>
+          <div class="phone">
+            <div class="detail-top"><span>‹</span><strong>旅行者的体验</strong><button class="share">发给朋友</button></div>
+            <div class="scroll">
+              <section class="section">
+                <div class="eyebrow">LATEST STORIES</div>
+                <h3 class="title" style="font-size:24px;">别人留下来的感觉</h3>
+              </section>
+              <section class="soft-panel">
+                <div style="display:flex;gap:10px;align-items:center;"><span class="avatar">Y</span><div><strong>Yu</strong><br><span style="color:#d19a25;">★★★★★</span></div></div>
+                <p class="copy" style="font-size:15px;color:#4f5d57;">想体验一次不一样的大理，没有洱海没有日出，一头扎在森林深处的那种。很庆幸第一天参加蕨类森林，比想象的更有意思。</p>
+                <div class="guide-strip"><span class="thumb" data-img="activity-image:activity-forest-hike:2"></span><span class="thumb" data-img="activity-image:activity-forest-hike:3"></span><span class="thumb" data-img="activity-image:activity-forest-hike:4"></span></div>
+              </section>
+            </div>
+            <nav class="bottom-nav"><span>首页</span><span>预约</span><span>在地</span><b>我的</b></nav>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="concept">
+      <div class="concept-head">
+        <div>
+          <div class="concept-kicker">Option C</div>
+          <h2>清单式探索</h2>
+          <p>更强调“快速找到东西”。首页直接把三大板块变成清楚的导航，并通过横排标签、方图、轻标题来降低信息压力。适合内容越来越多后的长期结构。</p>
+        </div>
+        <span class="badge">更适合内容扩展</span>
+      </div>
+      <div class="screens">
+        <article>
+          <p class="screen-label">首页</p>
+          <div class="phone">
+            <div class="status">Dali Trip</div>
+            <div class="scroll">
+              <section class="c-hero">
+                <div class="eyebrow">START HERE</div>
+                <h3 class="title">想在大理怎么度过一天?</h3>
+                <p class="copy">我们把内容分成活动、关于我们和在地信息。你可以直接进入，也可以从当季推荐开始。</p>
+                <div class="c-search">森林 / 湖泊 / 手作 / 山里人家</div>
+              </section>
+              <div class="quiet-grid">
+                <div class="quiet-card"><div class="eyebrow">01</div><strong>活动</strong><p class="copy">可预约的旅行和体验。</p></div>
+                <div class="quiet-card"><div class="eyebrow">02</div><strong>关于我们</strong><p class="copy">领队、社区和联系方式。</p></div>
+              </div>
+              <section class="section">
+                <div class="eyebrow">LOCAL</div>
+                <h3 class="title" style="font-size:21px;">在地信息</h3>
+              </section>
+              <div class="story-list">
+                <div class="local-row"><span class="local-img" data-img="local:桃仙人"></span><span><strong>程昌的「桃仙人小酒馆」</strong><p class="copy">晚上的一个去处，喝点东西，找地方聊天。</p></span></div>
+                <div class="local-row"><span class="local-img" data-img="local:诺邓"></span><span><strong>诺邓</strong><p class="copy">山坡古村，火腿、盐马古道和更安静的生活。</p></span></div>
+              </div>
+            </div>
+            <nav class="bottom-nav"><b>首页</b><span>预约</span><span>在地</span><span>我的</span></nav>
+          </div>
+        </article>
+        <article>
+          <p class="screen-label">在地详情</p>
+          <div class="phone">
+            <div class="detail-top"><span>‹</span><strong>沙溪</strong><button class="share">发给朋友</button></div>
+            <div class="scroll">
+              <div class="big-photo" data-img="local:沙溪" style="height:260px;"></div>
+              <section class="detail-title">
+                <div class="eyebrow">LOCAL PLACE</div>
+                <h3 class="title">沙溪</h3>
+                <p class="copy">茶马古道小镇，镇外有条黑惠河，沿河可以散步，四周是田野。</p>
+              </section>
+              <section class="soft-panel">
+                <strong>适合</strong>
+                <p class="copy">自己探索 / 一天往返 / 喜欢古镇和田野的人</p>
+                <i class="map-pill">打开导航</i>
+              </section>
+            </div>
+            <nav class="bottom-nav"><span>首页</span><span>预约</span><b>在地</b><span>我的</span></nav>
+          </div>
+        </article>
+        <article>
+          <p class="screen-label">关于页正文</p>
+          <div class="phone">
+            <div class="detail-top"><span>‹</span><strong>我们从哪里来?</strong><button class="share">发给朋友</button></div>
+            <div class="scroll">
+              <section class="blog-article">
+                <div class="eyebrow">ABOUT US</div>
+                <h3 class="title">我们不是一家公司</h3>
+                <p>我们是来自社区的朋友，逐渐聚集在一起但独立工作。2019 年，我在 Airbnb 上推出了“徒步体验+家常晚餐”。</p>
+                <p>后来，社区里的一些朋友也加入了这个团队，带来了不同的当地体验。</p>
+                <div class="article-photo" data-img="about"></div>
+                <p>希望能结识更多来自不同国家的旅行者，在大理进行有意义的旅行。</p>
+              </section>
+            </div>
+            <nav class="bottom-nav"><b>首页</b><span>预约</span><span>在地</span><span>我的</span></nav>
+          </div>
+        </article>
+        <article>
+          <p class="screen-label">领队资料</p>
+          <div class="phone">
+            <div class="detail-top"><span>‹</span><strong>领队资料</strong><button class="share">发给朋友</button></div>
+            <div class="scroll">
+              <div class="big-photo" data-img="guide:寒寒" style="height:260px;"></div>
+              <section class="detail-title">
+                <div class="eyebrow">GUIDE PROFILE</div>
+                <h3 class="title">寒寒</h3>
+                <p class="copy">喜欢森林、长线徒步和自然里的慢时间。每条路线都希望让人多看见一点山里的真实变化。</p>
+              </section>
+              <section class="soft-panel">
+                <strong>主带</strong>
+                <p class="copy">哀牢山森林徒步 / 苍山露营 / 深山路线</p>
+              </section>
+              <section class="section">
+                <div class="eyebrow">RELATED</div>
+                <h3 class="title" style="font-size:20px;">可能会遇见他的活动</h3>
+              </section>
+              <div class="story-list">
+                <div class="story-row"><span class="story-img" data-img="activity:哀牢"></span><span><strong>寒寒的哀牢山森林徒步</strong><p class="copy">2 天旅行，进入更深的森林。</p></span></div>
+              </div>
+            </div>
+            <nav class="bottom-nav"><span>首页</span><span>预约</span><span>在地</span><b>我的</b></nav>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const BASE = "/dalitrip-mvp/";
+    const localizeUrl = (url) => {
+      if (!url) return "";
+      if (url.startsWith("data:")) return url;
+      return url
+        .replace("http://localhost:8890/dalitrip-mvp/", BASE)
+        .replace("https://localhost:8890/dalitrip-mvp/", BASE);
+    };
+    const imageFrom = (item) => localizeUrl(item?.coverUrl || item?.imageUrl || item?.photoUrl || item?.images?.[0]?.url || item?.images?.[0]?.cosKey || "");
+    const activityTitle = (item) => item?.translations?.zh?.name || item?.translations?.["zh-CN"]?.name || item?.title || item?.name || "";
+    const activitySummary = (item) => item?.translations?.zh?.summary || item?.summary || "";
+    const byText = (arr, getter, text) => arr.find((item) => getter(item).includes(text));
+    const fallback = BASE + "imported-assets/shopify-products/hiking-in-the-fern-forest/001-rn-image_picker_lib_temp_caae18d2-ceb9-421f-b600-108424bdb5ef.jpg";
+
+    fetch(BASE + "data/runtime-data.json?v=" + Date.now(), { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data) => {
+        const activities = data.activities || [];
+        const locals = data.localInfos || [];
+        const blogs = data.blogPosts || [];
+        const guides = data.guides || [];
+        const topics = data.topicPages || [];
+        const imageMap = {
+          about: localizeUrl(topics.find((item) => item.title?.includes("苍山徒步之家"))?.imageUrl) || BASE + "outputs/cangshan-topic-square-v2.png",
+          "activity:徒步蕨类森林": imageFrom(byText(activities, activityTitle, "蕨类")) || fallback,
+          "activity:蕨类": imageFrom(byText(activities, activityTitle, "蕨类")) || fallback,
+          "activity:阔松坪": imageFrom(byText(activities, activityTitle, "阔松坪")),
+          "activity:白茶": imageFrom(byText(activities, activityTitle, "白茶")),
+          "activity:采蘑菇": imageFrom(byText(activities, activityTitle, "采蘑菇")),
+          "activity:赶集": imageFrom(byText(activities, activityTitle, "赶集")),
+          "activity:宝石": imageFrom(byText(activities, activityTitle, "宝石")),
+          "activity:哀牢": imageFrom(byText(activities, activityTitle, "哀牢")),
+          "local:沙溪": imageFrom(byText(locals, (x) => x.title || "", "沙溪")),
+          "local:苍山溪流": imageFrom(byText(locals, (x) => x.title || "", "苍山溪流")),
+          "local:与山面包": imageFrom(byText(locals, (x) => x.title || "", "与山面包")),
+          "local:火把节": imageFrom(byText(locals, (x) => x.title || "", "火把节")),
+          "local:桃仙人": imageFrom(byText(locals, (x) => x.title || "", "桃仙人")),
+          "local:诺邓": imageFrom(byText(locals, (x) => x.title || "", "诺邓")),
+          "blog:春雨": imageFrom(byText(blogs, (x) => x.title || "", "春雨")),
+        };
+
+        const fern = byText(activities, activityTitle, "蕨类");
+        if (fern?.images?.length) {
+          fern.images.forEach((img, index) => {
+            imageMap[`activity-image:activity-forest-hike:${index + 1}`] = localizeUrl(img.url || img.cosKey);
+          });
+        }
+        const guideFallbacks = [
+          BASE + "imported-assets/shopify-guides/asset/001-mmexport1737783261240.jpg",
+          BASE + "imported-assets/shopify-guides/asset/004-mmexport1736370894727.jpg",
+          BASE + "imported-assets/wechat-guides-2026-06-12/03-640-2.webp",
+          BASE + "imported-assets/wechat-guides-2026-06-12/06-640-5.webp"
+        ];
+        ["旺旺", "红红", "寒寒", "石头", "李真好", "小羊"].forEach((name, index) => {
+          const guide = byText(guides, (x) => x.name || "", name);
+          imageMap[`guide:${name}`] = imageFrom(guide) || localizeUrl(guide?.images?.[0]) || guideFallbacks[index % guideFallbacks.length];
+        });
+
+        document.querySelectorAll("[data-img]").forEach((node) => {
+          const src = imageMap[node.dataset.img] || fallback;
+          if (node.tagName === "IMG") {
+            node.src = src;
+          } else {
+            node.innerHTML = "";
+            node.style.backgroundImage = `url("${src}")`;
+            node.style.backgroundSize = "cover";
+            node.style.backgroundPosition = "center";
+          }
+        });
+      });
+  </script>
+</body>
+</html>

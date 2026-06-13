@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DaliTrip Layout Concepts</title>
+    <style>
+      :root {
+        --paper: #f7f1e6;
+        --paper-deep: #efe7da;
+        --ink: #243531;
+        --muted: #6f7d79;
+        --line: rgba(42, 60, 54, .13);
+        --teal: #1f7480;
+        --gold: #c9a84b;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 28px;
+        color: var(--ink);
+        background: #eee8dd;
+        font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+      }
+      .page-title { max-width: 1180px; margin: 0 auto 22px; }
+      .page-title p { margin: 0 0 8px; color: var(--muted); font-size: 12px; letter-spacing: .2em; text-transform: uppercase; }
+      .page-title h1 { margin: 0; font-size: 28px; font-weight: 300; letter-spacing: 0; }
+      .grid {
+        max-width: 1180px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 18px;
+        align-items: start;
+      }
+      .option h2 { margin: 0 0 9px; font-size: 15px; font-weight: 500; }
+      .option > p { min-height: 36px; margin: 0 0 12px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+      .phone {
+        width: 100%;
+        aspect-ratio: 390 / 760;
+        overflow: hidden;
+        border: 1px solid rgba(38, 54, 48, .18);
+        border-radius: 18px;
+        background: var(--paper);
+        box-shadow: 0 16px 42px rgba(54, 46, 34, .14);
+      }
+      .screen { height: 100%; overflow: hidden; background: var(--paper); }
+      .brand {
+        padding: 26px 18px 22px;
+        text-align: center;
+        background: var(--paper);
+      }
+      .brand small { display: block; color: #667a74; font-size: 12px; font-weight: 500; letter-spacing: 0; }
+      .brand h3 { margin: 8px 0 7px; font-size: 23px; line-height: 1.25; font-weight: 600; }
+      .brand span { display: block; color: #73817d; font-size: 13px; line-height: 1.5; }
+      .eyebrow { margin: 0 0 6px; color: #6e827b; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; }
+      .section { padding: 15px 14px; border-top: 1px solid var(--line); }
+      .section h4 { margin: 0 0 10px; font-size: 20px; font-weight: 300; line-height: 1.25; }
+      .entry-grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 8px; }
+      .entry-card { position: relative; min-height: 150px; overflow: hidden; border-radius: 6px; color: #fff; background: #203d39; }
+      .entry-card.tall { min-height: 218px; }
+      .entry-card img, .activity-card img, .story-card img, .local-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .entry-card::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.12), rgba(0,0,0,.55)); }
+      .entry-card div { position: absolute; left: 14px; right: 14px; bottom: 14px; z-index: 1; }
+      .entry-card strong { display: block; font-size: 18px; font-weight: 300; }
+      .entry-card span { display: block; margin-top: 5px; font-size: 11px; line-height: 1.35; opacity: .82; }
+      .stack { display: grid; gap: 8px; }
+      .mini-card { min-height: 105px; }
+      .departures { display: grid; gap: 8px; }
+      .departure { min-height: 74px; display: grid; grid-template-columns: 36px minmax(0, 1fr) 58px; gap: 9px; align-items: center; border-bottom: 1px solid var(--line); }
+      .avatar { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; color: #65716d; background: #d9d8cd; font-size: 13px; }
+      .departure strong { display: block; overflow: hidden; font-size: 13px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+      .departure small { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
+      .departure img { width: 58px; height: 58px; border-radius: 3px; object-fit: cover; }
+      .activity-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+      .activity-card { overflow: hidden; border: 1px solid rgba(44, 55, 51, .12); border-radius: 5px; background: #f2ece3; }
+      .activity-card img { aspect-ratio: 1 / 1; }
+      .activity-card strong { display: block; padding: 7px; font-size: 11px; line-height: 1.28; font-weight: 400; }
+      .review-card { padding: 13px; border: 1px solid rgba(44, 55, 51, .12); border-radius: 6px; background: #f2ece3; }
+      .review-card strong { display: block; font-size: 14px; }
+      .review-card p { margin: 7px 0 0; color: #53625e; font-size: 12px; line-height: 1.6; }
+      .story-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .story-card { overflow: hidden; border: 1px solid rgba(44, 55, 51, .12); border-radius: 5px; background: #f2ece3; }
+      .story-card img { aspect-ratio: 4 / 3; }
+      .story-card strong { display: block; padding: 8px; font-size: 13px; font-weight: 300; line-height: 1.35; }
+      .hero-photo { position: relative; height: 260px; color: #fff; overflow: hidden; }
+      .hero-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .hero-photo::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(18,36,33,.08), rgba(18,36,33,.72)); }
+      .hero-photo .hero-copy { position: absolute; z-index: 1; left: 22px; right: 22px; bottom: 24px; }
+      .hero-photo small { display: block; font-size: 12px; opacity: .8; }
+      .hero-photo h3 { margin: 8px 0 0; font-size: 27px; font-weight: 300; line-height: 1.25; }
+      .guide-strip { display: flex; gap: 9px; overflow: hidden; }
+      .guide { min-width: 84px; text-align: center; }
+      .guide img { width: 66px; height: 66px; border-radius: 50%; object-fit: cover; }
+      .guide span { display: block; margin-top: 6px; font-size: 12px; }
+      .quiet-nav { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; padding: 14px; background: #fffaf0; }
+      .quiet-nav button { min-height: 58px; border: 1px solid var(--line); border-radius: 5px; color: var(--ink); background: #f6f0e6; font-size: 14px; }
+      .magazine-feature { padding: 18px 14px 0; }
+      .magazine-feature .entry-card { min-height: 230px; }
+      .local-list { display: grid; gap: 8px; }
+      .local-card { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 9px; padding: 8px; border: 1px solid rgba(44, 55, 51, .12); border-radius: 6px; background: #f2ece3; }
+      .local-card img { width: 72px; height: 72px; border-radius: 4px; }
+      .local-card strong { display: block; font-size: 13px; line-height: 1.35; }
+      .local-card p { margin: 5px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+      .search-hero { padding: 24px 16px 16px; background: #fffaf0; }
+      .search-hero h3 { margin: 0 0 13px; font-size: 24px; font-weight: 300; line-height: 1.25; }
+      .search-box { min-height: 54px; padding: 15px; border: 1px solid var(--line); border-radius: 7px; color: #7c8784; background: #fff; font-size: 14px; }
+      .pill-row { display: flex; gap: 7px; overflow: hidden; margin-top: 11px; }
+      .pill-row span { flex: 0 0 auto; padding: 7px 10px; border: 1px solid var(--line); border-radius: 999px; background: #f6f0e6; font-size: 12px; }
+      @media (max-width: 980px) {
+        .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
+      @media (max-width: 560px) {
+        body { padding: 16px; }
+        .grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="page-title">
+      <p>DaliTrip MVP / 首页信息架构草稿</p>
+      <h1>用现有内容重排四种首页方向</h1>
+    </header>
+    <main id="grid" class="grid"></main>
+    <script>
+      const cleanUrl = (url) => {
+        if (!url) return "";
+        return url.replace("http://localhost:8890/dalitrip-mvp/", "/dalitrip-mvp/");
+      };
+      const text = (html = "") => html.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+      const activityName = (activity) => activity?.translations?.["zh-CN"]?.name || activity?.content?.name || "活动";
+      const activityImage = (activity) => cleanUrl(activity?.coverUrl || activity?.images?.[0]?.url || "");
+      const img = (url, alt = "") => url ? `<img src="${cleanUrl(url)}" alt="${alt}">` : "";
+      const short = (value, len = 34) => value && value.length > len ? `${value.slice(0, len)}...` : value || "";
+      fetch(`./data/runtime-data.json?v=${Date.now()}`, { cache: "no-store" })
+        .then((res) => res.json())
+        .then((data) => {
+          const activities = (data.activities || []).filter((item) => activityImage(item)).slice(0, 8);
+          const topic = (data.topicPages || []).find((item) => item.title.includes("苍山徒步之家")) || data.topicPages?.[0] || {};
+          const local = (data.localInfos || []).filter((item) => item.coverUrl).slice(0, 4);
+          const blogs = (data.blogPosts || []).filter((item) => item.coverUrl).slice(0, 4);
+          const guides = (data.guides || []).filter((item) => item.photoUrl).slice(0, 5);
+          const reviews = (data.reviews || []).slice(0, 2);
+          const localCover = local[0]?.coverUrl || activityImage(activities[1]);
+          const topicCover = topic.imageUrl || blogs[0]?.coverUrl || activityImage(activities[0]);
+          const options = [
+            {
+              key: "A",
+              title: "A 清晰商业版",
+              desc: "首页先说明三个入口，再给正在发生的预订和当季活动。适合正式上线。",
+              html: `
+                <div class="screen">
+                  <div class="brand"><small>苍山徒步之家</small><h3>在大理，有美好自由的旅行</h3><span>去湖泊，森林，山里人家，采集植物，做手工</span></div>
+                  <section class="section"><p class="eyebrow">Start here</p><h4>想先看什么？</h4><div class="entry-grid">
+                    <article class="entry-card tall">${img(activityImage(activities[0]), "活动")}<div><strong>活动预约</strong><span>徒步、采集、手作和自然体验</span></div></article>
+                    <div class="stack">
+                      <article class="entry-card mini-card">${img(topicCover, "关于我们")}<div><strong>关于我们</strong><span>社区和领队</span></div></article>
+                      <article class="entry-card mini-card">${img(localCover, "在地信息")}<div><strong>在地信息</strong><span>朋友式推荐</span></div></article>
+                    </div>
+                  </div></section>
+                  <section class="section"><p class="eyebrow">Next departures</p><h4>加入吧！即将出发的旅行</h4><div class="departures">${activities.slice(0, 3).map((a, i) => `<div class="departure"><span class="avatar">${i + 1}</span><span><strong>${short(activityName(a), 20)}</strong><small>已有${i + 1}人预约了 · 6月${15 + i}日</small></span>${img(activityImage(a), activityName(a))}</div>`).join("")}</div></section>
+                  <section class="section"><p class="eyebrow">Seasonal</p><h4>当季推荐</h4><div class="activity-row">${activities.slice(0, 3).map((a) => `<article class="activity-card">${img(activityImage(a), activityName(a))}<strong>${activityName(a)}</strong></article>`).join("")}</div></section>
+                </div>`
+            },
+            {
+              key: "B",
+              title: "B 社区信任版",
+              desc: "先让用户看到你们是谁、谁带队，再进入活动。更温润，更像真实社区。",
+              html: `
+                <div class="screen">
+                  <div class="hero-photo">${img(topicCover, "关于苍山徒步之家")}<div class="hero-copy"><small>ABOUT US</small><h3>关于苍山徒步之家</h3></div></div>
+                  <section class="quiet-nav"><button>活动</button><button>领队</button><button>在地</button></section>
+                  <section class="section"><p class="eyebrow">Meet the guides</p><h4>和谁一起出发</h4><div class="guide-strip">${guides.map((g) => `<div class="guide">${img(g.photoUrl, g.name)}<span>${g.name}</span></div>`).join("")}</div></section>
+                  <section class="section"><p class="eyebrow">Travel now</p><h4>近期可参加</h4><div class="activity-row">${activities.slice(0, 3).map((a) => `<article class="activity-card">${img(activityImage(a), activityName(a))}<strong>${activityName(a)}</strong></article>`).join("")}</div></section>
+                  <section class="section"><p class="eyebrow">Latest stories</p><h4>我们的生活</h4><div class="story-grid">${blogs.slice(0, 2).map((b) => `<article class="story-card">${img(b.coverUrl, b.title)}<strong>${b.title}</strong></article>`).join("")}</div></section>
+                  <section class="section"><div class="review-card"><strong>${reviews[0]?.displayName || "旅行者"} · ★★★★★</strong><p>${short(reviews[0]?.content || "一次温柔、自由、真实的大理旅行体验。", 58)}</p></div></section>
+                </div>`
+            },
+            {
+              key: "C",
+              title: "C 杂志高级版",
+              desc: "更克制，首屏像独立旅行杂志。内容少一点，但图和留白更有质感。",
+              html: `
+                <div class="screen">
+                  <div class="brand"><small>苍山徒步之家</small><h3>六月，去森林和湖边</h3><span>把旅行做得轻一点，慢一点，真实一点</span></div>
+                  <div class="magazine-feature"><article class="entry-card">${img(activityImage(activities[2] || activities[0]), "精选")}<div><strong>${activityName(activities[2] || activities[0])}</strong><span>当季精选体验</span></div></article></div>
+                  <section class="quiet-nav"><button>预约活动</button><button>关于我们</button><button>在地清单</button></section>
+                  <section class="section"><p class="eyebrow">Selected</p><h4>少一点，但更想去</h4><div class="story-grid">${activities.slice(0, 2).map((a) => `<article class="story-card">${img(activityImage(a), activityName(a))}<strong>${activityName(a)}</strong></article>`).join("")}</div></section>
+                  <section class="section"><p class="eyebrow">Story</p><h4>一篇生活记录</h4><div class="story-grid">${blogs.slice(0, 2).map((b) => `<article class="story-card">${img(b.coverUrl, b.title)}<strong>${b.title}</strong></article>`).join("")}</div></section>
+                  <section class="section"><div class="local-card">${img(localCover, local[0]?.title)}<div><strong>${local[0]?.title || "在地信息"}</strong><p>${short(local[0]?.summary || "我们自己喜欢，也愿意推荐给朋友的地方。", 42)}</p></div></div></section>
+                </div>`
+            },
+            {
+              key: "D",
+              title: "D 效率导航版",
+              desc: "最像工具型小程序，入口明确、筛选靠前，适合用户快速找活动。",
+              html: `
+                <div class="screen">
+                  <div class="search-hero"><h3>今天想怎么度过？</h3><div class="search-box">森林、湖泊、亲子、手作...</div><div class="pill-row"><span>徒步</span><span>适合新手</span><span>亲子</span><span>水上活动</span></div></div>
+                  <section class="quiet-nav"><button>活动预约</button><button>关于我们</button><button>在地信息</button></section>
+                  <section class="section"><p class="eyebrow">Recommended</p><h4>活动推荐</h4><div class="activity-row">${activities.slice(0, 6).map((a) => `<article class="activity-card">${img(activityImage(a), activityName(a))}<strong>${activityName(a)}</strong></article>`).join("")}</div></section>
+                  <section class="section"><p class="eyebrow">Local</p><h4>在大理顺路看看</h4><div class="local-list">${local.slice(0, 3).map((item) => `<article class="local-card">${img(item.coverUrl, item.title)}<div><strong>${item.title}</strong><p>${(item.tags || []).slice(0, 2).join(" · ")}</p></div></article>`).join("")}</div></section>
+                  <section class="section"><p class="eyebrow">Review</p><h4>旅行者的体验</h4><div class="review-card"><strong>${reviews[1]?.displayName || "旅行者"} · ★★★★★</strong><p>${short(reviews[1]?.content || "一路上遇到的人和景，都让旅行变得很松弛。", 54)}</p></div></section>
+                </div>`
+            }
+          ];
+          document.querySelector("#grid").innerHTML = options.map((item) => `
+            <article class="option">
+              <h2>${item.key} · ${item.title}</h2>
+              <p>${item.desc}</p>
+              <div class="phone">${item.html}</div>
+            </article>`).join("");
+        });
+    </script>
+  </body>
+</html>

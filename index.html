@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dali Trip MVP</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #22312e;
+        --muted: #697973;
+        --line: rgba(34, 49, 46, 0.14);
+        --paper: #fffaf0;
+        --wash: #edf3ef;
+        --accent: #1f7180;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      }
+
+      main {
+        min-height: 100vh;
+        padding: 64px 22px;
+        background:
+          linear-gradient(135deg, rgba(237, 243, 239, 0.92), rgba(255, 250, 240, 0.86)),
+          radial-gradient(circle at 12% 20%, rgba(31, 113, 128, 0.14), transparent 32%);
+      }
+
+      .wrap {
+        width: min(980px, 100%);
+        margin: 0 auto;
+      }
+
+      .eyebrow {
+        margin: 0 0 16px;
+        color: var(--accent);
+        font-size: 13px;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        max-width: 720px;
+        font-family: "Songti SC", "STSong", serif;
+        font-size: clamp(42px, 7vw, 76px);
+        font-weight: 400;
+        line-height: 1.06;
+      }
+
+      .lead {
+        max-width: 640px;
+        margin: 24px 0 0;
+        color: var(--muted);
+        font-size: 18px;
+        line-height: 1.75;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 48px;
+      }
+
+      a.card {
+        min-height: 190px;
+        padding: 24px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(255, 250, 240, 0.76);
+        color: inherit;
+        text-decoration: none;
+        transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+      }
+
+      a.card:hover {
+        transform: translateY(-3px);
+        border-color: rgba(31, 113, 128, 0.34);
+        background: rgba(255, 250, 240, 0.98);
+      }
+
+      .card strong {
+        display: block;
+        font-size: 25px;
+        font-weight: 500;
+        line-height: 1.28;
+      }
+
+      .card span {
+        display: block;
+        margin-top: 16px;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.7;
+      }
+
+      .note {
+        margin-top: 34px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      @media (max-width: 760px) {
+        main {
+          padding: 44px 18px;
+        }
+
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="wrap">
+        <p class="eyebrow">Dali Trip MVP</p>
+        <h1>苍山徒步之家<br />内部进度预览</h1>
+        <p class="lead">这里汇总客户小程序、网页后台、管理小程序和当前正在探索的页面方案，方便团队测试、提意见和继续调整。</p>
+
+        <section class="grid" aria-label="Demo links">
+          <a class="card" href="./apps/customer-miniapp/?v=github-pages">
+            <strong>客户小程序 Demo</strong>
+            <span>活动、关于苍山徒步之家、在地信息、预约和订单等客户侧体验。</span>
+          </a>
+          <a class="card" href="./apps/admin-web/?v=github-pages&view=activities">
+            <strong>网页后台</strong>
+            <span>活动、排班、订单、评价、领队、首页和专页、博客、在地信息等管理页面。</span>
+          </a>
+          <a class="card" href="./apps/manager-miniapp/?v=github-pages">
+            <strong>管理小程序 Demo</strong>
+            <span>领队日历、可用领队查看、组内领队状态等管理端移动体验。</span>
+          </a>
+          <a class="card" href="./local-info-home-options.html">
+            <strong>在地信息首页方案</strong>
+            <span>按场景呈现在地内容，并整理最近发生的集市、节日和社区活动。</span>
+          </a>
+          <a class="card" href="./layout-bold-reference-options.html">
+            <strong>视觉方案参考</strong>
+            <span>更大胆的色彩、字体和首页结构方向，用来继续讨论整体气质。</span>
+          </a>
+          <a class="card" href="./layout-refined-concepts.html">
+            <strong>精致版布局草稿</strong>
+            <span>更克制、优雅的首页和内页草稿集合。</span>
+          </a>
+        </section>
+
+        <p class="note">这是内部测试入口，不代表最终正式上线版本。</p>
+      </section>
+    </main>
+  </body>
+</html>

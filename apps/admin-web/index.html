@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dali Trip 管理后台</title>
-    <link rel="stylesheet" href="./styles.css?v=103" />
+    <link rel="stylesheet" href="./styles.css?v=111" />
   </head>
   <body>
     <div class="app-shell">
@@ -73,6 +73,7 @@
             </div>
             <div id="tag-filters" class="tag-filters"></div>
             <div id="activity-list" class="activity-list"></div>
+            <div id="activity-pagination" class="list-pagination"></div>
           </aside>
 
           <section id="detail-panel" class="detail-panel">
@@ -143,7 +144,12 @@
               <p id="review-count">正在载入</p>
             </div>
           </div>
+          <label class="activity-search review-search">
+            <span aria-hidden="true">⌕</span>
+            <input id="review-search" type="search" placeholder="搜索活动、昵称或评价内容" autocomplete="off" />
+          </label>
           <div id="admin-review-list" class="admin-review-list"></div>
+          <div id="review-pagination" class="list-pagination"></div>
         </section>
 
         <section id="guides-page" class="page-panel" hidden>
@@ -241,11 +247,21 @@
             </div>
             <button id="new-group" class="primary-button">＋ 新增组</button>
           </div>
-          <section class="settings-section">
-            <h2>活动组</h2>
+          <div class="settings-tabs" role="tablist" aria-label="系统设置分区">
+            <button class="active" type="button" data-settings-tab="groups">活动组</button>
+            <button type="button" data-settings-tab="migration">迁移预览</button>
+            <button type="button" data-settings-tab="accounts">子账号</button>
+          </div>
+          <section class="settings-section" data-settings-panel="groups">
+            <div class="settings-section-heading">
+              <div>
+                <h2>活动组</h2>
+                <p>活动、订单和领队权限都按组归属管理。</p>
+              </div>
+            </div>
             <div id="group-list" class="group-list"></div>
           </section>
-          <section class="settings-section">
+          <section class="settings-section" data-settings-panel="migration" hidden>
             <div class="settings-section-heading">
               <div>
                 <h2>天天预约迁移预览</h2>
@@ -255,9 +271,12 @@
             </div>
             <div id="ttyy-migration-list" class="migration-list"></div>
           </section>
-          <section class="settings-section">
+          <section class="settings-section" data-settings-panel="accounts" hidden>
             <div class="settings-section-heading">
-              <h2>子账户权限</h2>
+              <div>
+                <h2>子账号权限</h2>
+                <p>给组负责领队授权，并绑定微信接收订单和评价消息。</p>
+              </div>
               <button id="new-admin-account" class="secondary-button">＋ 新增子账户</button>
             </div>
             <div id="admin-account-list" class="account-list"></div>
@@ -391,11 +410,17 @@
           <div id="dialog-guides" class="checkbox-tags"></div>
         </fieldset>
         <label>中文简介<textarea name="summary" rows="3" placeholder="简要说明活动亮点"></textarea></label>
-        <label>领队微信<input name="leaderWechat" maxlength="120" placeholder="用于客人退改前联系领队" /></label>
+        <label id="seasonal-highlight-field" hidden>当季特色<textarea name="seasonalHighlight" rows="3" placeholder="只在勾选“当季最佳”标签时显示，例如：六月中旬森林潮湿，蕨类和蘑菇状态很好。"></textarea></label>
+        <label>领队微信<input name="leaderWechat" maxlength="120" placeholder="负责领队微信" /></label>
         <div class="location-fields">
-          <label>集合地点名称<input name="meetingPointName" placeholder="例如：苍山游客中心" /></label>
-          <label>纬度<input name="meetingLatitude" type="number" step="0.0000001" placeholder="例如：25.689326" /></label>
-          <label>经度<input name="meetingLongitude" type="number" step="0.0000001" placeholder="例如：100.166334" /></label>
+          <label>集合地点名称<input name="meetingPointName" placeholder="例如：苍山游客中心，也可以在管理小程序地图选点" /></label>
+          <input name="meetingLatitude" type="hidden" />
+          <input name="meetingLongitude" type="hidden" />
+          <div class="location-picker-row">
+            <button id="pick-meeting-point" class="secondary-button" type="button">微信地图选点</button>
+            <button id="clear-meeting-point-admin" class="ghost-button" type="button" hidden>清除选点</button>
+            <span id="meeting-point-status">未通过地图选点</span>
+          </div>
         </div>
         <div class="activity-gallery-field">
           <div class="activity-gallery-header">
@@ -560,7 +585,15 @@
         </div>
         <label>文章标题<input name="title" required maxlength="100" placeholder="例如：我们的山林日常" /></label>
         <label>页面地址<input name="slug" required maxlength="80" pattern="[a-z0-9-]+" placeholder="例如：our-dali-life" /></label>
-        <label>封面图片地址<input name="coverUrl" placeholder="https://..." /></label>
+        <div class="topic-image-field blog-cover-field">
+          <div>
+            <strong>封面图</strong>
+            <p>一篇文章一张封面，可上传本地图片</p>
+          </div>
+          <img id="blog-post-cover-preview" alt="文章封面预览" hidden />
+          <label class="secondary-button">上传图片<input id="blog-post-cover-input" type="file" accept="image/*" hidden /></label>
+          <input name="coverUrl" type="hidden" />
+        </div>
         <label>标签<input name="tags" maxlength="240" placeholder="用逗号分隔，例如：大理生活, 徒步, 旅行记录" /></label>
         <label>简介 / 摘要<textarea name="summary" rows="3" maxlength="300" placeholder="不填写时，客人端自动取正文前 150 字"></textarea></label>
         <textarea name="contentHtml" hidden></textarea>
@@ -775,12 +808,19 @@
           <button type="button" class="icon-button" data-close-dialog>×</button>
         </div>
         <label>姓名<input name="displayName" maxlength="40" required /></label>
-        <label>手机号<input name="mobile" maxlength="24" required /></label>
+        <fieldset>
+          <legend>消息推送</legend>
+          <div class="checkbox-tags">
+            <label class="checkbox-tag"><input type="checkbox" name="notifyOrders" checked />订单通知</label>
+            <label class="checkbox-tag"><input type="checkbox" name="notifyReviews" checked />评价通知</label>
+          </div>
+        </fieldset>
         <fieldset>
           <legend>可访问的组</legend>
           <div id="admin-account-groups" class="checkbox-tags"></div>
         </fieldset>
-        <p class="form-help">子账户只能查看和修改授权组的活动与排班，并处理这些组的订单。</p>
+        <section id="admin-account-wechat" class="wechat-bind-panel"></section>
+        <p class="form-help">子账户只能查看和修改授权组的活动与排班，并处理这些组的订单。绑定微信后，可按上方开关接收组内订单与评价消息。</p>
         <div class="dialog-actions">
           <button type="button" class="secondary-button" data-close-dialog>取消</button>
           <button class="primary-button" value="default">保存子账户</button>
@@ -893,6 +933,6 @@
     </dialog>
 
     <div id="toast" class="toast" hidden></div>
-    <script type="module" src="./app.js?v=120"></script>
+    <script type="module" src="./app.js?v=144"></script>
   </body>
 </html>

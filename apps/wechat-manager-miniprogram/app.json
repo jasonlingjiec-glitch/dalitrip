@@ -1,0 +1,13 @@
+{
+  "pages": [
+    "pages/index/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "Dali Trip 管理",
+    "navigationBarBackgroundColor": "#fffaf0",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#fffaf0"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

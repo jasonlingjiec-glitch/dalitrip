@@ -1,0 +1,251 @@
+.page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 28rpx 28rpx 44rpx;
+  background: #fffaf0;
+}
+
+.hero {
+  padding: 12rpx 4rpx 24rpx;
+}
+
+.eyebrow,
+.label {
+  display: block;
+  color: #6f8580;
+  font-size: 22rpx;
+  letter-spacing: 5rpx;
+}
+
+.title {
+  display: block;
+  margin-top: 8rpx;
+  color: #203330;
+  font-size: 52rpx;
+  font-weight: 500;
+  line-height: 1.18;
+}
+
+.subtitle {
+  display: block;
+  margin-top: 12rpx;
+  color: #6a7774;
+  font-size: 27rpx;
+  line-height: 1.5;
+}
+
+.account-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24rpx;
+  padding: 24rpx;
+  border: 1rpx solid #e5d9c8;
+  border-radius: 14rpx;
+  background: #fffdf7;
+}
+
+.account-name {
+  display: block;
+  margin-top: 8rpx;
+  color: #253936;
+  font-size: 34rpx;
+  font-weight: 500;
+}
+
+.account-desc {
+  display: block;
+  margin-top: 6rpx;
+  color: #75837f;
+  font-size: 24rpx;
+}
+
+.ghost-button {
+  height: 68rpx;
+  min-width: 120rpx;
+  padding: 0 24rpx;
+  border: 1rpx solid #d5c7b5;
+  border-radius: 12rpx;
+  background: #fffaf0;
+  color: #425450;
+  font-size: 27rpx;
+  line-height: 68rpx;
+}
+
+.toolbar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12rpx;
+  margin-top: 22rpx;
+  padding: 8rpx;
+  border: 1rpx solid #e3d7c7;
+  border-radius: 16rpx;
+  background: #f7efe2;
+}
+
+.seg,
+.chip {
+  border: 0;
+  border-radius: 12rpx;
+  background: transparent;
+  color: #5c6a67;
+  font-size: 28rpx;
+  line-height: 68rpx;
+}
+
+.seg.active,
+.chip.active {
+  background: #197f95;
+  color: #fff;
+}
+
+.filter-row {
+  display: flex;
+  gap: 14rpx;
+  margin: 20rpx 0;
+}
+
+.chip {
+  min-width: 150rpx;
+  border: 1rpx solid #e1d5c4;
+  background: #fffdf7;
+  line-height: 62rpx;
+}
+
+.status,
+.empty {
+  padding: 48rpx 20rpx;
+  color: #788682;
+  text-align: center;
+  font-size: 28rpx;
+}
+
+.guide-list,
+.free-list {
+  height: calc(100vh - 360rpx);
+}
+
+.guide-card,
+.free-card {
+  margin-bottom: 22rpx;
+  border: 1rpx solid #e3d7c7;
+  border-radius: 16rpx;
+  background: #fffdf7;
+  overflow: hidden;
+}
+
+.guide-head {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  padding: 22rpx;
+}
+
+.avatar {
+  width: 82rpx;
+  height: 82rpx;
+  border-radius: 50%;
+  background: #d9e5e2;
+  color: #48615c;
+  text-align: center;
+  font-size: 34rpx;
+  line-height: 82rpx;
+}
+
+.guide-name {
+  display: block;
+  color: #273936;
+  font-size: 34rpx;
+  font-weight: 500;
+}
+
+.guide-meta {
+  display: block;
+  margin-top: 6rpx;
+  color: #7a8884;
+  font-size: 24rpx;
+}
+
+.date-strip {
+  border-top: 1rpx solid #eee4d5;
+  white-space: nowrap;
+}
+
+.date-row {
+  display: inline-flex;
+  gap: 14rpx;
+  padding: 18rpx 22rpx 22rpx;
+}
+
+.day-card {
+  display: inline-block;
+  width: 188rpx;
+  padding: 16rpx;
+  border: 1rpx solid #e5dacb;
+  border-radius: 14rpx;
+  background: #fffaf0;
+  white-space: normal;
+}
+
+.status-MORNING,
+.status-AFTERNOON {
+  background: #f5efe3;
+}
+
+.status-FULL {
+  background: #e9ded0;
+}
+
+.day-title {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 14rpx;
+  color: #4b5c58;
+  font-size: 24rpx;
+}
+
+.half {
+  height: 58rpx;
+  margin: 10rpx 0 0;
+  padding: 0;
+  border: 1rpx solid #d8ccbc;
+  border-radius: 10rpx;
+  background: #fffdf8;
+  color: #5c6b68;
+  font-size: 24rpx;
+  line-height: 58rpx;
+}
+
+.half.occupied {
+  border-color: #197f95;
+  background: #e7f3f4;
+  color: #197f95;
+}
+
+.free-card {
+  padding: 22rpx;
+}
+
+.free-date {
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 16rpx;
+  border-bottom: 1rpx solid #eee4d5;
+  color: #273936;
+  font-size: 32rpx;
+}
+
+.free-line {
+  display: grid;
+  grid-template-columns: 120rpx 1fr;
+  gap: 16rpx;
+  padding-top: 18rpx;
+  color: #42534f;
+  font-size: 27rpx;
+  line-height: 1.5;
+}
+
+.free-label {
+  color: #197f95;
+  font-weight: 500;
+}

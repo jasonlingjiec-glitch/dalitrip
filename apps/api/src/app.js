@@ -1,5 +1,8 @@
 import { ApiError } from "./errors.js";
 import { MemoryStore } from "./store.js";
+import { codeToSession, createJsapiTransaction, decryptWechatResource, verifyWechatPaySignature } from "./wechat-pay.js";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 
 const json = (response, status, body) => {
   response.writeHead(status, {
@@ -21,10 +24,161 @@ const readJson = async (request) => {
     throw new ApiError(400, "请求内容不是有效的 JSON");
   }
 };
+const readText = async (request) => {
+  const chunks = [];
+  for await (const chunk of request) chunks.push(chunk);
+  return Buffer.concat(chunks).toString("utf8");
+};
 const withAdminAccount = (body) => {
   const { adminAccountId, ...input } = body;
   return { adminAccountId, input };
 };
+
+const plainText = (value) => String(value ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+const truncateText = (value, maxLength = 160) => {
+  const text = plainText(value);
+  return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+};
+const publicAssetBaseUrl = process.env.DALITRIP_PUBLIC_ASSET_BASE_URL ?? "https://api.dalitripapp.cn";
+const localAssetPrefix = "http://localhost:8890/dalitrip-mvp/";
+const assetUrl = (value) => String(value ?? "").replace(localAssetPrefix, `${publicAssetBaseUrl}/`);
+const assetFileRoot = path.resolve(process.env.DALITRIP_ASSET_DIR ?? "imported-assets");
+const mimeTypes = new Map([
+  [".jpg", "image/jpeg"],
+  [".jpeg", "image/jpeg"],
+  [".png", "image/png"],
+  [".webp", "image/webp"],
+  [".gif", "image/gif"]
+]);
+const sendImportedAsset = async (url, response) => {
+  const pathname = decodeURIComponent(url.pathname);
+  if (!pathname.startsWith("/imported-assets/")) return false;
+  const relativePath = pathname.replace(/^\/imported-assets\//, "");
+  const filePath = path.resolve(assetFileRoot, relativePath);
+  if (!filePath.startsWith(`${assetFileRoot}${path.sep}`)) {
+    response.writeHead(403, { "content-type": "text/plain; charset=utf-8" });
+    response.end("Forbidden");
+    return true;
+  }
+  try {
+    const buffer = await readFile(filePath);
+    response.writeHead(200, {
+      "content-type": mimeTypes.get(path.extname(filePath).toLowerCase()) ?? "application/octet-stream",
+      "cache-control": "public, max-age=31536000, immutable",
+      "access-control-allow-origin": "*"
+    });
+    response.end(buffer);
+  } catch {
+    response.writeHead(404, { "content-type": "text/plain; charset=utf-8", "access-control-allow-origin": "*" });
+    response.end("Not found");
+  }
+  return true;
+};
+const paginateIfRequested = (items, searchParams) => {
+  if (!searchParams.has("page") && !searchParams.has("pageSize")) return items;
+  const pageSize = Math.min(Math.max(Number(searchParams.get("pageSize")) || 10, 1), 100);
+  const total = items.length;
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const requestedPage = Math.max(Number(searchParams.get("page")) || 1, 1);
+  const page = Math.min(requestedPage, pageCount);
+  const start = (page - 1) * pageSize;
+  return { items: items.slice(start, start + pageSize), total, page, pageSize, pageCount };
+};
+
+const compactActivity = (activity) => ({
+  id: activity.id,
+  groupId: activity.groupId,
+  advanceBookingHours: activity.advanceBookingHours,
+  coverUrl: assetUrl(activity.coverUrl),
+  schedulePaused: activity.schedulePaused,
+  hasSchedule: activity.hasSchedule,
+  content: {
+    name: activity.content?.name ?? "",
+    summary: activity.content?.summary ?? ""
+  },
+  tags: (activity.tags ?? []).map((tag) => ({ id: tag.id, code: tag.code, name: tag.name }))
+});
+
+const compactActivities = (activities) => activities.map(compactActivity);
+
+const normalizeActivityAssets = (activity) => ({
+  ...activity,
+  coverUrl: assetUrl(activity.coverUrl),
+  images: (activity.images ?? []).map((image) => ({ ...image, cosKey: assetUrl(image.cosKey), url: assetUrl(image.url ?? image.cosKey) }))
+});
+
+const compactGuide = (guide) => ({
+  id: guide.id,
+  name: guide.name,
+  aliases: guide.aliases ?? [],
+  photoUrl: assetUrl(guide.photoUrl),
+  paused: guide.paused,
+  sortOrder: guide.sortOrder,
+  descriptionHtml: truncateText(guide.descriptionHtml),
+  activityCount: guide.activities?.length ?? 0,
+  imageCount: guide.images?.length ?? 0,
+  activities: (guide.activities ?? []).slice(0, 4)
+});
+
+const normalizeGuideAssets = (guide) => ({
+  ...guide,
+  photoUrl: assetUrl(guide.photoUrl),
+  images: (guide.images ?? []).map((image) => ({ ...image, cosKey: assetUrl(image.cosKey), url: assetUrl(image.url ?? image.cosKey) }))
+});
+
+const compactTopicPage = (page) => ({
+  id: page.id,
+  slug: page.slug,
+  title: page.title,
+  summary: page.summary,
+  imageUrl: page.imageUrl,
+  published: page.published,
+  tags: page.tags ?? [],
+  activityCount: page.activities?.length ?? 0,
+  moduleCount: page.modules?.length ?? 0
+});
+
+const compactBlogPost = (post) => ({
+  id: post.id,
+  slug: post.slug,
+  title: post.title,
+  coverUrl: post.coverUrl,
+  published: post.published,
+  publishedAt: post.publishedAt,
+  summary: post.summary || truncateText(post.contentHtml),
+  tags: post.tags ?? [],
+  commentCount: post.comments?.length ?? 0,
+  comments: post.comments ?? []
+});
+
+const compactLocalInfo = (item) => ({
+  id: item.id,
+  title: item.title,
+  coverUrl: item.coverUrl,
+  summary: item.summary || truncateText(item.descriptionHtml || item.contentHtml || item.description),
+  address: item.address,
+  openingHours: item.openingHours,
+  mapUrl: item.mapUrl,
+  tags: item.tags ?? [],
+  published: item.published,
+  sortOrder: item.sortOrder
+});
+
+const compactReview = (review) => ({
+  id: review.id,
+  activityId: review.activityId,
+  activityName: review.activityName,
+  customerId: review.customerId,
+  displayName: review.displayName,
+  rating: review.rating,
+  content: truncateText(review.content, 120),
+  hidden: review.hidden,
+  createdAt: review.createdAt,
+  imageUrls: [],
+  imageCount: review.imageUrls?.length ?? 0,
+  replies: [],
+  replyCount: review.replies?.length ?? 0
+});
 
 export function createApp(store = new MemoryStore()) {
   return async function app(request, response) {
@@ -45,7 +199,41 @@ export function createApp(store = new MemoryStore()) {
         return json(response, 200, { ok: true, service: "dalitrip-api" });
       }
 
+      if (request.method === "GET" && await sendImportedAsset(url, response)) return;
+
       if (parts[0] !== "api") throw new ApiError(404, "接口不存在");
+
+      if (request.method === "POST" && parts[1] === "wechat" && parts[2] === "login" && parts.length === 3) {
+        const body = await readJson(request);
+        const kind = body.kind === "manager" ? "manager" : "customer";
+        if (kind === "manager") throw new ApiError(501, "管理小程序微信登录待接入权限模型");
+        if (!body.code?.trim()) throw new ApiError(400, "缺少微信登录 code");
+        const session = await codeToSession(kind, body.code.trim());
+        const customer = store.upsertCustomerFromWechat({
+          openid: session.openid,
+          unionid: session.unionid,
+          nickname: body.nickname,
+          mobile: body.mobile
+        });
+        return json(response, 200, { data: { customerId: customer.id, nickname: customer.nickname } });
+      }
+
+      if (request.method === "POST" && parts[1] === "wechat" && parts[2] === "pay" && parts[3] === "notify" && parts.length === 4) {
+        const bodyText = await readText(request);
+        const verified = await verifyWechatPaySignature(request.headers, bodyText);
+        if (!verified) return json(response, 401, { code: "FAIL", message: "签名验证失败" });
+        const body = JSON.parse(bodyText || "{}");
+        const transaction = decryptWechatResource(body.resource);
+        if (transaction.trade_state === "SUCCESS") {
+          store.confirmWechatPaymentByOutTradeNo(transaction.out_trade_no, {
+            transactionId: transaction.transaction_id,
+            tradeState: transaction.trade_state,
+            payerOpenid: transaction.payer?.openid,
+            amountCents: transaction.amount?.payer_total ?? transaction.amount?.total
+          });
+        }
+        return json(response, 200, { code: "SUCCESS", message: "成功" });
+      }
 
       if (request.method === "GET" && parts[1] === "groups" && parts.length === 2) {
         return json(response, 200, { data: store.listGroups() });
@@ -72,6 +260,12 @@ export function createApp(store = new MemoryStore()) {
         const body = await readJson(request);
         return json(response, 200, { data: store.setAdminAccountEnabled(parts[2], body.enabled) });
       }
+      if (request.method === "PATCH" && parts[1] === "admin-accounts" && parts[3] === "wechat-binding") {
+        const body = await readJson(request);
+        if (body.action === "simulate-bind") return json(response, 200, { data: store.simulateAdminAccountWechatBinding(parts[2], body) });
+        if (body.action === "unbind") return json(response, 200, { data: store.unbindAdminAccountWechat(parts[2]) });
+        return json(response, 200, { data: store.refreshAdminAccountWechatBinding(parts[2]) });
+      }
 
       if (request.method === "GET" && parts[1] === "tags" && parts.length === 2) {
         return json(response, 200, { data: store.listTags(url.searchParams.get("locale") ?? "zh-CN") });
@@ -83,7 +277,11 @@ export function createApp(store = new MemoryStore()) {
         return json(response, 200, { data: store.deleteTag(parts[2]) });
       }
       if (request.method === "GET" && parts[1] === "guides" && parts.length === 2) {
-        return json(response, 200, { data: store.listGuides({ includePaused: url.searchParams.get("includePaused") === "true" }) });
+        const guides = store.listGuides({ includePaused: url.searchParams.get("includePaused") === "true" });
+        return json(response, 200, { data: url.searchParams.get("compact") === "true" ? guides.map(compactGuide) : guides });
+      }
+      if (request.method === "GET" && parts[1] === "guides" && parts.length === 3) {
+        return json(response, 200, { data: normalizeGuideAssets(store.getGuide(parts[2])) });
       }
       if (request.method === "GET" && parts[1] === "guide-page" && parts.length === 2) {
         return json(response, 200, { data: store.getGuidePage() });
@@ -92,7 +290,8 @@ export function createApp(store = new MemoryStore()) {
         return json(response, 200, { data: store.updateGuidePage(await readJson(request)) });
       }
       if (request.method === "GET" && parts[1] === "topic-pages" && parts.length === 2) {
-        return json(response, 200, { data: store.listTopicPages({ publishedOnly: url.searchParams.get("published") === "true" }) });
+        const pages = store.listTopicPages({ publishedOnly: url.searchParams.get("published") === "true" });
+        return json(response, 200, { data: url.searchParams.get("compact") === "true" ? pages.map(compactTopicPage) : pages });
       }
       if (request.method === "POST" && parts[1] === "topic-pages" && parts.length === 2) {
         return json(response, 201, { data: store.createTopicPage(await readJson(request)) });
@@ -107,7 +306,8 @@ export function createApp(store = new MemoryStore()) {
         return json(response, 200, { data: store.deleteTopicPage(parts[2]) });
       }
       if (request.method === "GET" && parts[1] === "blog-posts" && parts.length === 2) {
-        return json(response, 200, { data: store.listBlogPosts({ publishedOnly: url.searchParams.get("published") === "true" }) });
+        const posts = store.listBlogPosts({ publishedOnly: url.searchParams.get("published") === "true" });
+        return json(response, 200, { data: url.searchParams.get("compact") === "true" ? posts.map(compactBlogPost) : posts });
       }
       if (request.method === "POST" && parts[1] === "blog-posts" && parts.length === 2) {
         return json(response, 201, { data: store.createBlogPost(await readJson(request)) });
@@ -200,7 +400,8 @@ export function createApp(store = new MemoryStore()) {
         return json(response, 200, { data: store.deleteGuide(parts[2]) });
       }
       if (request.method === "GET" && parts[1] === "guide-calendar" && parts.length === 2) {
-        return json(response, 200, { data: store.listGuideCalendar({ adminAccountId: url.searchParams.get("adminAccountId") }) });
+        const calendar = store.listGuideCalendar({ adminAccountId: url.searchParams.get("adminAccountId") });
+        return json(response, 200, { data: { ...calendar, guides: calendar.guides.map(normalizeGuideAssets) } });
       }
       if (request.method === "PATCH" && parts[1] === "guide-calendar" && parts.length === 2) {
         const { input, adminAccountId } = withAdminAccount(await readJson(request));
@@ -209,16 +410,31 @@ export function createApp(store = new MemoryStore()) {
 
       if (request.method === "GET" && parts[1] === "activities" && parts.length === 2) {
         const tagIds = url.searchParams.get("tagIds")?.split(",").filter(Boolean) ?? [];
+        const search = plainText(url.searchParams.get("search")).toLocaleLowerCase();
+        const activitySortRank = (activity) => {
+          if (activity.schedulePaused) return 2;
+          if (!activity.hasSchedule) return 1;
+          return 0;
+        };
+        const activities = store.listActivities({ locale: url.searchParams.get("locale") ?? "zh-CN", tagIds, adminAccountId: url.searchParams.get("adminAccountId") })
+          .filter((activity) => !search || activity.content.name.toLocaleLowerCase().includes(search))
+          .sort((left, right) => {
+            const rankDiff = activitySortRank(left) - activitySortRank(right);
+            if (rankDiff) return rankDiff;
+            return left.content.name.localeCompare(right.content.name, "zh-CN");
+          });
+        const data = url.searchParams.get("compact") === "true" ? compactActivities(activities) : activities.map(normalizeActivityAssets);
         return json(response, 200, {
-          data: store.listActivities({ locale: url.searchParams.get("locale") ?? "zh-CN", tagIds, adminAccountId: url.searchParams.get("adminAccountId") })
+          data: paginateIfRequested(data, url.searchParams)
         });
       }
       if (request.method === "POST" && parts[1] === "activities" && parts.length === 2) {
         return json(response, 201, { data: store.createActivity(await readJson(request)) });
       }
       if (request.method === "GET" && parts[1] === "activities" && parts.length === 3) {
+        const activity = store.getActivity(parts[2], url.searchParams.get("locale") ?? "zh-CN", url.searchParams.get("adminAccountId"));
         return json(response, 200, {
-          data: store.getActivity(parts[2], url.searchParams.get("locale") ?? "zh-CN", url.searchParams.get("adminAccountId"))
+          data: url.searchParams.get("compact") === "true" ? compactActivity(activity) : normalizeActivityAssets(activity)
         });
       }
       if (request.method === "GET" && parts[1] === "activities" && parts.length === 4 && parts[3] === "related") {
@@ -234,8 +450,9 @@ export function createApp(store = new MemoryStore()) {
         return json(response, 200, { data: store.deleteActivity(parts[2], url.searchParams.get("adminAccountId")) });
       }
       if (request.method === "GET" && parts[1] === "local-infos" && parts.length === 2) {
+        const items = store.listLocalInfos({ publishedOnly: url.searchParams.get("published") === "true", tag: url.searchParams.get("tag") ?? "" });
         return json(response, 200, {
-          data: store.listLocalInfos({ publishedOnly: url.searchParams.get("published") === "true", tag: url.searchParams.get("tag") ?? "" })
+          data: url.searchParams.get("compact") === "true" ? items.map(compactLocalInfo) : items
         });
       }
       if (request.method === "POST" && parts[1] === "local-infos" && parts.length === 2) {
@@ -273,13 +490,18 @@ export function createApp(store = new MemoryStore()) {
         return json(response, 200, { data: store.deleteScheduleRule(parts[2], url.searchParams.get("adminAccountId")) });
       }
       if (request.method === "GET" && parts[1] === "activities" && parts[3] === "slots") {
+        const adminAccountId = url.searchParams.get("adminAccountId");
+        const fromWechatDevtools = [
+          request.headers?.referer,
+          request.headers?.["user-agent"]
+        ].some((value) => String(value ?? "").includes("servicewechat.com") || String(value ?? "").includes("MicroMessenger"));
         return json(response, 200, {
           data: store.listSlots(parts[2], {
             from: url.searchParams.get("from"),
             to: url.searchParams.get("to"),
             date: url.searchParams.get("date"),
-            includeGenerated: url.searchParams.get("includeGenerated") === "true",
-            adminAccountId: url.searchParams.get("adminAccountId")
+            includeGenerated: url.searchParams.get("includeGenerated") === "true" || (!adminAccountId && !url.searchParams.get("date") && fromWechatDevtools),
+            adminAccountId
           })
         });
       }
@@ -310,14 +532,23 @@ export function createApp(store = new MemoryStore()) {
       }
 
       if (request.method === "GET" && parts[1] === "reviews" && parts.length === 2) {
+        const search = plainText(url.searchParams.get("search")).toLocaleLowerCase();
+        const reviews = store.listReviews({
+          activityId: url.searchParams.get("activityId"),
+          customerId: url.searchParams.get("customerId"),
+          includeHidden: url.searchParams.get("includeHidden") === "true",
+          adminAccountId: url.searchParams.get("adminAccountId")
+        }).filter((review) => !search ||
+          review.activityName.toLocaleLowerCase().includes(search) ||
+          review.displayName.toLocaleLowerCase().includes(search) ||
+          review.content.toLocaleLowerCase().includes(search));
+        const data = url.searchParams.get("compact") === "true" ? reviews.map(compactReview) : reviews;
         return json(response, 200, {
-          data: store.listReviews({
-            activityId: url.searchParams.get("activityId"),
-            customerId: url.searchParams.get("customerId"),
-            includeHidden: url.searchParams.get("includeHidden") === "true",
-            adminAccountId: url.searchParams.get("adminAccountId")
-          })
+          data: paginateIfRequested(data, url.searchParams)
         });
+      }
+      if (request.method === "GET" && parts[1] === "reviews" && parts.length === 3) {
+        return json(response, 200, { data: store.getReview(parts[2]) });
       }
       if (request.method === "POST" && parts[1] === "activities" && parts[3] === "reviews") {
         return json(response, 201, { data: store.createReview(parts[2], await readJson(request)) });
@@ -374,6 +605,18 @@ export function createApp(store = new MemoryStore()) {
       }
       if (request.method === "PATCH" && parts[1] === "orders" && parts[3] === "confirm-payment") {
         return json(response, 200, { data: store.confirmOrderPayment(parts[2], await readJson(request)) });
+      }
+      if (request.method === "POST" && parts[1] === "orders" && parts[3] === "wechat-prepay") {
+        const body = await readJson(request);
+        const target = store.getWechatPaymentTarget(parts[2], { customerId: body.customerId });
+        return json(response, 200, {
+          data: await createJsapiTransaction({
+            description: target.description,
+            outTradeNo: target.orderNo,
+            amountCents: target.amountCents,
+            openid: target.openid
+          })
+        });
       }
       if (request.method === "PATCH" && parts[1] === "orders" && parts[3] === "cancel") {
         return json(response, 200, { data: store.cancelOrder(parts[2], await readJson(request)) });

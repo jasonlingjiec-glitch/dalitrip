@@ -1,0 +1,100 @@
+<view class="page">
+  <view class="hero">
+    <text class="eyebrow">GUIDE CALENDAR</text>
+    <text class="title">领队日历</text>
+    <text class="subtitle">标记未来 30 天上午、下午或全天占用。</text>
+  </view>
+
+  <view class="account-card">
+    <view>
+      <text class="label">当前身份</text>
+      <text class="account-name">{{accounts[accountIndex].name}}</text>
+      <text class="account-desc">{{accounts[accountIndex].desc}}</text>
+    </view>
+    <picker range="{{accounts}}" range-key="name" value="{{accountIndex}}" bindchange="changeAccount">
+      <button class="ghost-button" type="default">切换</button>
+    </picker>
+  </view>
+
+  <view class="toolbar">
+    <button class="seg {{mode === 'mark' ? 'active' : ''}}" data-mode="mark" bindtap="setMode">标记占用</button>
+    <button class="seg {{mode === 'free' ? 'active' : ''}}" data-mode="free" bindtap="setMode">查看空闲</button>
+  </view>
+
+  <view class="filter-row">
+    <button class="chip {{filter === 'all' ? 'active' : ''}}" data-filter="all" bindtap="setFilter">全部领队</button>
+    <button class="chip {{filter === 'available' ? 'active' : ''}}" data-filter="available" bindtap="setFilter">有空档</button>
+  </view>
+
+  <view wx:if="{{status}}" class="status">{{status}}</view>
+  <view wx:elif="{{loading}}" class="status">加载中...</view>
+
+  <scroll-view wx:if="{{mode === 'mark'}}" class="guide-list" scroll-y enhanced show-scrollbar="{{false}}">
+    <view wx:for="{{markGuides}}" wx:key="id" class="guide-card">
+      <view class="guide-head">
+        <image wx:if="{{item.photoUrl}}" class="avatar" src="{{item.photoUrl}}" mode="aspectFill" />
+        <view wx:else class="avatar placeholder">{{item.initial}}</view>
+        <view>
+          <text class="guide-name">{{item.name}}</text>
+          <text class="guide-meta">{{item.activityCount}} 条相关路线</text>
+        </view>
+      </view>
+
+      <scroll-view class="date-strip" scroll-x enhanced show-scrollbar="{{false}}">
+        <view class="date-row">
+          <view wx:for="{{item.days}}" wx:for-item="day" wx:key="key" class="day-card status-{{day.status}}">
+            <view class="day-title">
+              <text>{{day.label}}</text>
+              <text>周{{day.week}}</text>
+            </view>
+            <button
+              class="half {{day.morningOccupied ? 'occupied' : ''}}"
+              loading="{{savingKey === day.guideId + '-' + day.date + '-MORNING'}}"
+              data-guide-id="{{day.guideId}}"
+              data-date="{{day.date}}"
+              data-status="{{day.status}}"
+              data-slot="MORNING"
+              bindtap="toggleHalf"
+            >
+              上午 {{day.morningOccupied ? '占用' : '空'}}
+            </button>
+            <button
+              class="half {{day.afternoonOccupied ? 'occupied' : ''}}"
+              loading="{{savingKey === day.guideId + '-' + day.date + '-AFTERNOON'}}"
+              data-guide-id="{{day.guideId}}"
+              data-date="{{day.date}}"
+              data-status="{{day.status}}"
+              data-slot="AFTERNOON"
+              bindtap="toggleHalf"
+            >
+              下午 {{day.afternoonOccupied ? '占用' : '空'}}
+            </button>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+    <view wx:if="{{!markGuides.length && !loading}}" class="empty">暂无可管理领队。</view>
+  </scroll-view>
+
+  <scroll-view wx:if="{{mode === 'free'}}" class="free-list" scroll-y enhanced show-scrollbar="{{false}}">
+    <view wx:for="{{freeDates}}" wx:key="date" class="free-card">
+      <view class="free-date">
+        <text>{{item.label}}</text>
+        <text>周{{item.week}}</text>
+      </view>
+      <view class="free-line">
+        <text class="free-label">全天空</text>
+        <text>{{item.allDay}}</text>
+      </view>
+      <view class="free-line">
+        <text class="free-label">上午空</text>
+        <text>{{item.morning}}</text>
+      </view>
+      <view class="free-line">
+        <text class="free-label">下午空</text>
+        <text>{{item.afternoon}}</text>
+      </view>
+    </view>
+    <view wx:if="{{!freeDates.length && !loading}}" class="empty">暂无空闲数据。</view>
+  </scroll-view>
+</view>

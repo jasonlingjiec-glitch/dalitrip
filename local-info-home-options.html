@@ -1,0 +1,755 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>在地信息首页方案</title>
+  <style>
+    :root {
+      --serif: "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", serif;
+      --sans: "PingFang SC", "Noto Sans SC", system-ui, -apple-system, sans-serif;
+      --ink: #24302c;
+      --muted: #6f7d76;
+      --line: rgba(35, 48, 44, .14);
+      --paper: #f8f2e8;
+      --card: #fffaf2;
+      --moss: #53685e;
+      --tea: #987c55;
+      --blue: #1e6b78;
+      --clay: #b96d45;
+      --night: #16231f;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #e7dfd2;
+      font-family: var(--sans);
+      letter-spacing: 0;
+    }
+    img { display: block; width: 100%; height: 100%; object-fit: cover; }
+    .page {
+      width: min(1480px, calc(100vw - 42px));
+      margin: 0 auto;
+      padding: 34px 0 70px;
+    }
+    .intro {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 28px;
+      padding-bottom: 26px;
+      margin-bottom: 30px;
+      border-bottom: 1px solid rgba(35, 48, 44, .14);
+    }
+    .intro h1 {
+      margin: 0;
+      font: 400 36px/1.18 var(--serif);
+    }
+    .intro p {
+      margin: 10px 0 0;
+      max-width: 780px;
+      color: var(--muted);
+      line-height: 1.8;
+      font-size: 15px;
+    }
+    .note {
+      flex: 0 0 auto;
+      max-width: 360px;
+      padding: 14px 16px;
+      color: var(--moss);
+      background: rgba(255,250,242,.55);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      line-height: 1.7;
+      font-size: 13px;
+    }
+
+    .option {
+      margin-bottom: 42px;
+      padding: 22px;
+      background: rgba(248,242,232,.68);
+      border: 1px solid rgba(35, 48, 44, .12);
+      border-radius: 8px;
+    }
+    .option-head {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 24px;
+      align-items: end;
+      margin-bottom: 18px;
+    }
+    .kicker {
+      color: var(--tea);
+      font-size: 12px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .option h2 {
+      margin: 0;
+      font: 400 28px/1.25 var(--serif);
+    }
+    .option p {
+      margin: 8px 0 0;
+      max-width: 740px;
+      color: var(--muted);
+      line-height: 1.75;
+      font-size: 14px;
+    }
+    .palette {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .swatch {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,.5);
+      box-shadow: 0 0 0 1px rgba(35, 48, 44, .08);
+    }
+    .screens {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(230px, 1fr));
+      gap: 16px;
+      align-items: start;
+    }
+    .screen-title {
+      margin: 0 0 8px;
+      color: var(--moss);
+      font-size: 13px;
+    }
+    .phone {
+      position: relative;
+      height: 720px;
+      max-width: 330px;
+      margin: 0 auto;
+      overflow: hidden;
+      border: 1px solid rgba(35, 48, 44, .18);
+      border-radius: 12px;
+      box-shadow: 0 22px 54px rgba(37, 43, 38, .16);
+      background: var(--paper);
+    }
+    .bar {
+      height: 44px;
+      display: grid;
+      grid-template-columns: 42px 1fr 56px;
+      align-items: center;
+      padding: 0 14px;
+      color: var(--muted);
+      background: rgba(255,250,242,.92);
+      border-bottom: 1px solid var(--line);
+      font-size: 13px;
+    }
+    .bar strong {
+      text-align: center;
+      font-weight: 400;
+      color: var(--ink);
+    }
+    .scroll {
+      height: calc(100% - 44px);
+      overflow: hidden;
+      padding-bottom: 74px;
+    }
+    .nav {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 68px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      align-items: center;
+      text-align: center;
+      color: #7b8880;
+      background: rgba(255,250,242,.92);
+      border-top: 1px solid var(--line);
+      backdrop-filter: blur(12px);
+      font-size: 12px;
+    }
+    .nav b { color: var(--tea); font-weight: 500; }
+    .section { padding: 20px 18px 0; }
+    .eyebrow {
+      color: var(--moss);
+      font-size: 11px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      margin-bottom: 7px;
+    }
+    .title {
+      margin: 0;
+      font: 400 25px/1.28 var(--serif);
+    }
+    .small {
+      margin-top: 7px;
+      color: var(--muted);
+      line-height: 1.65;
+      font-size: 13px;
+    }
+    .hero {
+      padding: 28px 22px 22px;
+      background: var(--paper);
+    }
+    .hero .label {
+      color: var(--moss);
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+    .hero h3 {
+      margin: 0;
+      font: 400 30px/1.18 var(--serif);
+    }
+    .hero p {
+      margin: 12px 0 0;
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 13px;
+    }
+
+    .event-list {
+      margin: 18px;
+      border-top: 1px solid var(--line);
+    }
+    .event {
+      display: grid;
+      grid-template-columns: 54px 1fr;
+      gap: 13px;
+      padding: 15px 0;
+      border-bottom: 1px solid var(--line);
+      align-items: start;
+    }
+    .date {
+      width: 54px;
+      height: 54px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: #f0e3cd;
+      color: var(--tea);
+      text-align: center;
+      font-size: 11px;
+      line-height: 1.15;
+    }
+    .date b {
+      display: block;
+      font-size: 20px;
+      font-weight: 500;
+    }
+    .event strong {
+      display: block;
+      font: 400 18px/1.35 var(--serif);
+    }
+    .event span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .image-card {
+      position: relative;
+      min-height: 186px;
+      overflow: hidden;
+      border-radius: 7px;
+      background: #ddd1c2;
+    }
+    .image-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, rgba(18,26,23,.04), rgba(18,26,23,.62));
+    }
+    .image-card .caption {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 14px;
+      z-index: 1;
+      color: #fffaf2;
+    }
+    .image-card .caption strong {
+      display: block;
+      font: 400 22px/1.25 var(--serif);
+    }
+    .image-card .caption span {
+      display: block;
+      margin-top: 7px;
+      font-size: 12px;
+      color: rgba(255,250,242,.82);
+      line-height: 1.5;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      padding: 18px;
+    }
+    .grid-2 .image-card { min-height: 176px; }
+    .grid-2 .image-card.tall {
+      min-height: 230px;
+      grid-row: span 2;
+    }
+    .plain-card {
+      padding: 15px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: rgba(255,250,242,.78);
+    }
+    .plain-card strong {
+      display: block;
+      font: 400 18px/1.35 var(--serif);
+    }
+    .plain-card span {
+      display: block;
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .row-card {
+      display: grid;
+      grid-template-columns: 74px 1fr;
+      gap: 13px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .thumb {
+      height: 74px;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #ddd;
+    }
+    .row-card strong {
+      display: block;
+      font: 400 18px/1.35 var(--serif);
+    }
+    .row-card span {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .chips {
+      display: flex;
+      gap: 8px;
+      overflow: hidden;
+      padding: 14px 18px 0;
+    }
+    .chip {
+      flex: 0 0 auto;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,250,242,.72);
+      color: var(--moss);
+      font-size: 12px;
+    }
+    .map-panel {
+      margin: 16px 18px 0;
+      height: 250px;
+      position: relative;
+      overflow: hidden;
+      border-radius: 8px;
+      background:
+        radial-gradient(circle at 34% 28%, rgba(177,111,73,.32) 0 2px, transparent 3px),
+        radial-gradient(circle at 64% 42%, rgba(30,107,120,.38) 0 2px, transparent 3px),
+        radial-gradient(circle at 42% 68%, rgba(83,104,94,.35) 0 2px, transparent 3px),
+        linear-gradient(135deg, #ede3d1, #d8e2d9);
+    }
+    .map-line {
+      position: absolute;
+      inset: 22px;
+      border: 1px solid rgba(83,104,94,.18);
+      border-radius: 44% 56% 48% 52%;
+      transform: rotate(-9deg);
+    }
+    .pin-card {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 16px;
+      padding: 13px;
+      border-radius: 8px;
+      background: rgba(255,250,242,.9);
+      border: 1px solid var(--line);
+    }
+    .pin-card strong {
+      display: block;
+      font: 400 19px/1.3 var(--serif);
+    }
+    .pin-card span {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .calendar-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      padding: 16px 18px 0;
+    }
+    .day-card {
+      min-height: 112px;
+      padding: 10px;
+      border-radius: 8px;
+      background: rgba(255,250,242,.75);
+      border: 1px solid var(--line);
+    }
+    .day-card b {
+      display: block;
+      color: var(--tea);
+      font-size: 20px;
+      font-weight: 500;
+    }
+    .day-card span {
+      display: block;
+      margin-top: 9px;
+      color: var(--ink);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .tone-green { --paper: #f6f1e5; --card: #fffaf2; --moss: #53685e; --tea: #987c55; --ink: #24302c; }
+    .tone-blue { --paper: #edf3ef; --card: #f8fbf7; --moss: #2f6872; --tea: #8e7250; --ink: #1e3033; }
+    .tone-clay { --paper: #f7eee5; --card: #fff8ef; --moss: #6c604f; --tea: #a05d3e; --ink: #332b26; }
+    .tone-dark { --paper: #17231f; --card: #22312b; --moss: #c8d4c6; --tea: #d4b275; --ink: #f5efe3; --muted: rgba(245,239,227,.68); --line: rgba(245,239,227,.18); }
+    .tone-dark .bar, .tone-dark .nav { background: rgba(23,35,31,.88); }
+    .tone-dark .plain-card, .tone-dark .pin-card, .tone-dark .chip, .tone-dark .day-card { background: rgba(255,255,255,.06); }
+    .tone-dark .date { background: rgba(212,178,117,.18); }
+    .tone-paper { --paper: #fbf8ef; --card: #fffdf8; --moss: #456566; --tea: #8b7857; --ink: #222d2a; }
+
+    @media (max-width: 1260px) {
+      .screens { grid-template-columns: repeat(2, minmax(260px, 1fr)); }
+    }
+    @media (max-width: 720px) {
+      .page { width: calc(100vw - 20px); }
+      .intro, .option-head { display: block; }
+      .note, .palette { margin-top: 14px; }
+      .screens { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="intro">
+      <div>
+        <h1>在地信息首页，五个更生动的方向</h1>
+        <p>把原来的标签筛选降到第二层，首页先回答“接下来有什么、今天去哪、吃住逛怎么选、哪些地方值得绕路”。下面用现有在地内容和图片搭草稿，方便判断信息层级和气质。</p>
+      </div>
+      <div class="note">节日、赶集可以从正文里识别规则，但第一版建议后台确认一次。比如农历六月二十五、每月逢三八日、每周五，确认后自动生成未来 30 到 90 天。</div>
+    </section>
+
+    <section class="option">
+      <div class="option-head">
+        <div>
+          <div class="kicker">Option A</div>
+          <h2>时间优先：接下来在大理</h2>
+          <p>最适合“赶集、节日、临时活动”越来越多之后使用。用户进来先看到最近会发生什么，再往下看吃饭、咖啡、住处和自己探索。</p>
+        </div>
+        <div class="palette">
+          <span class="swatch" style="background:#f6f1e5"></span>
+          <span class="swatch" style="background:#53685e"></span>
+          <span class="swatch" style="background:#987c55"></span>
+        </div>
+      </div>
+      <div class="screens">
+        <article>
+          <p class="screen-title">首页</p>
+          <div class="phone tone-green">
+            <div class="bar"><span>‹</span><strong>在地信息</strong><span></span></div>
+            <div class="scroll">
+              <section class="hero">
+                <div class="label">LOCAL DIRECTORY</div>
+                <h3>这几天，在大理可以碰到什么</h3>
+                <p>集市、庙会、节日、咖啡馆、民宿和一些可以自己去的小地方。</p>
+              </section>
+              <section class="event-list">
+                <div class="event"><div class="date">八月<b>7</b></div><div><strong>大理白族火把节</strong><span>农历六月二十五，村寨里点火把、拜火、绕火。</span></div></div>
+                <div class="event"><div class="date">逢三<b>八</b></div><div><strong>巍山庙街赶集</strong><span>每月逢三、八日，适合安排半天乡镇生活。</span></div></div>
+                <div class="event"><div class="date">二月<b>19</b></div><div><strong>观音塘庙会</strong><span>农历二月十九最大，六月、九月也有会。</span></div></div>
+              </section>
+              <section class="section">
+                <div class="eyebrow">TODAY</div>
+                <h4 class="title">今天想怎么过</h4>
+              </section>
+              <div class="grid-2">
+                <div class="plain-card"><strong>找一顿饭</strong><span>素餐、本地菜、夜宵、适合孩子。</span></div>
+                <div class="plain-card"><strong>找个地方坐坐</strong><span>咖啡馆、酒吧、面包和甜点。</span></div>
+                <div class="plain-card"><strong>找一间住处</strong><span>亲子民宿、可月租、乡村民宿。</span></div>
+                <div class="plain-card"><strong>自己探索</strong><span>溪流、古镇、村庄和山边。</span></div>
+              </div>
+            </div>
+            <nav class="nav"><span>首页</span><span>日期预约</span><b>在地</b><span>我的</span></nav>
+          </div>
+        </article>
+        <article>
+          <p class="screen-title">节日详情入口</p>
+          <div class="phone tone-green">
+            <div class="bar"><span>‹</span><strong>接下来</strong><span></span></div>
+            <div class="scroll">
+              <div class="image-card" style="height:270px;border-radius:0;">
+                <img src="https://cdn.shopify.com/s/files/1/0661/3450/7676/files/rn-image_picker_lib_temp_3744b757-8801-40a1-9d3e-5df16f411054.jpg?v=1752852022" alt="">
+                <div class="caption"><strong>大理白族火把节</strong><span>每年农历六月二十五</span></div>
+              </div>
+              <section class="section">
+                <div class="eyebrow">WHY GO</div>
+                <h4 class="title">今年什么时候去，去哪一个村</h4>
+                <div class="small">把文章里提到的时间、地点、交通和注意事项拆出来，正文仍然保留完整故事。</div>
+              </section>
+              <section class="event-list">
+                <div class="event"><div class="date">推荐<b>1</b></div><div><strong>村寨火把</strong><span>更有生活气，适合傍晚以后去。</span></div></div>
+                <div class="event"><div class="date">提醒<b>2</b></div><div><strong>交通和拥挤</strong><span>提前看路况，尽量不要开到最核心区域。</span></div></div>
+              </section>
+            </div>
+            <nav class="nav"><span>首页</span><span>日期预约</span><b>在地</b><span>我的</span></nav>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="option">
+      <div class="option-head">
+        <div>
+          <div class="kicker">Option B</div>
+          <h2>场景优先：吃住逛玩四个入口</h2>
+          <p>比标签更直观，适合游客第一次进入。“我饿了、我想住、我想发呆、我想赶集”这些入口比“餐馆/咖啡馆/民宿”更有行动感。</p>
+        </div>
+        <div class="palette">
+          <span class="swatch" style="background:#edf3ef"></span>
+          <span class="swatch" style="background:#2f6872"></span>
+          <span class="swatch" style="background:#8e7250"></span>
+        </div>
+      </div>
+      <div class="screens">
+        <article>
+          <p class="screen-title">首页</p>
+          <div class="phone tone-blue">
+            <div class="bar"><span>‹</span><strong>在地信息</strong><span></span></div>
+            <div class="scroll">
+              <section class="hero">
+                <div class="label">LOCAL GUIDE</div>
+                <h3>吃饭，住下，散步，遇见生活</h3>
+                <p>我们把大理的在地信息按场景整理，而不是只按标签堆放。</p>
+              </section>
+              <div class="grid-2">
+                <div class="image-card tall">
+                  <img src="https://cdn.shopify.com/s/files/1/0661/3450/7676/files/rn-image_picker_lib_temp_ef581495-c916-4f43-ba33-7a44b04d301a.png?v=1740330960" alt="">
+                  <div class="caption"><strong>吃一顿舒服的饭</strong><span>本地菜、素食、夜宵、亲子友好。</span></div>
+                </div>
+                <div class="image-card">
+                  <img src="https://cdn.shopify.com/s/files/1/0661/3450/7676/files/rn-image_picker_lib_temp_6b51fd13-af02-491e-90c9-26ca92f20b05.jpg?v=1743960734" alt="">
+                  <div class="caption"><strong>咖啡和面包</strong></div>
+                </div>
+                <div class="image-card">
+                  <img src="https://cdn.shopify.com/s/files/1/0661/3450/7676/files/rn-image_picker_lib_temp_7968c36e-d97c-4898-ab11-79dfe6041f67.jpg?v=1741796509" alt="">
+                  <div class="caption"><strong>找个住处</strong></div>
+                </div>
+              </div>
+              <section class="section">
+                <div class="eyebrow">SPECIAL DAYS</div>
+                <h4 class="title">节日和集市</h4>
+              </section>
+              <div class="chips"><span class="chip">火把节</span><span class="chip">庙会</span><span class="chip">赶集</span><span class="chip">演出</span></div>
+            </div>
+            <nav class="nav"><span>首页</span><span>日期预约</span><b>在地</b><span>我的</span></nav>
+          </div>
+        </article>
+        <article>
+          <p class="screen-title">场景列表</p>
+          <div class="phone tone-blue">
+            <div class="bar"><span>‹</span><strong>吃饭</strong><span>筛选</span></div>
+            <div class="scroll">
+              <section class="section">
+                <div class="eyebrow">DINING</div>
+                <h4 class="title">今天想吃什么</h4>
+                <div class="small">先按需求分组，再保留标签作为细筛。</div>
+              </section>
+              <div class="chips"><span class="chip">适合孩子</span><span class="chip">本地菜</span><span class="chip">素食</span><span class="chip">夜宵</span></div>
+              <section class="section">
+                <div class="row-card"><div class="thumb"><img src="https://cdn.shopify.com/s/files/1/0661/3450/7676/files/rn-image_picker_lib_temp_ef581495-c916-4f43-ba33-7a44b04d301a.png?v=1740330960" alt=""></div><div><strong>深夜食堂</strong><span>朋友们常去的小院子，适合晚上一起吃饭。</span></div></div>
+                <div class="row-card"><div class="thumb"><img src="https://cdn.shopify.com/s/files/1/0661/3450/7676/files/rn-image_picker_lib_temp_d13a736e-d1ed-4fab-a860-1851e089127c.jpg?v=1743516989" alt=""></div><div><strong>西西弗柴窑面包</strong><span>纯素面包和烘焙，适合轻松坐一会。</span></div></div>
+                <div class="row-card"><div class="thumb"><img src="https://cdn.shopify.com/s/files/1/0661/3450/7676/files/rn-image_picker_lib_temp_077981da-1ada-4cd4-bbbe-cf18a35cd7f5.jpg?v=1746491352" alt=""></div><div><strong>桃仙人小酒馆</strong><span>大理大学附近，晚上有一个去处。</span></div></div>
+              </section>
+            </div>
+            <nav class="nav"><span>首页</span><span>日期预约</span><b>在地</b><span>我的</span></nav>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="option">
+      <div class="option-head">
+        <div>
+          <div class="kicker">Option C</div>
+          <h2>地图感：首页先看附近和绕路</h2>
+          <p>如果未来很多条目都有位置，这个方案很清晰。它把“导航”变成核心价值：离我近、值得绕路、适合今天去。</p>
+        </div>
+        <div class="palette">
+          <span class="swatch" style="background:#f7eee5"></span>
+          <span class="swatch" style="background:#a05d3e"></span>
+          <span class="swatch" style="background:#332b26"></span>
+        </div>
+      </div>
+      <div class="screens">
+        <article>
+          <p class="screen-title">首页</p>
+          <div class="phone tone-clay">
+            <div class="bar"><span>‹</span><strong>在地信息</strong><span></span></div>
+            <div class="scroll">
+              <section class="hero">
+                <div class="label">NEARBY</div>
+                <h3>从你所在的位置，找到附近值得去的地方</h3>
+                <p>地图不是第一屏的大地图，而是一张有温度的生活索引。</p>
+              </section>
+              <div class="map-panel">
+                <div class="map-line"></div>
+                <div class="pin-card"><strong>离你近的 6 个地方</strong><span>咖啡、吃饭、住处、可以散步的溪流。</span></div>
+              </div>
+              <section class="section">
+                <div class="eyebrow">WORTH A DETOUR</div>
+                <h4 class="title">值得专门绕过去</h4>
+              </section>
+              <section class="section">
+                <div class="row-card"><div class="thumb"><img src="https://cdn.shopify.com/s/files/1/0661/3450/7676/files/IMG-20250202_060208.jpg?v=1742652845" alt=""></div><div><strong>沙溪</strong><span>茶马古道小镇，镇外有河和田野。</span></div></div>
+                <div class="row-card"><div class="thumb"><img src="https://cdn.shopify.com/s/files/1/0661/3450/7676/files/51b07b10a520b8073cfbf964d58546dc.jpg?v=1748630646" alt=""></div><div><strong>诺邓</strong><span>山坡上的古村庄，适合慢慢住一晚。</span></div></div>
+              </section>
+            </div>
+            <nav class="nav"><span>首页</span><span>日期预约</span><b>在地</b><span>我的</span></nav>
+          </div>
+        </article>
+        <article>
+          <p class="screen-title">附近列表</p>
+          <div class="phone tone-clay">
+            <div class="bar"><span>‹</span><strong>附近</strong><span>地图</span></div>
+            <div class="scroll">
+              <section class="section">
+                <div class="eyebrow">AROUND YOU</div>
+                <h4 class="title">附近可以立刻去</h4>
+              </section>
+              <section class="event-list">
+                <div class="event"><div class="date">1.2<b>km</b></div><div><strong>饮食有度咖啡馆</strong><span>古城安静巷子里的社区咖啡。</span></div></div>
+                <div class="event"><div class="date">2.4<b>km</b></div><div><strong>小院子民宿</strong><span>适合住一段时间，价格实惠。</span></div></div>
+                <div class="event"><div class="date">4.8<b>km</b></div><div><strong>适合自己去的苍山溪流</strong><span>好到达，适合停留和发呆。</span></div></div>
+              </section>
+            </div>
+            <nav class="nav"><span>首页</span><span>日期预约</span><b>在地</b><span>我的</span></nav>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="option">
+      <div class="option-head">
+        <div>
+          <div class="kicker">Option D</div>
+          <h2>编辑推荐：更像一本大理生活手册</h2>
+          <p>适合强调“我们自己的判断”。首页不先给用户分类，而是先给一组有人味的精选，再把标签作为“查看更多”的入口。</p>
+        </div>
+        <div class="palette">
+          <span class="swatch" style="background:#17231f"></span>
+          <span class="swatch" style="background:#d4b275"></span>
+          <span class="swatch" style="background:#f5efe3"></span>
+        </div>
+      </div>
+      <div class="screens">
+        <article>
+          <p class="screen-title">首页</p>
+          <div class="phone tone-dark">
+            <div class="bar"><span>‹</span><strong>在地信息</strong><span></span></div>
+            <div class="scroll">
+              <section class="hero">
+                <div class="label">DALI NOTES</div>
+                <h3>我们会带朋友去的地方</h3>
+                <p>不是百科，也不是平台列表，是社区里真实喜欢的店、村庄、节日和住处。</p>
+              </section>
+              <div class="grid-2">
+                <div class="image-card tall"><img src="https://cdn.shopify.com/s/files/1/0661/3450/7676/files/rn-image_picker_lib_temp_99db1ec3-9175-493c-87bf-e5792eaa69e5.jpg?v=1741705963" alt=""><div class="caption"><strong>芳舍会客厅</strong><span>亲子、农场、朋友的空间。</span></div></div>
+                <div class="image-card"><img src="https://cdn.shopify.com/s/files/1/0661/3450/7676/files/rn-image_picker_lib_temp_6b51fd13-af02-491e-90c9-26ca92f20b05.jpg?v=1743960734" alt=""><div class="caption"><strong>与山面包</strong></div></div>
+                <div class="image-card"><img src="https://cdn.shopify.com/s/files/1/0661/3450/7676/files/rn-image_picker_lib_temp_077981da-1ada-4cd4-bbbe-cf18a35cd7f5.jpg?v=1746491352" alt=""><div class="caption"><strong>桃仙人小酒馆</strong></div></div>
+              </div>
+              <section class="section">
+                <div class="eyebrow">NEXT</div>
+                <h4 class="title">接下来可能遇见的节日和集市</h4>
+              </section>
+              <div class="calendar-strip">
+                <div class="day-card"><b>07</b><span>火把节</span></div>
+                <div class="day-card"><b>三</b><span>庙街赶集</span></div>
+                <div class="day-card"><b>八</b><span>庙街赶集</span></div>
+                <div class="day-card"><b>19</b><span>观音塘庙会</span></div>
+              </div>
+            </div>
+            <nav class="nav"><span>首页</span><span>日期预约</span><b>在地</b><span>我的</span></nav>
+          </div>
+        </article>
+        <article>
+          <p class="screen-title">精选专题</p>
+          <div class="phone tone-dark">
+            <div class="bar"><span>‹</span><strong>朋友会问</strong><span></span></div>
+            <div class="scroll">
+              <section class="section">
+                <div class="eyebrow">CURATED</div>
+                <h4 class="title">如果只待三天，先看这些</h4>
+              </section>
+              <section class="event-list">
+                <div class="event"><div class="date">住</div><div><strong>可月租的小院子</strong><span>适合慢慢进入大理生活。</span></div></div>
+                <div class="event"><div class="date">吃</div><div><strong>带孩子也舒服的餐馆</strong><span>少踩雷，吃饭也能松弛。</span></div></div>
+                <div class="event"><div class="date">逛</div><div><strong>一个人也能去的溪流</strong><span>不用复杂计划，也能亲近山水。</span></div></div>
+              </section>
+              <div class="image-card" style="margin:18px;height:210px;"><img src="https://cdn.shopify.com/s/files/1/0661/3450/7676/files/rn-image_picker_lib_temp_b4548ddd-0398-4b05-9ff5-757d7d419131.jpg?v=1748629855" alt=""><div class="caption"><strong>适合自己去的苍山溪流</strong><span>一个不硬推活动的在地入口。</span></div></div>
+            </div>
+            <nav class="nav"><span>首页</span><span>日期预约</span><b>在地</b><span>我的</span></nav>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="option">
+      <div class="option-head">
+        <div>
+          <div class="kicker">Option E</div>
+          <h2>轻杂志：图片少一点，信息更清楚</h2>
+          <p>如果担心首页图片太多、太乱，这个方案用一张主图加多组简洁列表。整体更轻，后续也更容易在小程序里维护。</p>
+        </div>
+        <div class="palette">
+          <span class="swatch" style="background:#fbf8ef"></span>
+          <span class="swatch" style="background:#456566"></span>
+          <span class="swatch" style="background:#8b7857"></span>
+        </div>
+      </div>
+      <div class="screens">
+        <article>
+          <p class="screen-title">首页</p>
+          <div class="phone tone-paper">
+            <div class="bar"><span>‹</span><strong>在地信息</strong><span></span></div>
+            <div class="scroll">
+              <section class="hero">
+                <div class="label">IN DALI</div>
+                <h3>今天先从一个问题开始</h3>
+              </section>
+              <div class="chips"><span class="chip">想吃饭</span><span class="chip">想住下</span><span class="chip">想散步</span><span class="chip">想看节日</span></div>
+              <div class="image-card" style="margin:18px;height:210px;"><img src="https://cdn.shopify.com/s/files/1/0661/3450/7676/files/IMG-20250202_060208.jpg?v=1742652845" alt=""><div class="caption"><strong>沙溪</strong><span>如果你愿意走远一点。</span></div></div>
+              <section class="section">
+                <div class="eyebrow">THIS WEEK</div>
+                <h4 class="title">接下来可以留意</h4>
+              </section>
+              <section class="event-list">
+                <div class="event"><div class="date">集</div><div><strong>逢三、八日的庙街</strong><span>系统按规则自动换算最近日期。</span></div></div>
+                <div class="event"><div class="date">节</div><div><strong>火把节</strong><span>提前展示时间、地点和注意事项。</span></div></div>
+              </section>
+              <section class="section">
+                <div class="eyebrow">DIRECTORY</div>
+                <h4 class="title">全部分类</h4>
+              </section>
+              <div class="chips"><span class="chip">餐馆</span><span class="chip">咖啡馆</span><span class="chip">民宿</span><span class="chip">节日</span><span class="chip">自己探索</span></div>
+            </div>
+            <nav class="nav"><span>首页</span><span>日期预约</span><b>在地</b><span>我的</span></nav>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

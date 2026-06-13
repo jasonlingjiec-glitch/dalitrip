@@ -4,15 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dali Trip 活动预约</title>
-    <link rel="stylesheet" href="./styles.css?v=118" />
+    <link rel="stylesheet" href="./styles.css?v=169" />
   </head>
   <body>
     <main>
       <section id="home-view" class="view">
         <header class="home-header">
           <p>苍山徒步之家</p>
-          <h1>在大理，找到想做的事</h1>
-          <span>徒步、手作与自然体验</span>
+          <h1>在大理，有美好自由的旅行</h1>
+          <span>去湖泊，森林，山里人家，采集植物，做手工</span>
         </header>
         <section id="home-module-container"></section>
         <section class="blog-preview">
@@ -24,18 +24,6 @@
             <button id="open-blog-list" type="button">查看全部</button>
           </div>
           <section id="blog-preview-list" class="blog-preview-list"></section>
-        </section>
-        <section class="ai-guide-card">
-          <div class="ai-guide-heading">
-            <p>AI ACTIVITY GUIDE</p>
-            <h2>告诉我你想怎么度过今天</h2>
-            <span>只从当前活动库里帮你找，不编不存在的活动。</span>
-          </div>
-          <form id="ai-guide-form" class="ai-guide-form">
-            <textarea name="question" rows="3" maxlength="300" placeholder="比如：带 5 岁小孩，想去森林，不想太累"></textarea>
-            <button type="submit">帮我找活动</button>
-          </form>
-          <div id="ai-guide-result" class="ai-guide-result" hidden></div>
         </section>
       </section>
 
@@ -198,7 +186,7 @@
       <section class="success-panel">
         <strong>✓</strong>
         <h2>预约成功</h2>
-        <p>订单已经发给活动负责人。出发前留意微信通知。</p>
+        <p id="success-message" class="success-message">订单已经发给领队。领队晚些会加你微信，建群，发集合信息、注意事项和保险填写。</p>
         <button id="show-orders" class="primary">查看我的预约</button>
       </section>
     </dialog>
@@ -259,6 +247,21 @@
       </form>
     </dialog>
 
+    <dialog id="review-reply-dialog">
+      <form id="review-reply-form" method="dialog">
+        <header>
+          <h2>回复评价</h2>
+          <button type="button" data-close-review-reply aria-label="关闭">×</button>
+        </header>
+        <p id="review-reply-summary" class="review-reply-summary"></p>
+        <label>回复内容<textarea name="content" rows="4" maxlength="500" required placeholder="写下你的回复"></textarea></label>
+        <footer>
+          <button type="button" class="secondary" data-close-review-reply>取消</button>
+          <button class="primary">发布回复</button>
+        </footer>
+      </form>
+    </dialog>
+
     <dialog id="guide-dialog">
       <section id="guide-profile" class="guide-profile"></section>
     </dialog>
@@ -268,6 +271,6 @@
     </dialog>
 
     <div id="toast" class="toast" hidden></div>
-    <script type="module" src="./app.js?v=114"></script>
+    <script type="module" src="./app.js?v=160"></script>
   </body>
 </html>

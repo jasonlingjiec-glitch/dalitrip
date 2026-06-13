@@ -53,6 +53,7 @@ specifications.
 - `GET /api/orders?customerId=:customerId&groupId=:groupId&status=:status`
 - `GET /api/orders/:orderId`
 - `POST /api/orders`
+- `POST /api/orders/:orderId/wechat-prepay`
 - `PATCH /api/orders/:orderId/confirm-payment`
 - `PATCH /api/orders/:orderId/cancel`
 
@@ -60,3 +61,12 @@ Creating an order locks capacity for 15 minutes. Confirming payment keeps the
 capacity. Cancelling or allowing the lock to expire releases capacity
 immediately. `POST /api/orders` accepts a `priceOptionId`; the selected
 specification determines the unit price and final amount.
+
+## WeChat
+
+- `POST /api/wechat/login`
+- `POST /api/wechat/pay/notify`
+
+Customer mini-program login exchanges a WeChat `code` for a local customer id.
+JSAPI payment uses the order number as `out_trade_no`; successful WeChat Pay
+notifications confirm the matching pending order.

@@ -1,5 +1,10 @@
-const API_BASE = "http://localhost:3000";
-const state = { activities: [], groups: [], tags: [], guides: [], guidePage: { introductionHtml: "" }, guideCalendar: { dates: [], guides: [], availability: [] }, guideCalendarMode: "mark", topicPages: [], blogPosts: [], localInfos: [], homeEntries: [], homeModules: [], homePreviewReviews: [], homePreviewSlots: [], orders: [], customers: [], reviews: [], adminAccounts: [], aiSettings: null, aiQuestions: [], faqs: [], editingFaqId: null, selectedTagIds: [], expandedTagGroups: [], searchText: "", customerSearchText: "", currentActivityId: null, editingActivityId: null, editingGuideId: null, editingTopicPageId: null, editingBlogPostId: null, editingLocalInfoId: null, editingHomeEntryId: null, selectedHomeModuleId: null, selectedSpecialPageId: null, selectedPageModuleId: null, pageBuilderTab: "home", editingRuleId: null, editingGroupId: null, editingAdminAccountId: null, cancellingOrderId: null, walletCustomerId: null, replyingReviewId: null, activeScheduleTab: "regular", currentView: "activities", descriptionDraft: "", activityGalleryDraft: [], activityGallerySelectedIds: new Set(), activityGalleryDragIndex: null, activityGalleryEditorOpen: false, guideDescriptionDraft: "", guidePhotoDraft: "", guideGalleryDraft: [], guideGallerySelectedIds: new Set(), guideGalleryDragIndex: null, guideGalleryEditorOpen: false, guideDragIndex: null, guideOrderDirty: false, topicPageIntroductionDraft: "", blogPostContentDraft: "", blogTagFilter: "", localInfoTagFilter: "", localInfoExpandedTagGroups: [], editorTarget: "activity", specialDialogSlots: [], specialDialogExistingSlots: [] };
+const API_BASE = (() => {
+  const host = window.location.hostname;
+  if (host === "localhost" || host === "127.0.0.1") return "http://localhost:3000";
+  return "https://api.dalitripapp.cn";
+})();
+const state = { activities: [], groups: [], tags: [], guides: [], guidePage: { introductionHtml: "" }, guideCalendar: { dates: [], guides: [], availability: [] }, guideCalendarMode: "mark", topicPages: [], blogPosts: [], localInfos: [], homeEntries: [], homeModules: [], homePreviewReviews: [], homePreviewSlots: [], orders: [], customers: [], reviews: [], adminAccounts: [], aiSettings: null, aiQuestions: [], faqs: [], editingFaqId: null, selectedTagIds: [], expandedTagGroups: [], searchText: "", reviewSearchText: "", customerSearchText: "", currentActivityId: null, editingActivityId: null, editingGuideId: null, editingTopicPageId: null, editingBlogPostId: null, editingLocalInfoId: null, editingHomeEntryId: null, selectedHomeModuleId: null, selectedSpecialPageId: null, selectedPageModuleId: null, pageBuilderTab: "home", settingsTab: "groups", editingRuleId: null, editingGroupId: null, editingAdminAccountId: null, cancellingOrderId: null, walletCustomerId: null, replyingReviewId: null, activeScheduleTab: "regular", currentView: "activities", activityPagination: { page: 1, pageSize: 10, total: 0, pageCount: 1 }, reviewPagination: { page: 1, pageSize: 10, total: 0, pageCount: 1 }, descriptionDraft: "", activityGalleryDraft: [], activityGallerySelectedIds: new Set(), activityGalleryDragIndex: null, activityGalleryEditorOpen: false, guideDescriptionDraft: "", guidePhotoDraft: "", guideGalleryDraft: [], guideGallerySelectedIds: new Set(), guideGalleryDragIndex: null, guideGalleryEditorOpen: false, guideDragIndex: null, guideOrderDirty: false, topicPageIntroductionDraft: "", blogPostContentDraft: "", blogTagFilter: "", localInfoTagFilter: "", localInfoExpandedTagGroups: [], editorTarget: "activity", specialDialogSlots: [], specialDialogExistingSlots: [] };
+const loaded = { guides: false, guidePage: false, pages: false, blog: false, localInfo: false, homePreview: false };
 const nonActivityGuideNames = new Set(["深夜食堂旧时光", "大家在一起的时间", "在一起的日子"]);
 const isActivitySelectableGuide = (guide) => guide?.paused !== true && !nonActivityGuideNames.has(guide?.name);
 const sortGuidesForDisplay = (guides = []) => [...guides].sort((left, right) => {
@@ -9,15 +14,24 @@ const sortGuidesForDisplay = (guides = []) => [...guides].sort((left, right) => 
   const rightArchived = isActivitySelectableGuide(right) ? 0 : 1;
   return leftArchived - rightArchived || (left.sortOrder ?? 9999) - (right.sortOrder ?? 9999);
 });
+const sortActivitiesForAdminList = (activities = []) => activities
+  .map((activity, index) => ({ activity, index }))
+  .sort((left, right) => {
+    const pausedDiff = (left.activity.schedulePaused ? 1 : 0) - (right.activity.schedulePaused ? 1 : 0);
+    return pausedDiff || left.index - right.index;
+  })
+  .map(({ activity }) => activity);
 const guidesRequestPath = "/api/guides?includePaused=true";
+const compactGuidesRequestPath = `${guidesRequestPath}&compact=true`;
 const tagParts = (tag) => {
   const parts = String(tag.name ?? "").split("·").map((part) => part.trim()).filter(Boolean);
   return parts.length > 1 ? { group: parts[0], child: parts.slice(1).join(" · ") } : { group: "", child: tag.name };
 };
+const visibleTags = (tags = []) => tags.filter((tag) => String(tag.name ?? "").trim());
 const groupedTags = (tags = []) => {
   const groups = new Map();
   const standalone = [];
-  tags.forEach((tag) => {
+  visibleTags(tags).forEach((tag) => {
     const parts = tagParts(tag);
     if (!parts.group) return standalone.push({ ...tag, displayName: parts.child });
     if (!groups.has(parts.group)) groups.set(parts.group, []);
@@ -237,7 +251,7 @@ let staticDataPromise;
 const cloneStatic = (value) => JSON.parse(JSON.stringify(value));
 const loadStaticData = async () => {
   if (!staticDataPromise) {
-    staticDataPromise = fetch("../../data/runtime-data.json").then((response) => {
+    staticDataPromise = fetch(`../../data/runtime-data.json?v=${Date.now()}`, { cache: "no-store" }).then((response) => {
       if (!response.ok) throw new Error("静态数据读取失败");
       return response.json();
     });
@@ -254,8 +268,21 @@ const parseRequestBody = (options) => {
 };
 const staticLocalized = (translations) => translations?.["zh-CN"] ?? translations?.en ?? {};
 const staticTag = (tag) => ({ ...tag, name: tag.translations?.["zh-CN"] ?? tag.code ?? tag.id });
+function normalizeWarmModule(module) {
+  if (!module || !["BLOG", "GUIDES"].includes(module.type)) return module;
+  const style = { ...(module.style ?? {}) };
+  if (!style.backgroundColor || style.backgroundColor === "#ffffff") style.backgroundColor = "#fffaf0";
+  if (!style.layout) style.layout = "GRID";
+  if (!style.cardStyle) style.cardStyle = "PLAIN";
+  if (style.radius == null) style.radius = 6;
+  if (style.gap == null || style.gap === 8) style.gap = 10;
+  if (style.padding == null || style.padding === 11) style.padding = 14;
+  return { ...module, style };
+}
+const normalizeWarmModules = (modules = []) => modules.map(normalizeWarmModule);
 const staticTopicPage = (page, data) => ({
   ...cloneStatic(page),
+  modules: normalizeWarmModules(page.modules ?? []),
   tags: (page.tagIds ?? []).map((tagId) => data.tags.find((tag) => tag.id === tagId)).filter(Boolean).map(staticTag),
   activities: data.activities
     .filter((activity) => (page.tagIds ?? []).every((tagId) => (activity.tagIds ?? []).includes(tagId)))
@@ -272,8 +299,80 @@ const staticTopicFields = (input, existing = {}) => {
     externalUrl: String(input.externalUrl ?? existing.externalUrl ?? "").trim(),
     introductionHtml: input.introductionHtml ?? existing.introductionHtml ?? "",
     tagIds: Array.isArray(input.tagIds) ? input.tagIds : (existing.tagIds ?? []),
-    modules: Array.isArray(input.modules) ? input.modules : (existing.modules ?? []),
+    modules: normalizeWarmModules(Array.isArray(input.modules) ? input.modules : (existing.modules ?? [])),
     published: input.published ?? existing.published ?? true
+  };
+};
+const staticBlogPostFields = (input, existing = {}, data) => {
+  const title = String(input.title ?? existing.title ?? "").trim();
+  if (!title) throw new Error("文章标题不能为空");
+  const slug = String(input.slug ?? existing.slug ?? slugFromTitle(title)).trim();
+  if (!slug) throw new Error("文章地址不能为空");
+  if (data.blogPosts.some((post) => post.id !== existing.id && post.slug === slug)) throw new Error("文章地址已存在");
+  const tags = Array.isArray(input.tags)
+    ? input.tags
+    : String(input.tags ?? existing.tags?.join(",") ?? "")
+      .split(/[,，\n]/)
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+  return {
+    title,
+    slug,
+    coverUrl: String(input.coverUrl ?? existing.coverUrl ?? "").trim(),
+    summary: String(input.summary ?? existing.summary ?? "").trim(),
+    contentHtml: input.contentHtml ?? existing.contentHtml ?? "",
+    tags: [...new Set(tags)],
+    publishedAt: input.publishedAt ?? existing.publishedAt ?? new Date().toISOString(),
+    published: input.published ?? existing.published ?? true
+  };
+};
+const staticLocalInfoFields = (input, existing = {}) => {
+  const title = String(input.title ?? existing.title ?? "").trim();
+  if (!title) throw new Error("在地信息标题不能为空");
+  const tags = Array.isArray(input.tags)
+    ? input.tags
+    : String(input.tags ?? existing.tags?.join(",") ?? "")
+      .split(/[,，\n]/)
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+  return {
+    title,
+    summary: String(input.summary ?? existing.summary ?? "").trim(),
+    coverUrl: String(input.coverUrl ?? existing.coverUrl ?? "").trim(),
+    tags: [...new Set(tags)],
+    openingHours: String(input.openingHours ?? existing.openingHours ?? "").trim(),
+    address: String(input.address ?? existing.address ?? "").trim(),
+    contact: String(input.contact ?? existing.contact ?? "").trim(),
+    mapUrl: String(input.mapUrl ?? existing.mapUrl ?? "").trim(),
+    contentHtml: input.contentHtml ?? existing.contentHtml ?? "",
+    published: input.published ?? existing.published ?? true,
+    sortOrder: Number(input.sortOrder ?? existing.sortOrder ?? 999)
+  };
+};
+const staticActivityFields = (input, existing = {}) => {
+  const previousContent = staticLocalized(existing.translations);
+  const nextContent = input.translations?.["zh-CN"] ?? input.content ?? {};
+  return {
+    groupId: input.groupId ?? existing.groupId,
+    advanceBookingHours: Number(input.advanceBookingHours ?? existing.advanceBookingHours ?? 8),
+    leaderWechat: String(input.leaderWechat ?? existing.leaderWechat ?? "").trim(),
+    tagIds: Array.isArray(input.tagIds) ? input.tagIds : (existing.tagIds ?? []),
+    guideIds: Array.isArray(input.guideIds) ? input.guideIds : (existing.guideIds ?? []),
+    images: Array.isArray(input.images) ? input.images : (existing.images ?? []),
+    meetingLatitude: input.meetingLatitude ?? existing.meetingLatitude ?? null,
+    meetingLongitude: input.meetingLongitude ?? existing.meetingLongitude ?? null,
+    translations: {
+      ...(existing.translations ?? {}),
+      "zh-CN": {
+        ...previousContent,
+        ...nextContent,
+        name: String(nextContent.name ?? previousContent.name ?? "").trim(),
+        summary: String(nextContent.summary ?? previousContent.summary ?? "").trim(),
+        seasonalHighlight: String(nextContent.seasonalHighlight ?? previousContent.seasonalHighlight ?? "").trim(),
+        meetingPointName: String(nextContent.meetingPointName ?? previousContent.meetingPointName ?? "").trim(),
+        descriptionHtml: nextContent.descriptionHtml ?? previousContent.descriptionHtml ?? ""
+      }
+    }
   };
 };
 const staticReplaceTopicReferences = (data, previousSlug, nextSlug) => {
@@ -293,6 +392,17 @@ const staticRemoveTopicReferences = (data, slug) => {
     module.navItems = (module.navItems ?? []).filter((item) => !(item.targetType === "TOPIC" && item.targetValue === slug));
   });
 };
+const staticRemoveTagReferences = (data, tagId) => {
+  data.activities.forEach((activity) => {
+    activity.tagIds = (activity.tagIds ?? []).filter((id) => id !== tagId);
+  });
+  data.topicPages.forEach((page) => {
+    page.tagIds = (page.tagIds ?? []).filter((id) => id !== tagId);
+  });
+  [...data.homeModules, ...data.topicPages.flatMap((page) => page.modules ?? [])].forEach((module) => {
+    module.tagIds = (module.tagIds ?? []).filter((id) => id !== tagId);
+  });
+};
 const staticActivity = (activity, data) => ({
   ...activity,
   content: staticLocalized(activity.translations),
@@ -307,8 +417,19 @@ const staticGuide = (guide, data) => ({
     .filter((activity) => (activity.guideIds ?? []).includes(guide.id))
     .map((activity) => ({ id: activity.id, name: staticLocalized(activity.translations).name, summary: staticLocalized(activity.translations).summary }))
 });
+const createWechatBinding = () => ({
+  status: "UNBOUND",
+  token: `demo-bind-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+});
+const normalizeNotificationSettings = (settings = {}) => ({
+  orders: settings.orders !== false,
+  reviews: settings.reviews !== false
+});
 const staticAccount = (account, data) => ({
   ...account,
+  notificationSettings: normalizeNotificationSettings(account.notificationSettings),
+  wechatBinding: account.wechatBinding ?? createWechatBinding(),
   groups: (account.groupIds ?? []).map((groupId) => data.groups.find((group) => group.id === groupId)).filter(Boolean)
 });
 const staticCustomer = (customer, data) => ({
@@ -384,7 +505,29 @@ async function staticRequest(path, options = {}) {
   const body = parseRequestBody(options);
 
   if (route === "/groups") return cloneStatic(data.groups);
-  if (route === "/tags") return data.tags.map(staticTag);
+  if (method === "GET" && route === "/tags") return data.tags.map(staticTag);
+  if (method === "POST" && route === "/tags") {
+    const name = String(body.translations?.["zh-CN"] ?? body.name ?? "").trim();
+    if (!name) throw new Error("标签名称不能为空");
+    const code = String(body.code ?? tagCode(name)).trim();
+    const exists = data.tags.some((item) => item.code === code || staticTag(item).name === name);
+    if (exists) throw new Error("标签已存在");
+    const tag = {
+      id: `tag-${code || Date.now()}`,
+      code,
+      translations: { "zh-CN": name, ...(body.translations?.en ? { en: body.translations.en } : {}) }
+    };
+    data.tags.push(tag);
+    return staticTag(tag);
+  }
+  if (method === "DELETE" && /^\/tags\/[^/]+$/.test(route)) {
+    const id = route.split("/")[2];
+    const tag = data.tags.find((item) => item.id === id);
+    if (!tag) throw new Error("标签不存在");
+    data.tags = data.tags.filter((item) => item.id !== id);
+    staticRemoveTagReferences(data, id);
+    return staticTag(tag);
+  }
   if (route === "/guides") return sortGuidesForDisplay(data.guides).map((guide) => staticGuide(guide, data));
   if (route === "/guide-page") return cloneStatic(data.guidePage);
   if (method === "GET" && route === "/topic-pages") return data.topicPages.map((page) => staticTopicPage(page, data));
@@ -416,13 +559,81 @@ async function staticRequest(path, options = {}) {
     data.topicPages = data.topicPages.filter((item) => item.id !== id);
     return staticTopicPage(page, data);
   }
-  if (route === "/blog-posts") return cloneStatic(data.blogPosts);
+  if (method === "GET" && route === "/blog-posts") return cloneStatic(data.blogPosts);
+  if (method === "GET" && /^\/blog-posts\/[^/]+$/.test(route)) {
+    const idOrSlug = route.split("/")[2];
+    const post = data.blogPosts.find((item) => item.id === idOrSlug || item.slug === idOrSlug);
+    if (!post) throw new Error("文章不存在");
+    return cloneStatic(post);
+  }
+  if (method === "POST" && route === "/blog-posts") {
+    const post = { id: `demo-blog-${Date.now()}`, ...staticBlogPostFields(body, {}, data) };
+    data.blogPosts.push(post);
+    return cloneStatic(post);
+  }
+  if (method === "PATCH" && /^\/blog-posts\/[^/]+$/.test(route)) {
+    const id = route.split("/")[2];
+    const post = data.blogPosts.find((item) => item.id === id);
+    if (!post) throw new Error("文章不存在");
+    Object.assign(post, staticBlogPostFields(body, post, data));
+    return cloneStatic(post);
+  }
+  if (method === "DELETE" && /^\/blog-posts\/[^/]+$/.test(route)) {
+    const id = route.split("/")[2];
+    const post = data.blogPosts.find((item) => item.id === id);
+    if (!post) throw new Error("文章不存在");
+    data.blogPosts = data.blogPosts.filter((item) => item.id !== id);
+    data.blogComments = (data.blogComments ?? []).filter((comment) => comment.postId !== id);
+    return cloneStatic(post);
+  }
+  if (method === "GET" && route === "/local-infos") return cloneStatic(data.localInfos ?? []);
+  if (method === "GET" && /^\/local-infos\/[^/]+$/.test(route)) {
+    const id = route.split("/")[2];
+    const item = (data.localInfos ?? []).find((localInfo) => localInfo.id === id);
+    if (!item) throw new Error("在地信息不存在");
+    return cloneStatic(item);
+  }
+  if (method === "POST" && route === "/local-infos") {
+    const item = { id: `demo-local-${Date.now()}`, ...staticLocalInfoFields(body) };
+    data.localInfos = [...(data.localInfos ?? []), item];
+    return cloneStatic(item);
+  }
+  if (method === "PATCH" && /^\/local-infos\/[^/]+$/.test(route)) {
+    const id = route.split("/")[2];
+    const item = (data.localInfos ?? []).find((localInfo) => localInfo.id === id);
+    if (!item) throw new Error("在地信息不存在");
+    Object.assign(item, staticLocalInfoFields(body, item));
+    return cloneStatic(item);
+  }
+  if (method === "DELETE" && /^\/local-infos\/[^/]+$/.test(route)) {
+    const id = route.split("/")[2];
+    const item = (data.localInfos ?? []).find((localInfo) => localInfo.id === id);
+    if (!item) throw new Error("在地信息不存在");
+    data.localInfos = (data.localInfos ?? []).filter((localInfo) => localInfo.id !== id);
+    return cloneStatic(item);
+  }
   if (route === "/home-entries") return staticLimit(staticPublished(data.homeEntries, params).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)), params);
   if (route === "/home-modules") return staticLimit(staticPublished(data.homeModules, params).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)), params);
   if (route === "/reviews") return data.reviews.map((review) => staticReview(review, data));
   if (route === "/upcoming-departures") return staticLimit(data.slots.filter((slot) => slot.enabled !== false).map((slot) => staticSlot(slot, data)), params);
-  if (route === "/activities") return data.activities.map((activity) => staticActivity(activity, data));
-  if (/^\/activities\/[^/]+$/.test(route)) {
+  if (method === "GET" && route === "/activities") return sortActivitiesForAdminList(data.activities.map((activity) => staticActivity(activity, data)));
+  if (method === "POST" && route === "/activities") {
+    const activity = {
+      id: `demo-activity-${Date.now()}`,
+      schedulePaused: false,
+      ...staticActivityFields(body)
+    };
+    data.activities.push(activity);
+    return staticActivity(activity, data);
+  }
+  if (method === "PATCH" && /^\/activities\/[^/]+$/.test(route)) {
+    const id = route.split("/")[2];
+    const activity = data.activities.find((item) => item.id === id);
+    if (!activity) throw new Error("活动不存在");
+    Object.assign(activity, staticActivityFields(body, activity));
+    return staticActivity(activity, data);
+  }
+  if (method === "GET" && /^\/activities\/[^/]+$/.test(route)) {
     const activity = data.activities.find((item) => item.id === route.split("/")[2]);
     if (!activity) throw new Error("活动不存在");
     return staticActivity(activity, data);
@@ -432,7 +643,55 @@ async function staticRequest(path, options = {}) {
   if (route === "/orders") return data.orders.map((order) => staticOrder(order, data));
   if (/^\/orders\/[^/]+$/.test(route)) return staticOrder(data.orders.find((order) => order.id === route.split("/")[2]) ?? data.orders[0], data);
   if (route === "/customers") return data.customers.map((customer) => staticCustomer(customer, data));
-  if (route === "/admin-accounts") return data.adminAccounts.map((account) => staticAccount(account, data));
+  if (method === "GET" && route === "/admin-accounts") return data.adminAccounts.map((account) => staticAccount(account, data));
+  if (method === "POST" && route === "/admin-accounts") {
+    const account = {
+      id: `demo-account-${Date.now()}`,
+      role: "SUBACCOUNT",
+      enabled: true,
+      displayName: String(body.displayName ?? "").trim(),
+      mobile: String(body.mobile ?? "").trim(),
+      groupIds: body.groupIds ?? [],
+      notificationSettings: normalizeNotificationSettings(body.notificationSettings),
+      wechatBinding: createWechatBinding()
+    };
+    data.adminAccounts.push(account);
+    return staticAccount(account, data);
+  }
+  if (method === "PATCH" && /^\/admin-accounts\/[^/]+$/.test(route)) {
+    const account = data.adminAccounts.find((item) => item.id === route.split("/")[2]);
+    if (!account) throw new Error("子账户不存在");
+    Object.assign(account, {
+      displayName: String(body.displayName ?? account.displayName).trim(),
+      mobile: body.mobile == null ? account.mobile : String(body.mobile).trim(),
+      groupIds: body.groupIds ?? account.groupIds,
+      notificationSettings: normalizeNotificationSettings(body.notificationSettings ?? account.notificationSettings)
+    });
+    return staticAccount(account, data);
+  }
+  if (method === "PATCH" && /^\/admin-accounts\/[^/]+\/enabled$/.test(route)) {
+    const account = data.adminAccounts.find((item) => item.id === route.split("/")[2]);
+    if (!account) throw new Error("子账户不存在");
+    account.enabled = body.enabled === true;
+    return staticAccount(account, data);
+  }
+  if (method === "PATCH" && /^\/admin-accounts\/[^/]+\/wechat-binding$/.test(route)) {
+    const account = data.adminAccounts.find((item) => item.id === route.split("/")[2]);
+    if (!account) throw new Error("子账户不存在");
+    if (body.action === "simulate-bind") {
+      account.wechatBinding = {
+        status: "BOUND",
+        token: account.wechatBinding?.token ?? createWechatBinding().token,
+        openid: `demo-openid-${account.id}`,
+        nickname: body.nickname || account.displayName,
+        avatarUrl: "",
+        boundAt: new Date().toISOString()
+      };
+    } else {
+      account.wechatBinding = createWechatBinding();
+    }
+    return staticAccount(account, data);
+  }
   if (route === "/ai/settings") return cloneStatic(data.aiSettings);
   if (route === "/ai/questions") return cloneStatic(data.aiQuestions ?? []);
   if (route === "/faqs") return cloneStatic(data.faqs ?? []);
@@ -499,28 +758,163 @@ const toast = (message) => {
 };
 
 async function loadBaseData() {
-  [state.groups, state.tags, state.guides, state.guidePage, state.topicPages, state.blogPosts, state.localInfos, state.homeEntries, state.homeModules, state.homePreviewReviews] = await Promise.all([request("/api/groups"), request("/api/tags"), request(guidesRequestPath), request("/api/guide-page"), request("/api/topic-pages"), request("/api/blog-posts"), request("/api/local-infos"), request("/api/home-entries"), request("/api/home-modules"), request("/api/reviews")]);
-  state.guides = sortGuidesForDisplay(state.guides);
+  [state.groups, state.tags] = await Promise.all([request("/api/groups"), request("/api/tags")]);
   renderTagFilters();
   renderDialogOptions();
   renderOrderFilterOptions();
   await loadActivities();
-  if (state.currentView === "pages") renderTopicPages();
-  if (state.currentView === "blog") renderBlogPosts();
-  if (state.currentView === "local-info") renderLocalInfos();
+}
+
+async function ensureGuides() {
+  if (loaded.guides) return;
+  state.guides = sortGuidesForDisplay(await request(compactGuidesRequestPath));
+  loaded.guides = true;
+  renderDialogOptions();
+}
+
+async function ensureGuidePage() {
+  if (loaded.guidePage) return;
+  state.guidePage = await request("/api/guide-page");
+  loaded.guidePage = true;
+}
+
+async function ensureBlogPosts() {
+  if (loaded.blog) return;
+  state.blogPosts = await request("/api/blog-posts?compact=true");
+  loaded.blog = true;
+}
+
+async function ensureLocalInfos() {
+  if (loaded.localInfo) return;
+  state.localInfos = await request("/api/local-infos?compact=true");
+  loaded.localInfo = true;
+}
+
+async function ensureHomePreviewData() {
+  if (loaded.homePreview) return;
+  [state.homePreviewSlots, state.homePreviewReviews] = await Promise.all([
+    request("/api/upcoming-departures?limit=30"),
+    request("/api/reviews?compact=true")
+  ]);
+  loaded.homePreview = true;
+}
+
+async function ensurePagesData() {
+  if (loaded.pages) return;
+  await Promise.all([ensureBlogPosts(), ensureLocalInfos(), ensureHomePreviewData()]);
+  [state.guidePage, state.topicPages, state.homeEntries, state.homeModules] = await Promise.all([
+    request("/api/guide-page"),
+    request("/api/topic-pages?compact=true"),
+    request("/api/home-entries"),
+    request("/api/home-modules")
+  ]);
+  loaded.guidePage = true;
+  loaded.pages = true;
+  state.selectedSpecialPageId ||= state.topicPages[0]?.id ?? null;
+  if (state.selectedSpecialPageId) await ensureFullTopicPage(state.selectedSpecialPageId);
+}
+
+async function ensureFullGuide(id) {
+  const guide = state.guides.find((item) => item.id === id);
+  if (!guide || Array.isArray(guide.images)) return guide;
+  const fullGuide = await request(`/api/guides/${id}`);
+  state.guides = sortGuidesForDisplay(state.guides.map((item) => item.id === id ? fullGuide : item));
+  renderDialogOptions();
+  return fullGuide;
+}
+
+async function ensureFullTopicPage(id) {
+  const page = state.topicPages.find((item) => item.id === id);
+  if (!page || Array.isArray(page.modules)) return page;
+  const fullPage = await request(`/api/topic-pages/${id}`);
+  state.topicPages = state.topicPages.map((item) => item.id === id ? fullPage : item);
+  return fullPage;
+}
+
+async function ensureFullBlogPost(id) {
+  const post = state.blogPosts.find((item) => item.id === id);
+  if (!post || post.contentHtml !== undefined) return post;
+  const fullPost = await request(`/api/blog-posts/${id}`);
+  state.blogPosts = state.blogPosts.map((item) => item.id === id ? fullPost : item);
+  return fullPost;
+}
+
+async function ensureFullLocalInfo(id) {
+  const item = state.localInfos.find((candidate) => candidate.id === id);
+  if (!item || item.descriptionHtml !== undefined) return item;
+  const fullItem = await request(`/api/local-infos/${id}`);
+  state.localInfos = state.localInfos.map((candidate) => candidate.id === id ? fullItem : candidate);
+  return fullItem;
+}
+
+async function ensureFullReview(id) {
+  const review = state.reviews.find((item) => item.id === id);
+  if (!review || (review.imageCount ?? 0) <= (review.imageUrls ?? []).length && !String(review.content ?? "").endsWith("...")) return review;
+  const fullReview = await request(`/api/reviews/${id}`);
+  state.reviews = state.reviews.map((item) => item.id === id ? fullReview : item);
+  return fullReview;
+}
+
+function removeTagFromLoadedState(tagId) {
+  const cleanIds = (ids = []) => ids.filter((id) => id !== tagId);
+  const cleanTags = (tags = []) => tags.filter((tag) => tag.id !== tagId);
+  const cleanModule = (module) => ({ ...module, tagIds: cleanIds(module.tagIds) });
+  state.selectedTagIds = cleanIds(state.selectedTagIds);
+  state.activities = state.activities.map((activity) => ({
+    ...activity,
+    tagIds: cleanIds(activity.tagIds),
+    tags: cleanTags(activity.tags)
+  }));
+  state.topicPages = state.topicPages.map((page) => {
+    const nextPage = { ...page, tagIds: cleanIds(page.tagIds), tags: cleanTags(page.tags) };
+    if (Array.isArray(page.modules)) nextPage.modules = page.modules.map(cleanModule);
+    return nextPage;
+  });
+  state.homeModules = state.homeModules.map(cleanModule);
 }
 
 async function loadActivities() {
-  const query = state.selectedTagIds.length ? `?tagIds=${state.selectedTagIds.join(",")}` : "";
-  state.activities = await request(`/api/activities${query}`);
-  await loadHomePreviewSlots();
-  $("#activity-count").textContent = `${state.activities.length} 个活动`;
+  const params = new URLSearchParams({
+    compact: "true",
+    page: String(state.activityPagination.page),
+    pageSize: String(state.activityPagination.pageSize)
+  });
+  if (state.selectedTagIds.length) params.set("tagIds", state.selectedTagIds.join(","));
+  if (state.searchText.trim()) params.set("search", state.searchText.trim());
+  const result = await request(`/api/activities?${params.toString()}`);
+  state.activities = result.items ?? result;
+  state.activityPagination = result.items
+    ? { page: result.page, pageSize: result.pageSize, total: result.total, pageCount: result.pageCount }
+    : { page: 1, pageSize: state.activityPagination.pageSize, total: state.activities.length, pageCount: 1 };
+  $("#activity-count").textContent = `${state.activityPagination.total} 个活动`;
   renderActivityList();
+  renderActivityPagination();
   renderOrderFilterOptions();
   if (state.currentActivityId && state.activities.some(({ id }) => id === state.currentActivityId)) {
     await selectActivity(state.currentActivityId);
   }
   if (state.currentView === "pages") renderTopicPages();
+}
+
+function renderPaginationControls(containerId, pagination, onChange) {
+  const container = $(containerId);
+  if (!container) return;
+  const start = pagination.total ? (pagination.page - 1) * pagination.pageSize + 1 : 0;
+  const end = Math.min(pagination.total, pagination.page * pagination.pageSize);
+  container.innerHTML = `
+    <button class="secondary-button" type="button" data-page-prev ${pagination.page <= 1 ? "disabled" : ""}>上一页</button>
+    <span>${start}-${end} / ${pagination.total}</span>
+    <button class="secondary-button" type="button" data-page-next ${pagination.page >= pagination.pageCount ? "disabled" : ""}>下一页</button>
+  `;
+  container.querySelector("[data-page-prev]")?.addEventListener("click", () => onChange(pagination.page - 1));
+  container.querySelector("[data-page-next]")?.addEventListener("click", () => onChange(pagination.page + 1));
+}
+
+function renderActivityPagination() {
+  renderPaginationControls("#activity-pagination", state.activityPagination, async (page) => {
+    state.activityPagination.page = page;
+    await loadActivities();
+  });
 }
 
 async function loadHomePreviewSlots() {
@@ -539,6 +933,7 @@ function renderTagFilters() {
     button.addEventListener("click", async () => {
       const { tagId } = button.dataset;
       state.selectedTagIds = singleSelectedTag(state.selectedTagIds, tagId);
+      state.activityPagination.page = 1;
       renderTagFilters();
       await loadActivities();
     });
@@ -565,14 +960,17 @@ function renderTagManager() {
     || `<p class="no-rules">暂时没有标签。</p>`;
   document.querySelectorAll("[data-delete-tag]").forEach((button) => {
     button.addEventListener("click", async () => {
-      if (!window.confirm("确定删除这个标签吗？")) return;
+      const tagId = button.dataset.deleteTag;
+      if (!window.confirm("确定删除这个标签吗？如果已有活动或页面模块使用它，也会一并从这些内容里移除。")) return;
       try {
-        await request(`/api/tags/${button.dataset.deleteTag}`, { method: "DELETE" });
+        await request(`/api/tags/${tagId}`, { method: "DELETE" });
         state.tags = await request("/api/tags");
-        state.selectedTagIds = state.selectedTagIds.filter((id) => id !== button.dataset.deleteTag);
+        removeTagFromLoadedState(tagId);
+        state.activityPagination.page = 1;
         renderTagManager();
         renderTagFilters();
         renderDialogOptions();
+        if (state.currentView === "pages" && loaded.pages) renderTopicPages();
         await loadActivities();
         toast("标签已删除");
       } catch (error) { toast(error.message); }
@@ -585,24 +983,11 @@ function tagCode(name) {
 }
 
 function renderActivityList() {
-  const searchText = state.searchText.trim().toLocaleLowerCase();
-  const visibleActivities = searchText
-    ? state.activities.filter((activity) => activity.content.name.toLocaleLowerCase().includes(searchText))
-    : state.activities;
-  const activitySortRank = (activity) => {
-    if (activity.schedulePaused) return 2;
-    if (!activity.hasSchedule) return 1;
-    return 0;
-  };
-  const sortedActivities = [...visibleActivities].sort((left, right) => {
-    const rankDiff = activitySortRank(left) - activitySortRank(right);
-    if (rankDiff) return rankDiff;
-    return left.content.name.localeCompare(right.content.name, "zh-CN");
-  });
+  const searchText = state.searchText.trim();
   $("#activity-count").textContent = searchText
-    ? `${visibleActivities.length} / ${state.activities.length} 个活动`
-    : `${state.activities.length} 个活动`;
-  $("#activity-list").innerHTML = sortedActivities.map((activity) => `
+    ? `${state.activityPagination.total} 个匹配活动`
+    : `${state.activityPagination.total} 个活动`;
+  $("#activity-list").innerHTML = sortActivitiesForAdminList(state.activities).map((activity) => `
     <article class="activity-card ${activity.id === state.currentActivityId ? "selected" : ""} ${activity.schedulePaused || !activity.hasSchedule ? "inactive" : ""}" data-activity-id="${activity.id}" tabindex="0">
       <div class="activity-card-top">
         <h3>${activity.content.name}</h3>
@@ -630,10 +1015,19 @@ function renderActivityList() {
     });
   });
   document.querySelectorAll("[data-edit-activity]").forEach((button) => {
-    button.addEventListener("click", (event) => {
+    button.addEventListener("click", async (event) => {
       event.stopPropagation();
       const activity = state.activities.find((item) => item.id === button.dataset.editActivity);
-      if (activity) openActivityDialog(activity);
+      if (!activity) return;
+      button.disabled = true;
+      try {
+        await ensureGuides();
+        openActivityDialog(await request(`/api/activities/${activity.id}`));
+      } catch (error) {
+        toast(error.message);
+      } finally {
+        button.disabled = false;
+      }
     });
   });
   document.querySelectorAll("[data-pause-activity]").forEach((button) => {
@@ -678,7 +1072,13 @@ async function deleteActivityById(id, name) {
 
 $("#activity-search").addEventListener("input", (event) => {
   state.searchText = event.currentTarget.value;
-  renderActivityList();
+  state.activityPagination.page = 1;
+  loadActivities();
+});
+$("#review-search")?.addEventListener("input", (event) => {
+  state.reviewSearchText = event.currentTarget.value;
+  state.reviewPagination.page = 1;
+  loadReviews();
 });
 document.querySelectorAll("[data-view]").forEach((button) => {
   button.addEventListener("click", () => showView(button.dataset.view));
@@ -1025,13 +1425,25 @@ async function showView(view) {
     renderOrderFilterOptions();
     await loadOrders();
   }
-  if (view === "local-info") renderLocalInfos();
+  if (view === "local-info") {
+    await ensureLocalInfos();
+    renderLocalInfos();
+  }
   if (view === "customers") await loadCustomers();
   if (view === "reviews") await loadReviews();
-  if (view === "guides") renderGuides();
+  if (view === "guides") {
+    await Promise.all([ensureGuides(), ensureGuidePage()]);
+    renderGuides();
+  }
   if (view === "guide-calendar") await loadGuideCalendar();
-  if (view === "pages") renderTopicPages();
-  if (view === "blog") renderBlogPosts();
+  if (view === "pages") {
+    await ensurePagesData();
+    renderTopicPages();
+  }
+  if (view === "blog") {
+    await ensureBlogPosts();
+    renderBlogPosts();
+  }
   if (view === "ai") await loadAiPage();
   if (view === "settings") await loadSettings();
 }
@@ -1064,12 +1476,12 @@ function renderTopicLibrary() {
         <span class="status-badge ${page.published ? "status-booked" : "status-cancelled"}">${page.published ? "首页展示" : "已隐藏"}</span>
         <h3>${escapeHtml(page.title)}</h3>
         <p>${escapeHtml(page.summary) || "暂未填写入口简介"}</p>
-        <small>${page.tags.map((tag) => escapeHtml(tag.name)).join(" + ") || "全部活动"} · ${page.activities.length} 个活动</small>
+        <small>${page.tags.map((tag) => escapeHtml(tag.name)).join(" + ") || "全部活动"} · ${page.activities?.length ?? page.activityCount ?? 0} 个活动</small>
       </div>
       <button class="secondary-button" data-edit-topic-page="${page.id}">编辑</button>
     </article>
   `).join("") || `<div class="empty-state compact-empty"><h2>还没有专题页</h2><p>可以先新增一个徒步或亲子专题。</p></div>`;
-  list.querySelectorAll("[data-edit-topic-page]").forEach((button) => button.addEventListener("click", () => openTopicPageDialog(state.topicPages.find((page) => page.id === button.dataset.editTopicPage))));
+  list.querySelectorAll("[data-edit-topic-page]").forEach((button) => button.addEventListener("click", async () => openTopicPageDialog(await ensureFullTopicPage(button.dataset.editTopicPage))));
 }
 
 const sortedPageModules = (page) => [...(page?.modules ?? [])].sort((left, right) => (left.sortOrder ?? 0) - (right.sortOrder ?? 0));
@@ -1077,8 +1489,20 @@ const selectedSpecialPage = () => state.topicPages.find((page) => page.id === st
 const selectedPageModule = () => sortedPageModules(selectedSpecialPage()).find((module) => module.id === state.selectedPageModuleId);
 const localModuleId = () => `page-module-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
+function defaultModuleStyle(type) {
+  if (type === "BLOG" || type === "GUIDES") return {
+    layout: "GRID",
+    cardStyle: "PLAIN",
+    radius: 6,
+    gap: 10,
+    padding: 14,
+    backgroundColor: "#fffaf0"
+  };
+  return {};
+}
+
 function defaultPageModulePayload(type, sortOrder) {
-  const payload = { id: localModuleId(), type, title: homeModuleNames[type], sortOrder, limit: type === "REVIEWS" ? 5 : 4, tagIds: [], published: true, style: {} };
+  const payload = { id: localModuleId(), type, title: homeModuleNames[type], sortOrder, limit: type === "REVIEWS" ? 5 : 4, tagIds: [], published: true, style: defaultModuleStyle(type) };
   if (type === "COLLAPSE") {
     Object.assign(payload, {
       title: "常见问题",
@@ -1109,13 +1533,14 @@ function renderSpecialPageList() {
       <span class="special-page-edit" data-edit-special-page="${page.id}">编辑</span>
     </button>
   `).join("") || `<div class="empty-state compact-empty"><p>还没有专页。</p></div>`;
-  list.querySelectorAll("[data-special-page]").forEach((button) => button.addEventListener("click", (event) => {
+  list.querySelectorAll("[data-special-page]").forEach((button) => button.addEventListener("click", async (event) => {
     const editButton = event.target.closest("[data-edit-special-page]");
     if (editButton) {
-      openTopicPageDialog(state.topicPages.find((page) => page.id === editButton.dataset.editSpecialPage));
+      openTopicPageDialog(await ensureFullTopicPage(editButton.dataset.editSpecialPage));
       return;
     }
     state.selectedSpecialPageId = button.dataset.specialPage;
+    await ensureFullTopicPage(state.selectedSpecialPageId);
     state.selectedPageModuleId = sortedPageModules(selectedSpecialPage())[0]?.id ?? null;
     renderSpecialPagesBuilder();
   }));
@@ -1227,8 +1652,10 @@ function renderSpecialPageModuleSettings() {
       <label class="checkbox-tag"><input name="published" type="checkbox" ${module.published ? "checked" : ""} />在这个专页展示</label>
       <button class="primary-button">保存模块</button>
     </form>`;
-  $("#page-module-settings-form").addEventListener("submit", savePageModule);
-  $("#page-module-settings-form").addEventListener("input", previewPageModuleSettings);
+  const settingsForm = $("#page-module-settings-form");
+  settingsForm.addEventListener("submit", savePageModule);
+  settingsForm.addEventListener("input", previewPageModuleSettings);
+  bindCollapseContentEditors(settingsForm);
   panel.querySelector(".module-delete").addEventListener("click", deletePageModule);
   panel.querySelector(".navigation-item-add")?.addEventListener("click", addPageNavigationItem);
   panel.querySelectorAll("[data-remove-page-nav-item]").forEach((button) => button.addEventListener("click", () => removePageNavigationItem(Number(button.dataset.removePageNavItem))));
@@ -1242,8 +1669,9 @@ async function saveSelectedSpecialPageModules(message) {
   try {
     page.modules = sortedPageModules(page).map((module, index) => ({ ...module, sortOrder: index + 1 }));
     await request(`/api/topic-pages/${page.id}`, { method: "PATCH", body: JSON.stringify({ modules: page.modules }) });
-    state.topicPages = await request("/api/topic-pages");
+    state.topicPages = await request("/api/topic-pages?compact=true");
     state.selectedSpecialPageId = page.id;
+    await ensureFullTopicPage(page.id);
     if (state.selectedPageModuleId && !sortedPageModules(selectedSpecialPage()).some((module) => module.id === state.selectedPageModuleId)) state.selectedPageModuleId = null;
     renderSpecialPagesBuilder();
     if (message) toast(message);
@@ -1364,9 +1792,9 @@ function renderBlogPosts() {
       </div>
     </article>
   `).join("") || `<div class="empty-state compact-empty"><h2>还没有文章</h2><p>可以先新增一篇生活记录。</p></div>`;
-  document.querySelectorAll("[data-edit-blog-post]").forEach((button) => button.addEventListener("click", () => openBlogPostDialog(state.blogPosts.find((post) => post.id === button.dataset.editBlogPost))));
+  document.querySelectorAll("[data-edit-blog-post]").forEach((button) => button.addEventListener("click", async () => openBlogPostDialog(await ensureFullBlogPost(button.dataset.editBlogPost))));
   document.querySelectorAll("[data-toggle-blog-post]").forEach((button) => button.addEventListener("click", async () => {
-    const post = state.blogPosts.find((item) => item.id === button.dataset.toggleBlogPost);
+    const post = await ensureFullBlogPost(button.dataset.toggleBlogPost);
     if (!post) return;
     try {
       await request(`/api/blog-posts/${post.id}`, {
@@ -1382,7 +1810,7 @@ function renderBlogPosts() {
           published: !post.published
         })
       });
-      state.blogPosts = await request("/api/blog-posts");
+      state.blogPosts = await request("/api/blog-posts?compact=true");
       renderBlogPosts();
       toast(post.published ? "文章已隐藏" : "文章已显示");
     } catch (error) { toast(error.message); }
@@ -1399,7 +1827,7 @@ function openBlogPostDialog(post = null) {
   if (post) {
     form.elements.title.value = post.title;
     form.elements.slug.value = post.slug;
-    form.elements.coverUrl.value = post.coverUrl ?? "";
+    form.elements.namedItem("coverUrl").value = post.coverUrl ?? "";
     form.elements.tags.value = blogTags(post).join(", ");
     form.elements.summary.value = post.summary ?? "";
     form.elements.contentHtml.value = post.contentHtml ?? "";
@@ -1407,9 +1835,17 @@ function openBlogPostDialog(post = null) {
   } else {
     form.elements.publishedAt.value = toDatetimeLocal(new Date().toISOString());
   }
+  renderBlogPostCoverPreview();
   renderBlogPostContentStatus();
   $("#delete-blog-post").hidden = !post;
   $("#blog-post-dialog").showModal();
+}
+
+function renderBlogPostCoverPreview() {
+  const preview = $("#blog-post-cover-preview");
+  const imageUrl = $("#blog-post-form").elements.namedItem("coverUrl").value;
+  preview.src = imageUrl || "";
+  preview.hidden = !imageUrl;
 }
 
 const localInfoTags = () => [...new Set(state.localInfos.flatMap((item) => item.tags ?? []))].sort((a, b) => a.localeCompare(b, "zh-CN"));
@@ -1492,7 +1928,7 @@ async function updateLocalInfoTags(transform, message) {
     for (const { item, nextTags } of updates) {
       await request(`/api/local-infos/${item.id}`, { method: "PATCH", body: JSON.stringify({ tags: nextTags }) });
     }
-    state.localInfos = await request("/api/local-infos");
+    state.localInfos = await request("/api/local-infos?compact=true");
     renderLocalInfos();
     toast(`${message}，已更新 ${updates.length} 条信息`);
     return true;
@@ -1583,13 +2019,13 @@ function renderLocalInfos() {
       </div>
     </article>
   `).join("") || `<div class="empty-state compact-empty"><h2>还没有在地信息</h2><p>可以先新增餐馆、咖啡馆或工作室。</p></div>`;
-  document.querySelectorAll("[data-edit-local-info]").forEach((button) => button.addEventListener("click", () => openLocalInfoDialog(state.localInfos.find((item) => item.id === button.dataset.editLocalInfo))));
+  document.querySelectorAll("[data-edit-local-info]").forEach((button) => button.addEventListener("click", async () => openLocalInfoDialog(await ensureFullLocalInfo(button.dataset.editLocalInfo))));
   document.querySelectorAll("[data-toggle-local-info]").forEach((button) => button.addEventListener("click", async () => {
-    const item = state.localInfos.find((candidate) => candidate.id === button.dataset.toggleLocalInfo);
+    const item = await ensureFullLocalInfo(button.dataset.toggleLocalInfo);
     if (!item) return;
     try {
       await request(`/api/local-infos/${item.id}`, { method: "PATCH", body: JSON.stringify({ ...item, published: !item.published }) });
-      state.localInfos = await request("/api/local-infos");
+      state.localInfos = await request("/api/local-infos?compact=true");
       renderLocalInfos();
       toast(item.published ? "在地信息已隐藏" : "在地信息已显示");
     } catch (error) { toast(error.message); }
@@ -1633,6 +2069,8 @@ function slugFromTitle(title = "") {
 }
 
 function moduleStyle(module) {
+  const warmDefault = ["BLOG", "GUIDES"].includes(module.type);
+  const savedBackground = module.style?.backgroundColor;
   return {
     layout: module.style?.layout || "",
     cardStyle: module.style?.cardStyle || "PLAIN",
@@ -1642,7 +2080,7 @@ function moduleStyle(module) {
     textAlign: module.style?.textAlign || "LEFT",
     dividerStyle: module.style?.dividerStyle || "SPACE",
     height: module.style?.height ?? 24,
-    backgroundColor: module.style?.backgroundColor || "#ffffff",
+    backgroundColor: warmDefault && (!savedBackground || savedBackground === "#ffffff") ? "#fffaf0" : savedBackground || "#ffffff",
     collapseTitleStyle: module.style?.collapseTitleStyle || "SOFT_BLOCK"
   };
 }
@@ -1659,6 +2097,26 @@ function navigationTargetOptions(selectedType = "GUIDES", selectedValue = "") {
     ...state.topicPages.map((page) => `<option value="TOPIC:${escapeHtml(page.slug)}"${selected("TOPIC", page.slug)}>专题：${escapeHtml(page.title)}</option>`),
     ...state.activities.map((activity) => `<option value="ACTIVITY:${activity.id}"${selected("ACTIVITY", activity.id)}>活动：${escapeHtml(activity.content.name)}</option>`)
   ].join("");
+}
+
+function internalContentLinkOptions() {
+  return [
+    `<option value="">选择内部页面</option>`,
+    `<option value="GUIDES:">领队主页</option>`,
+    ...state.topicPages.map((page) => `<option value="TOPIC:${escapeHtml(page.slug)}">专题：${escapeHtml(page.title)}</option>`),
+    ...state.blogPosts.map((post) => `<option value="BLOG:${escapeHtml(post.slug ?? post.id)}">博客：${escapeHtml(post.title)}</option>`),
+    ...state.activities.map((activity) => `<option value="ACTIVITY:${escapeHtml(activity.id)}">活动：${escapeHtml(activity.content.name)}</option>`),
+    ...state.guides.map((guide) => `<option value="GUIDE:${escapeHtml(guide.id)}">领队：${escapeHtml(guide.name)}</option>`)
+  ].join("");
+}
+
+function internalContentLinkLabel(type, value) {
+  if (type === "GUIDES") return "领队主页";
+  if (type === "TOPIC") return `专题 · ${state.topicPages.find((page) => page.slug === value)?.title ?? value}`;
+  if (type === "BLOG") return `博客 · ${state.blogPosts.find((post) => (post.slug ?? post.id) === value)?.title ?? value}`;
+  if (type === "ACTIVITY") return `活动 · ${state.activities.find((activity) => activity.id === value)?.content.name ?? value}`;
+  if (type === "GUIDE") return `领队 · ${state.guides.find((guide) => guide.id === value)?.name ?? value}`;
+  return value;
 }
 
 function homeModulePreview(module) {
@@ -1688,13 +2146,13 @@ function homeModulePreview(module) {
     return `${heading}<div class="builder-preview-scroll builder-preview-services layout-${style.layout || "LIST"} card-${style.cardStyle}" ${vars}>${activities.map((activity) => `
       <div class="builder-preview-activity"><img src="${builderCover}" alt="" /><strong>${escapeHtml(activity.content.name)}</strong><small>${activity.tags.map((tag) => escapeHtml(tag.name)).join(" · ")}</small></div>`).join("") || `<small>暂无匹配活动</small>`}</div>`;
   }
-  if (module.type === "GUIDES") return `${heading}<div class="builder-preview-scroll">${state.guides.slice(0, module.limit).map((guide) => `
-    <div class="builder-preview-guide">${guide.photoUrl ? `<img src="${escapeHtml(guide.photoUrl)}" alt="" />` : ""}<strong>${escapeHtml(guide.name)}</strong></div>`).join("") || `<small>暂无领队</small>`}</div>`;
+  if (module.type === "GUIDES") return `${heading}<div class="builder-preview-guides">${state.guides.slice(0, module.limit).map((guide) => `
+    <div class="builder-preview-guide">${guide.photoUrl ? `<img src="${escapeHtml(guide.photoUrl)}" alt="" />` : `<span>照片</span>`}<strong>${escapeHtml(guide.name)}</strong><small>${escapeHtml(stripHtml(guide.descriptionHtml)) || "查看领队档案与可能带领的活动。"}</small></div>`).join("") || `<small>暂无领队</small>`}</div>`;
   if (module.type === "BANNER") {
     const images = (module.imageUrls?.length ? module.imageUrls : [module.imageUrl]).filter(Boolean);
     return `<div class="builder-preview-banners layout-${style.layout || "SINGLE"} card-${style.cardStyle}" ${vars}>${images.map((imageUrl) => `<div class="builder-preview-banner"><img src="${escapeHtml(imageUrl)}" alt="" /><strong>${escapeHtml(module.title)}</strong></div>`).join("") || `<div class="builder-preview-banner"><strong>${escapeHtml(module.title)}</strong></div>`}</div>`;
   }
-  if (module.type === "COLLAPSE") return `<div class="builder-preview-collapse" style="padding:${style.padding}px;background:${escapeHtml(style.backgroundColor)}"><strong class="collapse-title-${style.collapseTitleStyle}">${escapeHtml(module.title)}</strong>${(module.items ?? []).slice(0, module.limit).map((item) => `
+  if (module.type === "COLLAPSE") return `<div class="builder-preview-collapse" style="padding:${style.padding}px;background:${escapeHtml(style.backgroundColor)}">${(module.items ?? []).slice(0, module.limit).map((item) => `
     <div class="builder-preview-collapse-row"><span class="dialog-icon" aria-hidden="true"></span><p>${escapeHtml(item.title)}</p><em>⌄</em></div>`).join("") || `<small>暂无折叠内容</small>`}</div>`;
   if (module.type === "DIVIDER") return `<div class="builder-preview-divider ${style.dividerStyle === "LINE" ? "is-line" : "is-space"}" style="height:${style.height}px"><span></span></div>`;
   return `<div class="builder-preview-text" style="padding:${style.padding}px;text-align:${style.textAlign === "CENTER" ? "center" : "left"};background:${escapeHtml(style.backgroundColor)}"><strong>${escapeHtml(module.title)}</strong><p>${escapeHtml(module.subtitle ?? "")}</p></div>`;
@@ -1735,6 +2193,27 @@ function normalizeCollapseItems(items = []) {
   return normalized.length ? normalized : [{ title: "新问题", content: "" }];
 }
 
+function collapseContentLooksHtml(content = "") {
+  return /<\/?[a-z][\s\S]*>/i.test(String(content ?? ""));
+}
+
+function collapseContentToEditorHtml(content = "") {
+  const value = String(content ?? "").trim();
+  if (!value) return "";
+  if (collapseContentLooksHtml(value)) return value;
+  return value
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`)
+    .join("");
+}
+
+function collapseEditorHtml(editor) {
+  const html = editor?.innerHTML?.trim() ?? "";
+  return html === "<br>" ? "" : html;
+}
+
 function renderCollapseItemEditors(module, scope) {
   const items = normalizeCollapseItems(module.items ?? []);
   const removeAttr = scope === "page" ? "data-remove-page-collapse-item" : "data-remove-collapse-item";
@@ -1748,11 +2227,23 @@ function renderCollapseItemEditors(module, scope) {
             <button type="button" class="collapse-item-remove" ${removeAttr}="${index}" ${items.length <= 1 ? "disabled" : ""}>删除</button>
           </div>
           <label>标题<input name="collapseTitle" maxlength="40" value="${escapeHtml(item.title)}" placeholder="例如：我们从哪里来？" /></label>
-          <label>正文<textarea name="collapseContent" rows="5" placeholder="可以写多段文字，段落之间空一行。">${escapeHtml(item.content)}</textarea></label>
+          <div class="collapse-content-field">
+            <span>正文</span>
+            <div class="collapse-content-toolbar">
+              <button type="button" class="secondary-button collapse-image-button" data-collapse-image="${index}">插入图片</button>
+              <input type="file" accept="image/*" hidden data-collapse-image-input="${index}" />
+            </div>
+            <div class="collapse-link-toolbar">
+              <select data-collapse-link-select="${index}">${internalContentLinkOptions()}</select>
+              <input data-collapse-link-label="${index}" maxlength="80" placeholder="显示文本，可自己改" />
+              <button type="button" class="secondary-button collapse-link-button" data-collapse-link="${index}">插入链接</button>
+            </div>
+            <div class="collapse-content-editor" contenteditable="true" data-collapse-content="${index}" data-placeholder="可以写多段文字，也可以插入图片。">${collapseContentToEditorHtml(item.content)}</div>
+          </div>
         </article>
       `).join("")}</div>
       <button type="button" class="collapse-item-add" ${items.length >= 5 ? "disabled" : ""}>＋ 增加一条</button>
-      <small>最多 5 条；每条正文可以写多段，段落之间空一行。</small>
+      <small>最多 5 条；每条正文可以写多段，也可以插入图片。</small>
     </fieldset>`;
 }
 
@@ -1760,8 +2251,63 @@ function collapseItemsFromForm(form, module) {
   if (!form.querySelector(".collapse-item-list")) return module.items ?? [];
   return normalizeCollapseItems([...form.querySelectorAll(".collapse-item-editor")].map((row) => ({
     title: row.querySelector("[name=collapseTitle]")?.value ?? "",
-    content: row.querySelector("[name=collapseContent]")?.value ?? ""
+    content: collapseEditorHtml(row.querySelector("[data-collapse-content]"))
   })));
+}
+
+function bindCollapseContentEditors(form) {
+  form.querySelectorAll("[data-collapse-image]").forEach((button) => {
+    button.addEventListener("click", () => {
+      form.querySelector(`[data-collapse-image-input="${button.dataset.collapseImage}"]`)?.click();
+    });
+  });
+  form.querySelectorAll("[data-collapse-image-input]").forEach((input) => {
+    input.addEventListener("change", () => {
+      const editor = form.querySelector(`[data-collapse-content="${input.dataset.collapseImageInput}"]`);
+      if (!editor) return;
+      readFilesAsDataUrls(input.files, (url, file) => {
+        const imageHtml = `<figure class="collapse-media"><img src="${escapeHtml(url)}" alt="${escapeHtml(file.name)}" /></figure><p><br></p>`;
+        editor.focus();
+        document.execCommand("insertHTML", false, imageHtml);
+        editor.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      input.value = "";
+    });
+  });
+  form.querySelectorAll("[data-collapse-link-select]").forEach((select) => {
+    select.addEventListener("change", () => {
+      const index = select.dataset.collapseLinkSelect;
+      const labelInput = form.querySelector(`[data-collapse-link-label="${index}"]`);
+      if (!labelInput) return;
+      if (!select.value) {
+        labelInput.value = "";
+        return;
+      }
+      const [type, ...valueParts] = select.value.split(":");
+      labelInput.value = internalContentLinkLabel(type, valueParts.join(":"));
+    });
+  });
+  form.querySelectorAll("[data-collapse-link]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const index = button.dataset.collapseLink;
+      const select = form.querySelector(`[data-collapse-link-select="${index}"]`);
+      const labelInput = form.querySelector(`[data-collapse-link-label="${index}"]`);
+      const editor = form.querySelector(`[data-collapse-content="${index}"]`);
+      if (!select?.value || !editor) {
+        select?.focus();
+        return toast("先选择要插入的内部页面");
+      }
+      const [type, ...valueParts] = select.value.split(":");
+      const value = valueParts.join(":");
+      const label = labelInput?.value.trim() || internalContentLinkLabel(type, value);
+      const linkHtml = `<a class="content-link" href="#${escapeHtml(type.toLowerCase())}:${escapeHtml(value)}" data-internal-link="${escapeHtml(type)}" data-internal-value="${escapeHtml(value)}">${escapeHtml(label)}</a><p><br></p>`;
+      editor.focus();
+      document.execCommand("insertHTML", false, linkHtml);
+      editor.dispatchEvent(new Event("input", { bubbles: true }));
+      select.value = "";
+      if (labelInput) labelInput.value = "";
+    });
+  });
 }
 
 let homeModuleDragScrollFrame = null;
@@ -1896,8 +2442,10 @@ function renderHomeModuleSettings() {
       <label class="checkbox-tag"><input name="published" type="checkbox" ${module.published ? "checked" : ""} />在客人首页展示</label>
       <button class="primary-button">保存模块</button>
     </form>`;
-  $("#home-module-settings-form").addEventListener("submit", saveHomeModule);
-  $("#home-module-settings-form").addEventListener("input", previewHomeModuleSettings);
+  const settingsForm = $("#home-module-settings-form");
+  settingsForm.addEventListener("submit", saveHomeModule);
+  settingsForm.addEventListener("input", previewHomeModuleSettings);
+  bindCollapseContentEditors(settingsForm);
   $(".module-delete").addEventListener("click", deleteHomeModule);
   $(".navigation-item-add")?.addEventListener("click", addNavigationItem);
   document.querySelectorAll("[data-remove-nav-item]").forEach((button) => button.addEventListener("click", () => removeNavigationItem(Number(button.dataset.removeNavItem))));
@@ -2128,7 +2676,7 @@ function renderGuides() {
         <span class="guide-card-order">#${index + 1}</span>
         <h3>${escapeHtml(guide.name)}${guide.paused ? `<em class="guide-paused-badge">已暂停</em>` : ""}</h3>
         <p>${escapeHtml(guide.descriptionHtml.replace(/<[^>]+>/g, "")) || "暂未填写详细介绍"}</p>
-        <small>${guide.activities.length} 个关联活动 · ${(guide.images ?? []).length} 张相册照片${(guide.aliases ?? []).length ? ` · 关键词：${escapeHtml(guide.aliases.join(" / "))}` : ""}</small>
+        <small>${guide.activities?.length ?? guide.activityCount ?? 0} 个关联活动 · ${guide.images?.length ?? guide.imageCount ?? 0} 张相册照片${(guide.aliases ?? []).length ? ` · 关键词：${escapeHtml(guide.aliases.join(" / "))}` : ""}</small>
       </div>
       <div class="guide-card-actions">
         <button class="secondary-button" data-edit-guide="${guide.id}">编辑</button>
@@ -2138,7 +2686,7 @@ function renderGuides() {
     </article>
   `).join("") || `<div class="empty-state compact-empty"><h2>还没有领队档案</h2><p>可以先新增一位领队。</p></div>`;
   bindGuideOrderEvents();
-  document.querySelectorAll("[data-edit-guide]").forEach((button) => button.addEventListener("click", () => openGuideDialog(state.guides.find((guide) => guide.id === button.dataset.editGuide))));
+  document.querySelectorAll("[data-edit-guide]").forEach((button) => button.addEventListener("click", async () => openGuideDialog(await ensureFullGuide(button.dataset.editGuide))));
   document.querySelectorAll("[data-toggle-guide-paused]").forEach((button) => button.addEventListener("click", () => toggleGuidePaused(button.dataset.toggleGuidePaused)));
   document.querySelectorAll("[data-delete-guide]").forEach((button) => button.addEventListener("click", () => deleteGuide(button.dataset.deleteGuide)));
 }
@@ -2155,17 +2703,18 @@ function moveGuide(fromIndex, toIndex) {
 async function saveGuideOrder() {
   if (!state.guideOrderDirty) return;
   try {
-    state.guides = sortGuidesForDisplay(await request("/api/guides/reorder", {
+    await request("/api/guides/reorder", {
       method: "PATCH",
       body: JSON.stringify({ ids: state.guides.map((guide) => guide.id) })
-    }));
+    });
+    state.guides = sortGuidesForDisplay(await request(compactGuidesRequestPath));
     state.guideOrderDirty = false;
     renderDialogOptions();
     renderGuides();
     toast("领队顺序已保存");
   } catch (error) {
     toast(error.message);
-    state.guides = sortGuidesForDisplay(await request(guidesRequestPath));
+    state.guides = sortGuidesForDisplay(await request(compactGuidesRequestPath));
     state.guideOrderDirty = false;
     renderGuides();
   }
@@ -2209,7 +2758,7 @@ async function deleteGuide(id) {
   try {
     await request(`/api/guides/${id}`, { method: "DELETE" });
     await loadActivities();
-    state.guides = sortGuidesForDisplay(await request(guidesRequestPath));
+    state.guides = sortGuidesForDisplay(await request(compactGuidesRequestPath));
     renderDialogOptions();
     renderGuides();
     toast(linkedCount ? "领队已删除，活动关联已同步移除" : "领队档案已删除");
@@ -2219,14 +2768,14 @@ async function deleteGuide(id) {
 }
 
 async function toggleGuidePaused(id) {
-  const guide = state.guides.find((item) => item.id === id);
+  const guide = await ensureFullGuide(id);
   if (!guide) return;
   try {
     await request(`/api/guides/${id}`, {
       method: "PATCH",
       body: JSON.stringify({ paused: !guide.paused })
     });
-    state.guides = sortGuidesForDisplay(await request(guidesRequestPath));
+    state.guides = sortGuidesForDisplay(await request(compactGuidesRequestPath));
     renderDialogOptions();
     renderGuides();
     toast(guide.paused ? "领队已恢复，可在前台和活动中选择" : "领队已暂停，不会在前台和活动可选列表显示");
@@ -2348,8 +2897,21 @@ function renderGuidePageStatus() {
 }
 
 async function loadReviews() {
-  state.reviews = await request("/api/reviews?includeHidden=true");
-  $("#review-count").textContent = `${state.reviews.length} 条评价`;
+  const params = new URLSearchParams({
+    includeHidden: "true",
+    compact: "true",
+    page: String(state.reviewPagination.page),
+    pageSize: String(state.reviewPagination.pageSize)
+  });
+  if (state.reviewSearchText.trim()) params.set("search", state.reviewSearchText.trim());
+  const result = await request(`/api/reviews?${params.toString()}`);
+  state.reviews = result.items ?? result;
+  state.reviewPagination = result.items
+    ? { page: result.page, pageSize: result.pageSize, total: result.total, pageCount: result.pageCount }
+    : { page: 1, pageSize: state.reviewPagination.pageSize, total: state.reviews.length, pageCount: 1 };
+  $("#review-count").textContent = state.reviewSearchText.trim()
+    ? `${state.reviewPagination.total} 条匹配评价`
+    : `${state.reviewPagination.total} 条评价`;
   $("#admin-review-list").innerHTML = state.reviews.map((review) => `
     <article class="admin-review-card">
       <div class="admin-review-heading">
@@ -2360,7 +2922,7 @@ async function loadReviews() {
         <span class="review-stars">${"★".repeat(review.rating)}</span>
       </div>
       <p>${escapeHtml(review.content)}</p>
-      ${(review.imageUrls ?? []).length ? `<div class="admin-review-images">${review.imageUrls.slice(0, 6).map((url) => `<img src="${escapeHtml(url)}" alt="评价照片" />`).join("")}${review.imageUrls.length > 6 ? `<span>+${review.imageUrls.length - 6}</span>` : ""}</div>` : ""}
+      ${(review.imageUrls ?? []).length ? `<div class="admin-review-images">${review.imageUrls.slice(0, 6).map((url) => `<img src="${escapeHtml(url)}" alt="评价照片" />`).join("")}${(review.imageCount ?? review.imageUrls.length) > 6 ? `<span>+${(review.imageCount ?? review.imageUrls.length) - 6}</span>` : ""}</div>` : ""}
       <div class="admin-review-replies">
         ${(review.replies ?? []).map((reply) => `<p><strong>${escapeHtml(reply.displayName)}</strong>${escapeHtml(reply.content)}</p>`).join("")}
       </div>
@@ -2377,6 +2939,7 @@ async function loadReviews() {
       </div>
     </article>
   `).join("") || `<div class="empty-state compact-empty"><h2>还没有评价</h2><p>客人发布评价后会显示在这里。</p></div>`;
+  renderReviewPagination();
   document.querySelectorAll("[data-toggle-review]").forEach((button) => {
     button.addEventListener("click", async () => {
       await request(`/api/reviews/${button.dataset.toggleReview}/hidden`, {
@@ -2394,7 +2957,17 @@ async function loadReviews() {
       $("#review-reply-dialog").showModal();
     });
   });
-  document.querySelectorAll("[data-edit-review]").forEach((button) => button.addEventListener("click", () => openReviewEditDialog(button.dataset.editReview)));
+  document.querySelectorAll("[data-edit-review]").forEach((button) => button.addEventListener("click", async () => {
+    await ensureFullReview(button.dataset.editReview);
+    openReviewEditDialog(button.dataset.editReview);
+  }));
+}
+
+function renderReviewPagination() {
+  renderPaginationControls("#review-pagination", state.reviewPagination, async (page) => {
+    state.reviewPagination.page = page;
+    await loadReviews();
+  });
 }
 
 function openReviewEditDialog(id) {
@@ -2413,9 +2986,21 @@ function openReviewEditDialog(id) {
 
 async function loadSettings() {
   state.adminAccounts = await request("/api/admin-accounts");
+  renderSettingsTabs();
   renderGroups();
   renderTtyyMigrationPreview();
   renderAdminAccounts();
+}
+
+function renderSettingsTabs() {
+  document.querySelectorAll("[data-settings-tab]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.settingsTab === state.settingsTab);
+  });
+  document.querySelectorAll("[data-settings-panel]").forEach((panel) => {
+    panel.hidden = panel.dataset.settingsPanel !== state.settingsTab;
+  });
+  const newGroupButton = $("#new-group");
+  if (newGroupButton) newGroupButton.hidden = state.settingsTab !== "groups";
 }
 
 function renderGroups() {
@@ -2582,13 +3167,18 @@ function renderAdminAccounts() {
         <div class="account-heading">
           <h3>${escapeHtml(account.displayName)}</h3>
           <span class="status-badge ${account.enabled ? "status-booked" : "status-cancelled"}">${account.enabled ? "启用" : "已停用"}</span>
+          ${account.wechatBinding?.status === "BOUND"
+            ? `<span class="status-badge status-booked">已绑定微信</span>`
+            : `<span class="status-badge">未绑定微信</span>`}
         </div>
-        <p>${escapeHtml(account.mobile)}</p>
+        ${account.mobile ? `<p>${escapeHtml(account.mobile)}</p>` : ""}
+        <p>${account.wechatBinding?.status === "BOUND" ? `微信：${escapeHtml(account.wechatBinding.nickname ?? account.displayName)}` : "等待领队扫码绑定"}</p>
         <div class="card-tags">${account.groups.map((group) => `<span class="small-tag">${escapeHtml(group.name)}</span>`).join("")}</div>
       </div>
       <div class="group-actions">
         ${account.role === "SUBACCOUNT" ? `
           <button class="secondary-button" data-toggle-account="${account.id}" data-next-enabled="${!account.enabled}">${account.enabled ? "停用" : "启用"}</button>
+          <button class="secondary-button" data-bind-account="${account.id}">${account.wechatBinding?.status === "BOUND" ? "微信绑定" : "绑定微信"}</button>
           <button class="secondary-button" data-edit-account="${account.id}">编辑权限</button>
         ` : `<span class="status-badge">主账号</span>`}
       </div>
@@ -2596,6 +3186,9 @@ function renderAdminAccounts() {
   `).join("");
   document.querySelectorAll("[data-edit-account]").forEach((button) => {
     button.addEventListener("click", () => openAdminAccountDialog(state.adminAccounts.find((account) => account.id === button.dataset.editAccount)));
+  });
+  document.querySelectorAll("[data-bind-account]").forEach((button) => {
+    button.addEventListener("click", () => openAdminAccountDialog(state.adminAccounts.find((account) => account.id === button.dataset.bindAccount)));
   });
   document.querySelectorAll("[data-toggle-account]").forEach((button) => {
     button.addEventListener("click", async () => {
@@ -2616,12 +3209,73 @@ function openAdminAccountDialog(account = null) {
   form.querySelector("h2").textContent = account ? "编辑子账户权限" : "新增子账户";
   form.querySelector(".primary-button").textContent = account ? "保存修改" : "保存子账户";
   form.querySelector("input[name=displayName]").value = account?.displayName ?? "";
-  form.querySelector("input[name=mobile]").value = account?.mobile ?? "";
+  form.querySelector("input[name=notifyOrders]").checked = account?.notificationSettings?.orders !== false;
+  form.querySelector("input[name=notifyReviews]").checked = account?.notificationSettings?.reviews !== false;
   const selected = new Set(account?.groupIds ?? []);
   $("#admin-account-groups").innerHTML = state.groups.map((group) => `
     <label class="checkbox-tag"><input type="checkbox" name="groupIds" value="${group.id}" ${selected.has(group.id) ? "checked" : ""} />${escapeHtml(group.name)}</label>
   `).join("");
+  renderAdminAccountWechatPanel(account);
   $("#admin-account-dialog").showModal();
+}
+
+function qrCells(value = "") {
+  const seed = [...String(value)].reduce((sum, char, index) => sum + char.charCodeAt(0) * (index + 7), 0);
+  return Array.from({ length: 121 }, (_, index) => {
+    const row = Math.floor(index / 11);
+    const col = index % 11;
+    const marker = (row < 3 && col < 3) || (row < 3 && col > 7) || (row > 7 && col < 3);
+    const filled = marker || ((seed + row * 17 + col * 31 + row * col) % 5 < 2);
+    return `<span class="${filled ? "filled" : ""}"></span>`;
+  }).join("");
+}
+
+function renderAdminAccountWechatPanel(account) {
+  const panel = $("#admin-account-wechat");
+  if (!account) {
+    panel.innerHTML = `
+      <div class="wechat-bind-empty">
+        <strong>保存后生成绑定二维码</strong>
+        <p>领队用管理小程序扫码后，这个子账号会绑定他的微信，并接收授权组里的订单与评价消息。</p>
+      </div>
+    `;
+    return;
+  }
+  const binding = account.wechatBinding ?? createWechatBinding();
+  const bound = binding.status === "BOUND";
+  panel.innerHTML = `
+    <div class="wechat-bind-card">
+      <div class="fake-qr" aria-label="绑定二维码">${qrCells(binding.token ?? account.id)}</div>
+      <div class="wechat-bind-copy">
+        <span class="form-label">绑定微信账号</span>
+        <strong>${bound ? `已绑定：${escapeHtml(binding.nickname ?? account.displayName)}` : "暂未绑定账号"}</strong>
+        <p>${bound ? `绑定时间：${dateTime(binding.boundAt ?? new Date().toISOString())}` : "请领队打开管理小程序扫码绑定。二维码 24 小时内有效。"}</p>
+        <div class="wechat-bind-actions">
+          ${bound
+            ? `<button type="button" class="secondary-button" data-unbind-wechat="${account.id}">解除绑定</button>`
+            : `<button type="button" class="primary-button" data-simulate-wechat="${account.id}">模拟扫码绑定</button>`}
+          <button type="button" class="secondary-button" data-refresh-wechat="${account.id}">刷新二维码</button>
+        </div>
+      </div>
+    </div>
+  `;
+  panel.querySelector("[data-simulate-wechat]")?.addEventListener("click", () => updateAdminWechatBinding(account.id, "simulate-bind"));
+  panel.querySelector("[data-refresh-wechat]")?.addEventListener("click", () => updateAdminWechatBinding(account.id, "refresh"));
+  panel.querySelector("[data-unbind-wechat]")?.addEventListener("click", () => updateAdminWechatBinding(account.id, "unbind"));
+}
+
+async function updateAdminWechatBinding(accountId, action) {
+  try {
+    const updated = await request(`/api/admin-accounts/${accountId}/wechat-binding`, {
+      method: "PATCH",
+      body: JSON.stringify({ action })
+    });
+    state.adminAccounts = state.adminAccounts.map((account) => account.id === updated.id ? updated : account);
+    state.editingAdminAccountId = updated.id;
+    renderAdminAccounts();
+    renderAdminAccountWechatPanel(updated);
+    toast(action === "simulate-bind" ? "微信账号已绑定" : action === "unbind" ? "微信绑定已解除" : "二维码已刷新");
+  } catch (error) { toast(error.message); }
 }
 
 async function loadCustomers() {
@@ -3058,6 +3712,7 @@ function openActivityDialog(activity = null) {
     form.querySelector("select[name=groupId]").value = activity.groupId;
     form.querySelector("input[name=advanceBookingHours]").value = activity.advanceBookingHours;
     form.querySelector("textarea[name=summary]").value = activity.content.summary ?? "";
+    form.querySelector("textarea[name=seasonalHighlight]").value = activity.content.seasonalHighlight ?? "";
     form.querySelector("input[name=leaderWechat]").value = activity.leaderWechat ?? "";
     form.querySelector("input[name=meetingPointName]").value = activity.content.meetingPointName ?? "";
     form.querySelector("input[name=meetingLatitude]").value = activity.meetingLatitude ?? "";
@@ -3071,14 +3726,63 @@ function openActivityDialog(activity = null) {
       input.checked = selectedGuideIds.has(input.value);
     });
   }
+  renderAdminMeetingPointStatus();
+  form.querySelectorAll("input[name=tagIds]").forEach((input) => input.addEventListener("change", syncSeasonalHighlightField));
+  syncSeasonalHighlightField();
   renderDescriptionStatus();
   renderActivityGallery();
   $("#activity-dialog").showModal();
 }
 
+function renderAdminMeetingPointStatus() {
+  const form = $("#activity-form");
+  const latitude = form.querySelector("input[name=meetingLatitude]")?.value;
+  const longitude = form.querySelector("input[name=meetingLongitude]")?.value;
+  const hasPoint = Boolean(latitude && longitude);
+  $("#meeting-point-status").textContent = hasPoint ? "已通过地图选点" : "未通过地图选点";
+  $("#clear-meeting-point-admin").hidden = !hasPoint;
+}
+
+function setAdminMeetingPoint(point) {
+  const form = $("#activity-form");
+  form.querySelector("input[name=meetingPointName]").value = point.name || point.address || "集合地点";
+  form.querySelector("input[name=meetingLatitude]").value = point.latitude ?? "";
+  form.querySelector("input[name=meetingLongitude]").value = point.longitude ?? "";
+  renderAdminMeetingPointStatus();
+}
+
+function chooseAdminMeetingPoint() {
+  if (globalThis.wx?.chooseLocation) {
+    globalThis.wx.chooseLocation({
+      success(result) {
+        setAdminMeetingPoint({
+          name: result.name || result.address || "集合地点",
+          latitude: result.latitude,
+          longitude: result.longitude
+        });
+      }
+    });
+    return;
+  }
+  toast("网页后台暂不支持微信地图选点，请在管理小程序里选择集合地点");
+}
+
 function renderDescriptionStatus() {
   const text = state.descriptionDraft.replace(/<[^>]+>/g, "").trim();
   $("#description-status").textContent = text || state.descriptionDraft.includes("<") ? "已填写，可继续编辑" : "暂未填写详细介绍";
+}
+
+const isSeasonalBestTag = (tag) => {
+  const name = String(tag?.name ?? tag?.translations?.["zh-CN"] ?? "");
+  return name.includes("当季最佳") || name.includes("当家最佳");
+};
+function syncSeasonalHighlightField() {
+  const field = $("#seasonal-highlight-field");
+  const form = $("#activity-form");
+  if (!field || !form) return;
+  const selectedIds = new Set([...form.querySelectorAll("input[name=tagIds]:checked")].map((input) => input.value));
+  const show = state.tags.some((tag) => selectedIds.has(tag.id) && isSeasonalBestTag(tag));
+  field.hidden = !show;
 }
 
 function normalizeActivityGallery(images = []) {
@@ -3231,8 +3935,14 @@ function insertContentLink(kind, defaultLabel) {
   insertDescriptionHtml(`<a class="content-link" href="${url}" target="_blank" rel="noopener noreferrer">${kind} · ${escapeHtml(label)}</a><p><br></p>`);
 }
 
-$("#new-activity").addEventListener("click", () => openActivityDialog());
-$("#new-guide").addEventListener("click", () => openGuideDialog());
+$("#new-activity").addEventListener("click", async () => {
+  await ensureGuides();
+  openActivityDialog();
+});
+$("#new-guide").addEventListener("click", async () => {
+  await ensureGuides();
+  openGuideDialog();
+});
 document.querySelectorAll("[data-guide-calendar-mode]").forEach((button) => button.addEventListener("click", () => {
   state.guideCalendarMode = button.dataset.guideCalendarMode;
   renderGuideCalendar();
@@ -3243,6 +3953,10 @@ document.querySelectorAll("[data-page-builder-tab]").forEach((button) => button.
   state.pageBuilderTab = button.dataset.pageBuilderTab;
   renderTopicPages();
 }));
+document.querySelectorAll("[data-settings-tab]").forEach((button) => button.addEventListener("click", () => {
+  state.settingsTab = button.dataset.settingsTab;
+  renderSettingsTabs();
+}));
 $("#new-home-entry")?.addEventListener("click", () => openHomeEntryDialog());
 $("#topic-page-image-input").addEventListener("change", (event) => {
   readFilesAsDataUrls(event.currentTarget.files, (url) => {
@@ -3252,10 +3966,18 @@ $("#topic-page-image-input").addEventListener("change", (event) => {
   });
   event.currentTarget.value = "";
 });
+$("#blog-post-cover-input").addEventListener("change", (event) => {
+  readFilesAsDataUrls(event.currentTarget.files, (url) => {
+    $("#blog-post-form").elements.namedItem("coverUrl").value = url;
+    renderBlogPostCoverPreview();
+    toast("文章封面已上传");
+  });
+  event.currentTarget.value = "";
+});
 document.querySelectorAll("[data-add-home-module]").forEach((button) => button.addEventListener("click", async () => {
   const type = button.dataset.addHomeModule;
   try {
-    const payload = { type, title: homeModuleNames[type], sortOrder: state.homeModules.length + 1, limit: type === "REVIEWS" ? 5 : 4, tagIds: [], published: true };
+    const payload = { type, title: homeModuleNames[type], sortOrder: state.homeModules.length + 1, limit: type === "REVIEWS" ? 5 : 4, tagIds: [], published: true, style: defaultModuleStyle(type) };
     if (type === "COLLAPSE") {
       Object.assign(payload, {
         title: "常见问题",
@@ -3296,6 +4018,13 @@ $("#manage-tags").addEventListener("click", () => {
   $("#tag-dialog").showModal();
 });
 document.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => button.closest("dialog").close()));
+$("#pick-meeting-point").addEventListener("click", chooseAdminMeetingPoint);
+$("#clear-meeting-point-admin").addEventListener("click", () => {
+  const form = $("#activity-form");
+  form.querySelector("input[name=meetingLatitude]").value = "";
+  form.querySelector("input[name=meetingLongitude]").value = "";
+  renderAdminMeetingPointStatus();
+});
 document.querySelectorAll("[data-add-price-option]").forEach((button) => {
   button.addEventListener("click", () => addPriceOption(`${button.dataset.addPriceOption}-price-options`));
 });
@@ -3484,12 +4213,20 @@ $("#activity-form").addEventListener("submit", async (event) => {
         groupId: values.get("groupId"),
         advanceBookingHours: Number(values.get("advanceBookingHours")),
         leaderWechat: values.get("leaderWechat"),
-        tagIds: [],
+        tagIds: values.getAll("tagIds"),
         guideIds: values.getAll("guideIds"),
         images: state.activityGalleryDraft.map((image, index) => ({ id: image.id, cosKey: image.cosKey, sortOrder: index + 1 })),
         meetingLatitude: values.get("meetingLatitude") ? Number(values.get("meetingLatitude")) : null,
         meetingLongitude: values.get("meetingLongitude") ? Number(values.get("meetingLongitude")) : null,
-        translations: { "zh-CN": { name: values.get("name"), summary: values.get("summary"), meetingPointName: values.get("meetingPointName"), descriptionHtml: state.descriptionDraft } }
+        translations: {
+          "zh-CN": {
+            name: values.get("name"),
+            summary: values.get("summary"),
+            seasonalHighlight: values.get("seasonalHighlight"),
+            meetingPointName: values.get("meetingPointName"),
+            descriptionHtml: state.descriptionDraft
+          }
+        }
       })
     });
     $("#activity-dialog").close();
@@ -3517,7 +4254,7 @@ $("#guide-form").addEventListener("submit", async (event) => {
       })
     });
     $("#guide-dialog").close();
-    state.guides = sortGuidesForDisplay(await request(guidesRequestPath));
+    state.guides = sortGuidesForDisplay(await request(compactGuidesRequestPath));
     renderDialogOptions();
     renderGuides();
     toast(state.editingGuideId ? "领队档案已修改" : "领队档案已新增");
@@ -3545,8 +4282,9 @@ $("#topic-page-form").addEventListener("submit", async (event) => {
       })
     });
     $("#topic-page-dialog").close();
-    state.topicPages = await request("/api/topic-pages");
+    state.topicPages = await request("/api/topic-pages?compact=true");
     state.selectedSpecialPageId = savedPage.id;
+    await ensureFullTopicPage(savedPage.id);
     renderTopicPages();
     renderHomeModuleSettings();
     toast(state.editingTopicPageId ? "专题页已修改" : "专题页已新增");
@@ -3573,7 +4311,7 @@ $("#blog-post-form").addEventListener("submit", async (event) => {
       })
     });
     $("#blog-post-dialog").close();
-    state.blogPosts = await request("/api/blog-posts");
+    state.blogPosts = await request("/api/blog-posts?compact=true");
     renderBlogPosts();
     toast(state.editingBlogPostId ? "文章已修改" : "文章已新增");
     state.editingBlogPostId = null;
@@ -3585,7 +4323,7 @@ $("#delete-blog-post").addEventListener("click", async () => {
   try {
     await request(`/api/blog-posts/${state.editingBlogPostId}`, { method: "DELETE" });
     $("#blog-post-dialog").close();
-    state.blogPosts = await request("/api/blog-posts");
+    state.blogPosts = await request("/api/blog-posts?compact=true");
     state.editingBlogPostId = null;
     renderBlogPosts();
     toast("文章已删除");
@@ -3614,7 +4352,7 @@ $("#local-info-form").addEventListener("submit", async (event) => {
       })
     });
     $("#local-info-dialog").close();
-    state.localInfos = await request("/api/local-infos");
+    state.localInfos = await request("/api/local-infos?compact=true");
     renderLocalInfos();
     toast(state.editingLocalInfoId ? "在地信息已修改" : "在地信息已新增");
     state.editingLocalInfoId = null;
@@ -3665,7 +4403,7 @@ async function deleteLocalInfo(id, options = {}) {
   try {
     await request(`/api/local-infos/${id}`, { method: "DELETE" });
     if (options.closeDialog) $("#local-info-dialog").close();
-    state.localInfos = await request("/api/local-infos");
+    state.localInfos = await request("/api/local-infos?compact=true");
     if (state.editingLocalInfoId === id) state.editingLocalInfoId = null;
     renderLocalInfos();
     toast("在地信息已删除");
@@ -3725,7 +4463,7 @@ $("#delete-topic-page").addEventListener("click", async () => {
   try {
     await request(`/api/topic-pages/${state.editingTopicPageId}`, { method: "DELETE" });
     $("#topic-page-dialog").close();
-    state.topicPages = await request("/api/topic-pages");
+    state.topicPages = await request("/api/topic-pages?compact=true");
     state.editingTopicPageId = null;
     renderTopicPages();
     renderHomeModuleSettings();
@@ -3873,24 +4611,36 @@ $("#group-form").addEventListener("submit", async (event) => {
   } catch (error) { toast(error.message); }
 });
 
-$("#new-admin-account").addEventListener("click", () => openAdminAccountDialog());
+document.addEventListener("click", (event) => {
+  if (event.target?.closest?.("#new-admin-account")) openAdminAccountDialog();
+});
 $("#admin-account-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
   const values = new FormData(form);
   try {
-    await request(state.editingAdminAccountId ? `/api/admin-accounts/${state.editingAdminAccountId}` : "/api/admin-accounts", {
+    const isEditing = Boolean(state.editingAdminAccountId);
+    const account = await request(isEditing ? `/api/admin-accounts/${state.editingAdminAccountId}` : "/api/admin-accounts", {
       method: state.editingAdminAccountId ? "PATCH" : "POST",
       body: JSON.stringify({
         displayName: values.get("displayName"),
-        mobile: values.get("mobile"),
-        groupIds: values.getAll("groupIds")
+        groupIds: values.getAll("groupIds"),
+        notificationSettings: {
+          orders: values.get("notifyOrders") === "on",
+          reviews: values.get("notifyReviews") === "on"
+        }
       })
     });
-    $("#admin-account-dialog").close();
-    toast(state.editingAdminAccountId ? "子账户权限已修改" : "子账户已新增");
-    state.editingAdminAccountId = null;
     await loadSettings();
+    if (isEditing) {
+      $("#admin-account-dialog").close();
+      toast("子账户权限已修改");
+      state.editingAdminAccountId = null;
+    } else {
+      const freshAccount = state.adminAccounts.find((item) => item.id === account.id) ?? account;
+      toast("子账户已新增，已生成绑定二维码");
+      openAdminAccountDialog(freshAccount);
+    }
   } catch (error) { toast(error.message); }
 });
 
