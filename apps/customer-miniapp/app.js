@@ -573,8 +573,8 @@ const orderMapUrl = (order) => mapUrl({
   meetingLongitude: order.meetingLongitude,
   content: { meetingPointName: order.meetingPointName }
 });
-const activityCover = (activity) => activity?.coverUrl || cover;
 const activityImageUrl = (image) => image?.url || (image?.cosKey?.startsWith("http") || image?.cosKey?.startsWith("data:") ? image.cosKey : demoImageUrls[image?.cosKey]) || "";
+const activityCover = (activity) => activity?.coverUrl || activityImageUrl(activity?.images?.[0]) || cover;
 const activityGalleryImages = (activity) => {
   const images = (activity?.images ?? [])
     .slice()

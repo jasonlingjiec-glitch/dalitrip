@@ -70,11 +70,15 @@ const compactText = (value, limit = 120) => {
   return text.length > limit ? `${text.slice(0, limit)}...` : text;
 };
 const plainText = (value) => cleanText(String(value || "").replace(/<[^>]+>/g, " "));
+const imageFromList = (images = []) => {
+  const image = images.slice().sort((left, right) => (left.sortOrder || 0) - (right.sortOrder || 0))[0] || {};
+  return image.url || image.cosKey || "";
+};
 const activityView = (item) => ({
   id: item.id,
   name: cleanText(item.content?.name || item.translations?.["zh-CN"]?.name, "未命名活动"),
   summary: cleanText(item.content?.summary || item.translations?.["zh-CN"]?.summary, "一段慢一点的自然体验。"),
-  coverUrl: safeImage(item.coverUrl),
+  coverUrl: safeImage(item.coverUrl || imageFromList(item.images)),
   tags: (item.tags || []).slice(0, 4).map((tag) => tag.name)
 });
 const slotView = (slot) => ({
@@ -105,7 +109,7 @@ const blogView = (post) => ({
 const guideView = (guide) => ({
   id: guide.id,
   name: cleanText(guide.name, "领队"),
-  photoUrl: safeImage(guide.photoUrl),
+  photoUrl: safeImage(guide.photoUrl || imageFromList(guide.images)),
   summary: compactText(plainText(guide.descriptionHtml), 76),
   activityCount: guide.activityCount || guide.activities?.length || 0
 });

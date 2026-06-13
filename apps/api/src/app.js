@@ -41,7 +41,13 @@ const truncateText = (value, maxLength = 160) => {
 };
 const publicAssetBaseUrl = process.env.DALITRIP_PUBLIC_ASSET_BASE_URL ?? "https://api.dalitripapp.cn";
 const localAssetPrefix = "http://localhost:8890/dalitrip-mvp/";
-const assetUrl = (value) => String(value ?? "").replace(localAssetPrefix, `${publicAssetBaseUrl}/`);
+const demoAssetUrls = new Map([
+  ["demo/forest-hike-cover.jpg", "https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=900&q=85"]
+]);
+const assetUrl = (value) => {
+  const text = String(value ?? "");
+  return demoAssetUrls.get(text) ?? text.replace(localAssetPrefix, `${publicAssetBaseUrl}/`);
+};
 const assetFileRoot = path.resolve(process.env.DALITRIP_ASSET_DIR ?? "imported-assets");
 const mimeTypes = new Map([
   [".jpg", "image/jpeg"],
@@ -85,11 +91,18 @@ const paginateIfRequested = (items, searchParams) => {
   return { items: items.slice(start, start + pageSize), total, page, pageSize, pageCount };
 };
 
+const activityCoverUrl = (activity) => {
+  const image = (activity.images ?? [])
+    .slice()
+    .sort((left, right) => (left.sortOrder ?? 0) - (right.sortOrder ?? 0))[0];
+  return assetUrl(activity.coverUrl || image?.url || image?.cosKey || "");
+};
+
 const compactActivity = (activity) => ({
   id: activity.id,
   groupId: activity.groupId,
   advanceBookingHours: activity.advanceBookingHours,
-  coverUrl: assetUrl(activity.coverUrl),
+  coverUrl: activityCoverUrl(activity),
   schedulePaused: activity.schedulePaused,
   hasSchedule: activity.hasSchedule,
   content: {
